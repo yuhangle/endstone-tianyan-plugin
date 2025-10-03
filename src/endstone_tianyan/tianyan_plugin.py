@@ -344,7 +344,7 @@ class TianyanPlugin(Plugin):
         },
         "tyban": {
             "description": lang["封禁一名玩家(仅管理员可用)"],
-            "usages": ["/tyban <playername: message> [reason: message]"],
+            "usages": ["/tyban <playername: str> [reason: str]"],
             "permissions": ["tianyan_plugin.command.op"],
         },
         "tyunban": {
@@ -374,7 +374,7 @@ class TianyanPlugin(Plugin):
         },
         "tys": {
             "description": lang["关键词搜索 --格式 /tys 搜索类型  查询关键词 时间(单位:小时) (仅管理员可用)"],
-            "usages": ["/tys (player|action|object)<SearchType: searchtype> <msg: message> <time:float>"],
+            "usages": ["/tys (player|action|object)<SearchType: searchtype> <msg: str> <time:float>"],
             "permissions": ["tianyan_plugin.command.op"],
         },
         "tygui": {
