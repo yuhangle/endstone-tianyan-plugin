@@ -59,7 +59,8 @@ inline TianyanCore tyCore(Database);
 
 // 存储每个玩家的上次触发时间
 inline std::unordered_map<string, std::chrono::steady_clock::time_point> lastTriggerTime;
-
+//任务
+inline shared_ptr<endstone::Task> auto_write_task;
 
 class TianyanPlugin : public endstone::Plugin {
 public:
@@ -136,15 +137,14 @@ public:
 
     // 检查是否允许触发事件
     static bool canTriggerEvent(const string& playername) {
-        auto now = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
 
         // 查找玩家的上次触发时间
         if (lastTriggerTime.contains(playername)) {
-            auto lastTime = lastTriggerTime[playername];
-            auto elapsedTime = std::chrono::duration<double>(now - lastTime).count(); // 计算时间差
+            const auto lastTime = lastTriggerTime[playername];
 
             // 如果时间差小于 0.2 秒，不允许触发
-            if (elapsedTime < 0.2) {
+            if (const auto elapsedTime = std::chrono::duration<double>(now - lastTime).count(); elapsedTime < 0.2) {
                 return false;
             }
         }
@@ -201,6 +201,7 @@ public:
         if (tyCore.recordLogs(logDataCache)) {
             getLogger().error("写入错误");
         };
+        logDataCache.clear();
     }
 
     void onEnable() override
@@ -228,7 +229,7 @@ public:
             getLogger().error(Tran.getLocal("Config file error!Use default config")+","+e.what());
         }
         //定期写入
-        getServer().getScheduler().runTaskTimerAsync(*this, [&]() {logsCacheWrite();},0,100);
+        auto_write_task = getServer().getScheduler().runTaskTimer(*this, [&]() {logsCacheWrite();},0,100);
         //注册事件
         registerEvent<endstone::BlockBreakEvent>(onBlockBreak);
         registerEvent<endstone::BlockPlaceEvent>(onBlockPlace);
@@ -245,6 +246,8 @@ public:
     void onDisable() override
     {
         getLogger().info("onDisable is called");
+        logsCacheWrite();
+        auto_write_task->cancel();
     }
 
     bool onCommand(endstone::CommandSender &sender, const endstone::Command &command, const std::vector<std::string> &args) override
@@ -337,68 +340,120 @@ public:
     }
 
     //日志展示菜单
-    static void showLogMenu(endstone::Player &player, const std::vector<TianyanCore::LogData>& logDatas) {
+    static void showLogMenu(endstone::Player &player, const std::vector<TianyanCore::LogData>& logDatas, int page = 0) {
+        // 计算分页信息
+        constexpr int logsPerPage = 30;
+        const int totalPages = (static_cast<int>(logDatas.size()) + logsPerPage - 1) / logsPerPage;
+        const int currentPage = std::min(page, std::max(0, totalPages - 1)); // 确保当前页在有效范围内
+        
         endstone::ActionForm logMenu;
-        logMenu.setTitle(Tran.getLocal("Logs"));
+        logMenu.setTitle(fmt::format("{} - {} {}/{} {}", Tran.getLocal("Logs"), Tran.getLocal("The"),currentPage + 1, std::max(1, totalPages),Tran.getLocal("Page")));
+        
         string showLogs;
-        for (const auto& logData : std::ranges::reverse_view(logDatas)) {
-            // 构建要显示的日志信息
-            std::vector<std::pair<std::string, std::string>> logFields;
+        
+        // 如果有日志数据，则显示当前页的日志
+        if (!logDatas.empty() && currentPage < totalPages) {
+            const int startIndex = currentPage * logsPerPage;
+            const int endIndex = std::min(startIndex + logsPerPage, static_cast<int>(logDatas.size()));
             
-            // 名字不为空时添加源名称
-            if (!logData.name.empty()) {
-                logFields.emplace_back(Tran.getLocal("Source Name"), logData.name);
+            // 只显示当前页的日志（倒序显示）
+            std::vector<TianyanCore::LogData> pageLogs;
+            for (int i = endIndex - 1; i >= startIndex; --i) {
+                pageLogs.push_back(logDatas[i]);
             }
             
-            // 根据是否是玩家添加不同类型的信息
-            if (logData.id == "minecraft:player") {
-                logFields.emplace_back(Tran.getLocal("Source Type"), Tran.getLocal("Player"));
-            }
-            else if (!logData.id.empty()){
-                logFields.emplace_back(Tran.getLocal("Source ID"), logData.id);
-            }
-            
-            // 添加行为类型
-            logFields.emplace_back(Tran.getLocal("Action"), Tran.getLocal(logData.type));
-
-            // 添加位置信息
-            logFields.emplace_back(Tran.getLocal("Position"),
-                                  fmt::format("{:.2f},{:.2f},{:.2f}", logData.pos_x, logData.pos_y, logData.pos_z));
-            
-            // 添加时间信息
-            logFields.emplace_back(Tran.getLocal("Time"), TianyanCore::timestampToString(logData.time));
-            
-            // 根据目标名称和ID是否存在添加相应信息
-            if (!logData.obj_name.empty()) {
-                logFields.emplace_back(Tran.getLocal("Target Name"), logData.obj_name);
-            }
-            
-            if (!logData.obj_id.empty()) {
-                logFields.emplace_back(Tran.getLocal("Target ID"), logData.obj_id);
-            }
-            
-            // 添加数据信息
-            if (logData.data == "canceled") {
-                logFields.emplace_back(Tran.getLocal("Data"), Tran.getLocal("This event has been canceled"));
-            } else if (!logData.data.empty()){
-                //对手持物品交互进行处理
-                if (logData.type == "player_right_click_block") {
-                    auto hand_block = DataBase::splitString(logData.data);
-                    logFields.emplace_back(Tran.getLocal("Item in Hand"), hand_block[0]);
-                    logFields.emplace_back(Tran.getLocal("Data"), hand_block[1]);
-                } else {
-                    logFields.emplace_back(Tran.getLocal("Data"), logData.data);
+            for (const auto& logData : pageLogs) {
+                // 构建要显示的日志信息
+                std::vector<std::pair<std::string, std::string>> logFields;
+                
+                // 名字不为空时添加源名称
+                if (!logData.name.empty()) {
+                    logFields.emplace_back(Tran.getLocal("Source Name"), logData.name);
                 }
+                
+                // 根据是否是玩家添加不同类型的信息
+                if (logData.id == "minecraft:player") {
+                    logFields.emplace_back(Tran.getLocal("Source Type"), Tran.getLocal("Player"));
+                }
+                else if (!logData.id.empty()){
+                    logFields.emplace_back(Tran.getLocal("Source ID"), logData.id);
+                }
+                
+                // 添加行为类型
+                logFields.emplace_back(Tran.getLocal("Action"), Tran.getLocal(logData.type));
+
+                // 添加位置信息
+                logFields.emplace_back(Tran.getLocal("Position"),
+                                      fmt::format("{:.2f},{:.2f},{:.2f}", logData.pos_x, logData.pos_y, logData.pos_z));
+                
+                // 添加时间信息
+                logFields.emplace_back(Tran.getLocal("Time"), TianyanCore::timestampToString(logData.time));
+                
+                // 根据目标名称和ID是否存在添加相应信息
+                if (!logData.obj_name.empty()) {
+                    logFields.emplace_back(Tran.getLocal("Target Name"), logData.obj_name);
+                }
+                
+                if (!logData.obj_id.empty()) {
+                    logFields.emplace_back(Tran.getLocal("Target ID"), logData.obj_id);
+                }
+                
+                // 添加数据信息
+                if (logData.data == "canceled") {
+                    logFields.emplace_back(Tran.getLocal("Data"), Tran.getLocal("This event has been canceled"));
+                } else if (!logData.data.empty()){
+                    //对手持物品交互进行处理
+                    if (logData.type == "player_right_click_block") {
+                        auto hand_block = DataBase::splitString(logData.data);
+                        logFields.emplace_back(Tran.getLocal("Item in Hand"), hand_block[0]);
+                        logFields.emplace_back(Tran.getLocal("Data"), hand_block[1]);
+                    } else {
+                        logFields.emplace_back(Tran.getLocal("Data"), logData.data);
+                    }
+                }
+                
+                // 格式化输出
+                for (const auto&[fst, snd] : logFields) {
+                    showLogs += fmt::format("{}: {}\n", fst, snd);
+                }
+                
+                showLogs += "--------------------------------\n\n";
             }
-            
-            // 格式化输出
-            for (const auto&[fst, snd] : logFields) {
-                showLogs += fmt::format("{}: {}\n", fst, snd);
-            }
-            
-            showLogs += "--------------------------------\n\n";
+        } else {
+            // 没有日志数据
+            showLogs = Tran.getLocal("No log found");
         }
+        
         logMenu.setContent(endstone::ColorFormat::Yellow + showLogs);
+        
+        // 设置翻页按钮
+        std::vector<std::variant<endstone::Button, endstone::Divider, endstone::Header, endstone::Label>> controls;
+
+        // 添加上一页按钮（如果有多页）
+        if (totalPages > 1) {
+            endstone::Button pageUp;
+            pageUp.setText(Tran.getLocal("Page Up"));
+            pageUp.setOnClick([=, &player](endstone::Player*) {
+                // 如果是第一页，则跳转到最后一页；否则上一页
+                const int prevPage = (currentPage == 0) ? (totalPages - 1) : (currentPage - 1);
+                showLogMenu(player, logDatas, prevPage);
+            });
+            controls.emplace_back(pageUp);
+        }
+
+        // 添加下一页按钮（如果有多页）
+        if (totalPages > 1) {
+            endstone::Button pageDown;
+            pageDown.setText(Tran.getLocal("Page Down"));
+            pageDown.setOnClick([=, &player](endstone::Player*) {
+                // 如果是最后一页，则回到第一页；否则下一页
+                const int nextPage = (currentPage + 1) % totalPages;
+                showLogMenu(player, logDatas, nextPage);
+            });
+            controls.emplace_back(pageDown);
+        }
+        
+        logMenu.setControls(controls);
         player.sendForm(logMenu);
     }
 
@@ -532,7 +587,7 @@ public:
         }
         string hand_item;
         if (event.getPlayer().getInventory().getItemInMainHand()) {
-            hand_item = event.getPlayer().getInventory().getItemInMainHand()->getType().getTranslationKey();
+            hand_item = event.getPlayer().getInventory().getItemInMainHand()->getType().getId();
         } else {
             hand_item = "hand";
         }
