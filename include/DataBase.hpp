@@ -294,6 +294,85 @@ public:
         return SQLITE_OK;
     }
 
+    // 批量插入日志数据
+    [[nodiscard]] int addLogs(const std::vector<std::tuple<std::string, std::string, double, double, double, 
+                             std::string, std::string, std::string, long long, std::string, std::string>>& logs) const {
+        if (logs.empty()) {
+            return SQLITE_OK; // 空数据直接返回成功
+        }
+
+        sqlite3* db;
+        int rc = sqlite3_open(db_filename.c_str(), &db);
+        if (rc) {
+            std::cerr << "无法打开数据库: " << sqlite3_errmsg(db) << std::endl;
+            return rc;
+        }
+
+        // 开始事务以提高性能
+        rc = sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+        if (rc != SQLITE_OK) {
+            std::cerr << "无法开始事务: " << sqlite3_errmsg(db) << std::endl;
+            sqlite3_close(db);
+            return rc;
+        }
+
+        const std::string sql = "INSERT INTO LOGDATA (id, name, pos_x, pos_y, pos_z, "
+                          "world, obj_id, obj_name, time, type, data) VALUES (?, "
+                          "?, ?, ?, ?, "
+                          "?, ?, ?, ?, ?, ?);";
+
+        sqlite3_stmt* stmt;
+        rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+        if (rc != SQLITE_OK) {
+            std::cerr << "SQL 预处理失败: " << sqlite3_errmsg(db) << std::endl;
+            sqlite3_close(db);
+            return rc;
+        }
+
+        // 遍历所有日志数据并插入
+        for (const auto& log : logs) {
+            const auto& [id, name, pos_x, pos_y, pos_z, world, obj_id, obj_name, time, type, data] = log;
+
+            // 绑定参数
+            sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, 2, name.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_double(stmt, 3, pos_x);
+            sqlite3_bind_double(stmt, 4, pos_y);
+            sqlite3_bind_double(stmt, 5, pos_z);
+            sqlite3_bind_text(stmt, 6, world.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, 7, obj_id.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, 8, obj_name.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_int64(stmt, 9, time);
+            sqlite3_bind_text(stmt, 10, type.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, 11, data.c_str(), -1, SQLITE_STATIC);
+            
+            // 执行 SQL 语句
+            rc = sqlite3_step(stmt);
+            if (rc != SQLITE_DONE) {
+                std::cerr << "SQL 插入失败: " << sqlite3_errmsg(db) << std::endl;
+                sqlite3_finalize(stmt);
+                sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+                sqlite3_close(db);
+                return rc;
+            }
+            
+            // 重置语句以供下次使用
+            sqlite3_reset(stmt);
+        }
+        
+        // 提交事务
+        rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+        if (rc != SQLITE_OK) {
+            std::cerr << "无法提交事务: " << sqlite3_errmsg(db) << std::endl;
+            sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        }
+
+        // 清理资源
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        return rc;
+    }
+
     int getAllLog(std::vector<std::map<std::string, std::string>> &result) const {
         // 获取所有tty数据
         const std::string sql = "SELECT * FROM LOGDATA;";

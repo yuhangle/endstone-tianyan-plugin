@@ -16,5 +16,18 @@
   "Console not support menu": "控制台不支持菜单",
   "Check behavior logs at your current location": "查询你所在的位置的行为日志",
   "Revert behaviors by time": "按照指定时间回溯行为",
-  "Item in Hand": "手持物品"
+  "Item in Hand": "手持物品",
+  "block_break": "方块破坏",
+  "block_place": "方块放置",
+  "entity_damage": "实体伤害",
+  "player_right_click_block": "玩家右键方块",
+  "player_right_click_entity": "玩家右键实体",
+  "Block": "方块",
+  "entity_bomb": "实体爆炸",
+  "block_break_bomb": "爆炸摧毁方块",
+  "piston_extend": "活塞伸出",
+  "piston_retract": "活塞收回",
+  "entity_die": "实体死亡",
+  "player_pickup_item": "玩家拾取物品",
+  "hand": "空手"
 }

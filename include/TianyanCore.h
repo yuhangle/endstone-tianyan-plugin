@@ -38,6 +38,9 @@ public:
     //记录日志
     [[nodiscard]] int recordLog(const LogData& logData) const;
 
+    //批量记录日志
+    [[nodiscard]] int recordLogs(const std::vector<LogData>& logDatas) const;
+
     //查询日志
     [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key) const;
     

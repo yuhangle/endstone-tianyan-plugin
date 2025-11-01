@@ -48,6 +48,21 @@ int TianyanCore::recordLog(const LogData& logData) const {
     return Database.addLog(logData.id,logData.name,logData.pos_x,logData.pos_y,logData.pos_z,logData.world,logData.obj_id,logData.obj_name,logData.time,logData.type,logData.data);
 }
 
+int TianyanCore::recordLogs(const std::vector<LogData>& logDatas) const {
+    // 将LogData转换为数据库所需的tuple格式
+    std::vector<std::tuple<std::string, std::string, double, double, double, 
+                           std::string, std::string, std::string, long long, std::string, std::string>> dbLogs;
+    
+    dbLogs.reserve(logDatas.size());
+for (const auto&[id, name, pos_x, pos_y, pos_z, world, obj_id, obj_name, time, type, data] : logDatas) {
+        dbLogs.emplace_back(id, name, pos_x, pos_y, pos_z,
+                            world, obj_id, obj_name, time, type, data);
+    }
+    
+    // 调用数据库的批量插入函数
+    return Database.addLogs(dbLogs);
+}
+
 vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& key) const {
     std::vector<std::map<std::string, std::string>> result;
     Database.searchLog(result,key);

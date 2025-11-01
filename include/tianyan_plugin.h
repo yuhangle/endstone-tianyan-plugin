@@ -36,18 +36,22 @@
 #include <endstone/inventory/item_stack.h>
 #include <endstone/inventory/player_inventory.h>
 #include <endstone/event/player/player_pickup_item_event.h>
+#include <endstone/endstone.hpp>
 
 
 using namespace std;
 using namespace nlohmann;
+//文件目录
 inline string dataPath = "plugins/tianyan_data";
 inline string dbPath = "plugins/tianyan_data/ty_data.db";
 inline string config_path = "plugins/tianyan_data/config.json";
-
+//配置变量
 inline int max_message_in_10s;
 inline int max_command_in_10s;
 inline vector<string> no_log_mobs;
-
+//日志缓存
+inline vector<TianyanCore::LogData> logDataCache;
+//语言
 inline translate Tran;
 //初始化其它实例
 inline DataBase Database(dbPath);
@@ -168,7 +172,7 @@ public:
             const fs::path currentPath = fs::current_path();
 
             // 子目录路径
-            const fs::path subdir = "plugins/tianyan_data/ty_data.db";
+            const fs::path subdir = dbPath;
 
             // 拼接路径
             const fs::path fullPath = currentPath / subdir;
@@ -187,6 +191,16 @@ public:
             std::cerr << "General error: " << e.what() << std::endl;
         }
 #endif
+    }
+
+    //缓存写入机制
+    void logsCacheWrite() const {
+        if (logDataCache.empty()) {
+            return;
+        }
+        if (tyCore.recordLogs(logDataCache)) {
+            getLogger().error("写入错误");
+        };
     }
 
     void onEnable() override
@@ -213,16 +227,19 @@ public:
             no_log_mobs = {"minecraft:zombie_pigman","minecraft:zombie","minecraft:skeleton","minecraft:bogged","minecraft:slime"};
             getLogger().error(Tran.getLocal("Config file error!Use default config")+","+e.what());
         }
+        //定期写入
+        getServer().getScheduler().runTaskTimerAsync(*this, [&]() {logsCacheWrite();},0,100);
         //注册事件
-        registerEvent(&TianyanPlugin::onBlockBreak,*this);
-        registerEvent(&TianyanPlugin::onBlockPlace,*this);
-        registerEvent(&TianyanPlugin::onActorDamage,*this);
-        registerEvent(&TianyanPlugin::onPlayerRightClickBlock,*this);
-        registerEvent(&TianyanPlugin::onPlayerRightClickActor,*this);
-        registerEvent(&TianyanPlugin::onActorBomb,*this);
-        registerEvent(&TianyanPlugin::onBlockPistonExtend,*this);
-        registerEvent(&TianyanPlugin::onBlockPistonRetract,*this);
-        registerEvent(&TianyanPlugin::onActorDie,*this);
+        registerEvent<endstone::BlockBreakEvent>(onBlockBreak);
+        registerEvent<endstone::BlockPlaceEvent>(onBlockPlace);
+        registerEvent<endstone::ActorDamageEvent>(onActorDamage);
+        registerEvent<endstone::PlayerInteractEvent>(onPlayerRightClickBlock);
+        registerEvent<endstone::PlayerInteractActorEvent>(onPlayerRightClickActor);
+        registerEvent<endstone::ActorExplodeEvent>(onActorBomb);
+        registerEvent<endstone::BlockPistonExtendEvent>(onPistonExtend);
+        registerEvent<endstone::BlockPistonRetractEvent>(onPistonRetract);
+        registerEvent<endstone::ActorDeathEvent>(onActorDie);
+        registerEvent<endstone::PlayerPickupItemEvent>(onPlayPickup);
     }
 
     void onDisable() override
@@ -385,7 +402,7 @@ public:
         player.sendForm(logMenu);
     }
 
-    void onBlockBreak(const endstone::BlockBreakEvent& event){
+    static void onBlockBreak(const endstone::BlockBreakEvent& event){
         TianyanCore::LogData logData;
         logData.id = event.getPlayer().getType();
         logData.name = event.getPlayer().getName();
@@ -403,12 +420,10 @@ public:
             auto block_states = block_data->getBlockStates();
             logData.data = fmt::format("{}", block_states);
         }
-        if (tyCore.recordLog(logData)) {
-            getLogger().error("写入错误");
-        };
+        logDataCache.push_back(logData);
     }
 
-    void onBlockPlace(const endstone::BlockPlaceEvent& event){
+    static void onBlockPlace(const endstone::BlockPlaceEvent& event){
         TianyanCore::LogData logData;
         logData.id = event.getPlayer().getType();
         logData.name = event.getPlayer().getName();
@@ -426,12 +441,10 @@ public:
             auto block_states = block_data->getBlockStates();
             logData.data = fmt::format("{}", block_states);
         }
-        if (tyCore.recordLog(logData)) {
-            getLogger().error("写入错误");
-        };
+        logDataCache.push_back(logData);
     }
 
-    void onActorDamage(const endstone::ActorDamageEvent& event){
+    static void onActorDamage(const endstone::ActorDamageEvent& event){
         //无名的烂大街生物无需在意
         if (event.getActor().getNameTag().empty() && ranges::find(no_log_mobs, event.getActor().getType()) != no_log_mobs.end()) {
             return;
@@ -442,7 +455,7 @@ public:
         if (event.getDamageSource().getActor()) {
             logData.id = event.getDamageSource().getActor()->getType();
             logData.name = event.getDamageSource().getActor()->getName();
-            logData.type = "actor_damage";
+            logData.type = "entity_damage";
         }
         //其余伤害
         else {
@@ -462,12 +475,10 @@ public:
             auto damage = event.getDamage();
             logData.data = fmt::format("{}", damage);
         }
-        if (tyCore.recordLog(logData)) {
-            getLogger().error("写入错误");
-        };
+        logDataCache.push_back(logData);
     }
 
-    void onPlayerRightClickBlock(const endstone::PlayerInteractEvent& event) {
+    static void onPlayerRightClickBlock(const endstone::PlayerInteractEvent& event) {
         TianyanCore::LogData logData;
         if (!event.getBlock()) {
             return;
@@ -497,12 +508,10 @@ public:
             auto block_states = block_data->getBlockStates();
             logData.data = fmt::format("{},{}", hand_item,block_states);
         }
-        if (tyCore.recordLog(logData)) {
-            getLogger().error("写入错误");
-        };
+        logDataCache.push_back(logData);
     }
 
-    void onPlayerRightClickActor(const endstone::PlayerInteractActorEvent& event){
+    static void onPlayerRightClickActor(const endstone::PlayerInteractActorEvent& event){
         //无名的烂大街生物无需在意
         if (event.getActor().getNameTag().empty() && ranges::find(no_log_mobs, event.getActor().getType()) != no_log_mobs.end()) {
             return;
@@ -517,7 +526,7 @@ public:
         logData.obj_id = event.getActor().getType();
         logData.obj_name = event.getActor().getName();
         logData.time = std::time(nullptr);
-        logData.type = "layer_right_click_actor";
+        logData.type = "player_right_click_entity";
         if (event.isCancelled()) {
             logData.data = "canceled";
         }
@@ -528,12 +537,10 @@ public:
             hand_item = "hand";
         }
         logData.data = fmt::format("{}", hand_item);
-        if (tyCore.recordLog(logData)) {
-            getLogger().error("写入错误");
-        };
+        logDataCache.push_back(logData);
     }
 
-    void onActorBomb(const endstone::ActorExplodeEvent& event) {
+    static void onActorBomb(const endstone::ActorExplodeEvent& event) {
         TianyanCore::LogData logData;
         logData.id = event.getActor().getType();
         logData.name = event.getActor().getName();
@@ -545,18 +552,14 @@ public:
             logData.obj_name = "Block";
         }
         logData.time = std::time(nullptr);
-        logData.type = "actor_bomb";
+        logData.type = "entity_bomb";
         auto block_num = event.getBlockList().size();
         if (event.isCancelled()) {
             logData.data = "canceled";
-            if (tyCore.recordLog(logData)) {
-                getLogger().error("写入错误");
-            };
+            logDataCache.push_back(logData);
         } else {
             logData.data = fmt::format("{}", block_num);
-            if (tyCore.recordLog(logData)) {
-                getLogger().error("写入错误");
-            };
+            logDataCache.push_back(logData);
             for (const auto& block : event.getBlockList()) {
                 // 方块类型
                 TianyanCore::LogData bomb_data;
@@ -570,14 +573,12 @@ public:
                 bomb_data.time = std::time(nullptr);
                 bomb_data.type = "block_break_bomb";
                 bomb_data.data = fmt::format("{}", block->getData()->getBlockStates());
-                if (tyCore.recordLog(bomb_data)) {
-                    getLogger().error("写入错误");
-                };
+                logDataCache.push_back(bomb_data);
             }
         }
     }
 
-    void onBlockPistonExtend(const endstone::BlockPistonExtendEvent&event) {
+    static void onPistonExtend(const endstone::BlockPistonExtendEvent&event) {
         TianyanCore::LogData logData;
         logData.id = event.getBlock().getType();
         logData.pos_x = event.getBlock().getX();
@@ -585,7 +586,7 @@ public:
         logData.pos_z = event.getBlock().getZ();
         logData.world = event.getBlock().getLocation().getDimension()->getName();
         logData.time = std::time(nullptr);
-        logData.type = "block_piston";
+        logData.type = "piston_extend";
         auto Face = event.getDirection();
         string direct;
         if (Face == endstone::BlockFace::Down) {
@@ -607,12 +608,10 @@ public:
             logData.data = fmt::format("{},{}", direct, event.getBlock().getData()->getBlockStates());
         }
 
-        if (tyCore.recordLog(logData)) {
-            getLogger().error("写入错误");
-        };
+        logDataCache.push_back(logData);
     }
 
-    void onBlockPistonRetract(const endstone::BlockPistonRetractEvent&event) {
+    static void onPistonRetract(const endstone::BlockPistonRetractEvent&event) {
         TianyanCore::LogData logData;
         logData.id = event.getBlock().getType();
         logData.pos_x = event.getBlock().getX();
@@ -620,7 +619,7 @@ public:
         logData.pos_z = event.getBlock().getZ();
         logData.world = event.getBlock().getLocation().getDimension()->getName();
         logData.time = std::time(nullptr);
-        logData.type = "block_piston";
+        logData.type = "piston_retract";
         auto Face = event.getDirection();
         string direct;
         if (Face == endstone::BlockFace::Down) {
@@ -642,12 +641,10 @@ public:
             logData.data = fmt::format("{},{}", direct, event.getBlock().getData()->getBlockStates());
         }
 
-        if (tyCore.recordLog(logData)) {
-            getLogger().error("写入错误");
-        };
+        logDataCache.push_back(logData);
     }
 
-    void onActorDie(const endstone::ActorDeathEvent&event) {
+    static void onActorDie(const endstone::ActorDeathEvent&event) {
         //无名的烂大街生物无需在意
         if (event.getActor().getNameTag().empty() && ranges::find(no_log_mobs, event.getActor().getType()) != no_log_mobs.end()) {
             return;
@@ -660,13 +657,11 @@ public:
         logData.obj_id = event.getActor().getType();
         logData.obj_name = event.getActor().getName();
         logData.time = std::time(nullptr);
-        logData.type = "actor_die";
-        if (tyCore.recordLog(logData)) {
-            getLogger().error("写入错误");
-        };
+        logData.type = "entity_die";
+        logDataCache.push_back(logData);
     }
 
-    void onPlayPickup(const endstone::PlayerPickupItemEvent&event) {
+    static void onPlayPickup(const endstone::PlayerPickupItemEvent&event) {
         TianyanCore::LogData logData;
         logData.id = event.getPlayer().getType();
         logData.name = event.getPlayer().getName();
@@ -681,9 +676,7 @@ public:
         if (event.isCancelled()) {
             logData.data = "canceled";
         }
-        if (tyCore.recordLog(logData)) {
-            getLogger().error("写入错误");
-        };
+        logDataCache.push_back(logData);
     }
 
 };
