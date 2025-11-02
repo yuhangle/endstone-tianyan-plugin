@@ -383,7 +383,6 @@ public:
                     sender.sendErrorMessage(Tran.getLocal("Console not support menu"));
                     return false;
                 }
-                //待施工
                 endstone::ModalForm tyMenu;
                 tyMenu.setTitle(Tran.getLocal("Revert Menu"));
                 endstone::Slider radius;
@@ -409,7 +408,11 @@ public:
                         string key_type;
                         if (search_key_type == 0) {key_type  = "source_id";} else if (search_key_type == 1) {key_type  = "source_name";} else if (search_key_type == 2) {key_type  = "target_id";}
                         else if (search_key_type == 3) {key_type  = "target_name";} else if (search_key_type == 4) {key_type  = "action";}
-                        cmd << "tyback " << r << " " << time << " " <<key_type << " " << "\"" << search_key << "\"" ;
+                        if (key_type == "action") {
+                            cmd << "tyback " << r << " " << time << " " <<key_type << " " << search_key ;
+                        } else {
+                            cmd << "tyback " << r << " " << time << " " <<key_type << " " << "\"" << search_key << "\"" ;
+                        }
                         (void)p->performCommand(cmd.str());
                     } else {
                         cmd << "tyback " << r << " " << time;
@@ -432,6 +435,7 @@ public:
                         sender.sendErrorMessage(Tran.getLocal("No log found"));
                     } else {
                         //回溯逻辑
+                        int success_times = 0;
                         for (auto& logData : std::ranges::reverse_view(searchData)) {
                             //跳过取消掉和已回溯的事件
                             if (logData.status == "canceled" || logData.status == "reverted") {
@@ -456,16 +460,16 @@ public:
                                     continue;
                                 }
                                 //查询类型而事件非指定类型
-                                if (source_key_type == "type" && logData.type != source_key) {
+                                if (source_key_type == "action" && logData.type != source_key) {
                                     continue;
                                 }
                             }
                             //破坏和爆炸方块的恢复
-                            if (logData.type == "block_break" | logData.type == "block_break_bomb" | (logData.type == "actor_bomb" && logData.id == "minecraft:tnt")) {
+                            if (logData.type == "block_break" || logData.type == "block_break_bomb" || (logData.type == "actor_bomb" && logData.id == "minecraft:tnt")) {
                                 string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
                                 string command_str;
                                 command_str = "setblock " + pos + " " + logData.obj_id + logData.data;
-                                endstone::CommandSenderWrapper wrapper_sender(sender);
+                                endstone::CommandSenderWrapper wrapper_sender(sender, [&success_times](const endstone::Message &message) {success_times++;});
                                 (void)getServer().dispatchCommand(wrapper_sender,command_str);
                                 // 将已回溯的事件UUID和状态添加到缓存中
                                 revertStatusCache.emplace_back(logData.uuid, "reverted");
@@ -477,7 +481,7 @@ public:
                                     string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
                                     string command_str;
                                     command_str = "setblock " + pos + " " + logData.obj_id + hand_block[1];
-                                    endstone::CommandSenderWrapper wrapper_sender(sender);
+                                    endstone::CommandSenderWrapper wrapper_sender(sender, [&success_times](const endstone::Message &message) {success_times++;});
                                     (void)getServer().dispatchCommand(wrapper_sender,command_str);
                                     // 将已回溯的事件UUID和状态添加到缓存中
                                     revertStatusCache.emplace_back(logData.uuid, "reverted");
@@ -488,7 +492,7 @@ public:
                                 string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
                                 string command_str;
                                 command_str = "setblock " + pos + " " + "minecraft:air";
-                                endstone::CommandSenderWrapper wrapper_sender(sender);
+                                endstone::CommandSenderWrapper wrapper_sender(sender, [&success_times](const endstone::Message &message) {success_times++;});
                                 (void)getServer().dispatchCommand(wrapper_sender,command_str);
                                 // 将已回溯的事件UUID和状态添加到缓存中
                                 revertStatusCache.emplace_back(logData.uuid, "reverted");
@@ -496,6 +500,11 @@ public:
                         }
                         // 执行批量更新回溯状态
                         updateRevertStatus();
+                        if (success_times > 0) {
+                            sender.sendMessage(Tran.getLocal("Revert times: ")+std::to_string(success_times));
+                        } else {
+                            sender.sendMessage(Tran.getLocal("Nothing happened"));
+                        }
                     }
                 } catch (const std::exception &e) {
                     //返回错误给玩家

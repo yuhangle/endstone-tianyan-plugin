@@ -44,5 +44,7 @@
   "Please enter keywords": "请输入关键词",
   "Display all logs about": "展示全部日志关于",
   "Display all logs": "展示全部日志",
-  "Revert Menu": "回溯菜单"
+  "Revert Menu": "回溯菜单",
+  "Nothing happened": "无事发生",
+  "Revert times: ": "回溯次数: "
 }
