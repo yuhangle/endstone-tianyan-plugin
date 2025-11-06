@@ -368,7 +368,9 @@ public:
                                 }
                             } else if (search_key_type == "target_name") {
                                 for (auto &logData : searchData) {
-                                    if (logData.obj_name == search_key) {}
+                                    if (logData.obj_name == search_key) {
+                                        key_logData.push_back(logData);
+                                    }
                                 }
                             } else if (search_key_type == "action") {
                                 for (auto &logData : searchData) {
@@ -548,6 +550,112 @@ public:
                             sender.sendMessage(Tran.getLocal("Nothing happened"));
                         }
                     }
+                } catch (const std::exception &e) {
+                    //返回错误给玩家
+                    sender.sendErrorMessage(e.what());
+                }
+            }
+        }
+        else if (command.getName() == "tys")
+        {
+            // 菜单
+            if (args.empty()) {
+                if (!sender.asPlayer()) {
+                    sender.sendErrorMessage(Tran.getLocal("Console not support menu"));
+                    return false;
+                }
+                endstone::ModalForm tyMenu;
+                tyMenu.setTitle(Tran.getLocal("Log Browser"));
+                endstone::Slider Time;
+                endstone::Dropdown keyType;
+                endstone::TextInput keyWords;
+
+                Time.setLabel(endstone::ColorFormat::Red+"*"+endstone::ColorFormat::Reset+Tran.getLocal("Lookback Time (hours)"));Time.setDefaultValue(12);Time.setMin(1);Time.setMax(168);Time.setStep(1);
+                keyType.setLabel(Tran.getLocal("Search By"));
+                keyType.setOptions({Tran.getLocal("Source ID"),Tran.getLocal("Source Name"),Tran.getLocal("Target ID"),Tran.getLocal("Target Name"),Tran.getLocal("Action")});
+                keyWords.setLabel(Tran.getLocal("Keywords"));
+                keyWords.setPlaceholder(Tran.getLocal("Please enter keywords"));
+                tyMenu.setControls({Time,keyType,keyWords});
+                tyMenu.setOnSubmit([=](endstone::Player *p,const string& response) {
+                    json response_json = json::parse(response);
+                    const int time = response_json[0];
+                    const int search_key_type = response_json[1];
+                    const string search_key = response_json[2];
+                    std::ostringstream cmd;
+                    if (!search_key.empty()) {
+                        string key_type;
+                        if (search_key_type == 0) {key_type  = "source_id";} else if (search_key_type == 1) {key_type  = "source_name";} else if (search_key_type == 2) {key_type  = "target_id";}
+                        else if (search_key_type == 3) {key_type  = "target_name";} else if (search_key_type == 4) {key_type  = "action";}
+                        cmd << "tys " << time << " " <<key_type << " " << "\"" << search_key << "\"" ;
+                        (void)p->performCommand(cmd.str());
+                    } else {
+                        cmd << "tys " << time;
+                        (void)p->performCommand(cmd.str());
+                    }
+                });
+                sender.asPlayer()->sendForm(tyMenu);
+            }
+            else if (!args.empty()) {
+                if (!sender.asPlayer()) {
+                    return false;
+                }
+                try {
+                    const double time = stod(args[0]);
+                    const string search_key_type = args.size() > 1 ? args[1] : "";
+                    const string search_key = args.size() > 2 ? args[2] : "";
+                    const string world = sender.asPlayer()->getLocation().getDimension()->getName();
+                    const double x = sender.asPlayer()->getLocation().getX();
+                    const double y = sender.asPlayer()->getLocation().getY();
+                    const double z = sender.asPlayer()->getLocation().getZ();
+                    if (const auto searchData = tyCore.searchLog({"",time}); searchData.empty()) {
+                        sender.sendErrorMessage(Tran.getLocal("No log found"));
+                    } else {
+                        if (!search_key_type.empty() && !search_key.empty()) {
+                            vector<TianyanCore::LogData> key_logData;
+                            if (search_key_type == "source_id") {
+                                for (auto &logData : searchData) {
+                                    if (logData.id == search_key) {
+                                        key_logData.push_back(logData);
+                                    }
+                                }
+                            } else if (search_key_type == "source_name") {
+                                for (auto &logData : searchData) {
+                                    if (logData.name == search_key) {
+                                        key_logData.push_back(logData);
+                                    }
+                                }
+                            } else if (search_key_type == "target_id") {
+                                for (auto &logData : searchData) {
+                                    if (logData.obj_id == search_key) {
+                                        key_logData.push_back(logData);
+                                    }
+                                }
+                            } else if (search_key_type == "target_name") {
+                                for (auto &logData : searchData) {
+                                    if (logData.obj_name == search_key) {
+                                        key_logData.push_back(logData);
+                                    }
+                                }
+                            } else if (search_key_type == "action") {
+                                for (auto &logData : searchData) {
+                                    if (logData.type == search_key) {
+                                        key_logData.push_back(logData);
+                                    }
+                                }
+                            }
+                            if (!key_logData.empty()) {
+                                showLogMenu(*sender.asPlayer(), key_logData);
+                                sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs about")+"` "+search_key+" `");
+                            }
+                            else {
+                                sender.sendErrorMessage(Tran.getLocal("No log found"));
+                            }
+                        } else {
+                            showLogMenu(*sender.asPlayer(), searchData);
+                            sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs"));
+                        }
+                    }
+
                 } catch (const std::exception &e) {
                     //返回错误给玩家
                     sender.sendErrorMessage(e.what());

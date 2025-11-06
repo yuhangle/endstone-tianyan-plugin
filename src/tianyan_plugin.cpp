@@ -4,7 +4,7 @@
 
 #include "tianyan_plugin.h"
 
-ENDSTONE_PLUGIN("tianyan_plugin", "1.2.0-alpha.1", TianyanPlugin)
+ENDSTONE_PLUGIN("tianyan_plugin", "1.2.0-alpha.2", TianyanPlugin)
 {
     description = "A plugin for endstone to record behavior";
 
@@ -23,6 +23,15 @@ ENDSTONE_PLUGIN("tianyan_plugin", "1.2.0-alpha.1", TianyanPlugin)
                     "/tyback <r: float> <time: float>",
                     "/tyback <r: float> <time: float> <source_id | source_name | target_id | target_name> <keywords: str>",
                     "/tyback <r: float> <time: float> <action> <block_break | block_place | player_right_click_block | block_break_bomb | entity_die>"
+                    )
+            .permissions("ty.command.op");
+
+        command("tys")
+            .description(Tran.getLocal("Check behavior logs at server"))
+            .usages("/tys",
+                    "/tys <time: float>",
+                    "/tys <time: float> <source_id | source_name | target_id | target_name> <keywords: str>",
+                    "/tys <time: float> <action> <block_break | block_place | entity_damage | player_right_click_block | player_right_click_entity | entity_bomb | block_break_bomb | piston_extend | piston_retract | entity_die | player_pickup_item>"
                     )
             .permissions("ty.command.op");
 
