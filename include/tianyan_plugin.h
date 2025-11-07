@@ -23,6 +23,7 @@
 #include <endstone/event/block/block_piston_retract_event.h>
 #include <endstone/color_format.h>
 #include <algorithm>
+#include <complex>
 #include <endstone/event/player/player_pickup_item_event.h>
 #include <endstone/endstone.hpp>
 #include "TianyanProtect.h"
@@ -196,8 +197,8 @@ public:
         //完成外部类初始化
         protect_ = std::make_unique<TianyanProtect>(*this);
         eventListener_ = std::make_unique<EventListener>(*this);
-        commands_ = std::make_unique<Menu>(*this);
         menu_ = std::make_unique<Menu>(*this);
+        protect_->deviceIDBlacklistInit();
         //注册事件
         registerEvent<endstone::BlockBreakEvent>(EventListener::onBlockBreak);
         registerEvent<endstone::BlockPlaceEvent>(EventListener::onBlockPlace);
@@ -210,6 +211,9 @@ public:
         registerEvent<endstone::ActorDeathEvent>(EventListener::onActorDie);
         registerEvent<endstone::PlayerPickupItemEvent>(EventListener::onPlayPickup);
         registerEvent(&EventListener::onPlayerJoin, *eventListener_);
+        registerEvent(&EventListener::onPlayerSendMSG, *eventListener_);
+        registerEvent(&EventListener::onPlayerSendCMD, *eventListener_);
+        registerEvent(&EventListener::onPlayerTryJoin, *eventListener_);
         const string LOGO = R"(
   _____   _
  |_   _| (_)  __ _   _ _    _  _   __ _   _ _
@@ -513,12 +517,47 @@ public:
                 }
             }
         }
+        else if (command.getName() == "ban-id") {
+            if (!args.empty()) {
+                string device_id = args[0];
+                const double time = args.size() > 1 ? stod(args[1]) : 0;
+                const auto duration = std::chrono::hours(static_cast<int64_t>(time));
+                const string reason = args.size() > 2 ? args[2] : "";
+                string player_name = "Null";
+                for (auto &player : getServer().getOnlinePlayers()) {
+                    if (player->getDeviceId() == device_id) {
+                        player_name = player->getName();
+                        player->kick(reason);
+                    }
+                }
+                TianyanCore::BanIDPlayer banIDPlayer = {player_name,device_id, reason, duration};
+                auto status = protect_->BanDeviceID(banIDPlayer);
+                if (sender.asPlayer()) {
+                    if (status) {
+                        sender.sendMessage(Tran.getLocal("Device ID {} banned successfully")+","+device_id);
+                    } else {
+                        sender.sendErrorMessage(Tran.getLocal("Error occurred while banning device ID {}: {}")+","+device_id+","+Tran.getLocal("View more in console"));
+                    }
+                }
+            }
+        } else if (command.getName() == "unban-id") {
+            if (!args.empty()) {
+                const string& device_id = args[0];
+                const auto status = protect_->UnbanDeviceID(device_id);
+                if (sender.asPlayer()) {
+                    if (status) {
+                        sender.sendMessage(Tran.getLocal("Device ID {} unbanned successfully")+","+device_id);
+                    } else {
+                        sender.sendErrorMessage(Tran.getLocal("Error occurred while unbanning device ID {}: {}")+","+device_id+","+Tran.getLocal("View more in console"));
+                    }
+                }
+            }
+        }
         return true;
     }
 
 private:
     std::unique_ptr<TianyanProtect> protect_;
     std::unique_ptr<EventListener> eventListener_;
-    std::unique_ptr<Menu> commands_;
     std::unique_ptr<Menu> menu_;
 };

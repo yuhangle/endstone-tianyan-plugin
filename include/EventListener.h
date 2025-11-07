@@ -2,6 +2,7 @@
 // Created by yuhang on 2025/11/6.
 //
 
+// ReSharper disable CppMemberFunctionMayBeConst
 #ifndef TIANYAN_EVENTLISTENER_H
 #define TIANYAN_EVENTLISTENER_H
 #include <endstone/endstone.hpp>
@@ -312,12 +313,72 @@ public:
         logDataCache.push_back(logData);
     }
 
+    //玩家加入事件
     void onPlayerJoin(const endstone::PlayerJoinEvent &event) {
         if (!event.getPlayer().asPlayer()) return;
         std::ostringstream out;
         out << endstone::ColorFormat::Yellow << Tran.getLocal("Player") << " " << event.getPlayer().getName() << " " << Tran.getLocal("joined server!")
         << " " <<Tran.getLocal("Device OS: ")<< event.getPlayer().getDeviceOS() << " " << Tran.getLocal("Device ID: ") << event.getPlayer().getDeviceId();
         plugin_.getServer().getLogger().info(out.str());
+    }
+
+    //刷屏检测
+    void onPlayerSendMSG(const endstone::PlayerChatEvent &event) {
+        TianyanCore::recordPlayerSendMSG(event.getPlayer().getName());
+        if (TianyanCore::checkPlayerSendMSG(event.getPlayer().getName())) {
+            plugin_.getServer().getBanList().addBan(event.getPlayer().getName(),Tran.getLocal("Too many messages sent in a short time"), std::chrono::hours(24), "Tianyan Plugin");
+            plugin_.getServer().broadcastMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Player") + ": " + event.getPlayer().getName() + " " + Tran.getLocal("has been banned for sending too many messages in a short time"));
+        }
+    }
+
+    //大量命令刷屏检测
+    void onPlayerSendCMD(const endstone::PlayerChatEvent &event) {
+        TianyanCore::recordPlayerSendCMD(event.getPlayer().getName());
+        if (TianyanCore::checkPlayerSendCMD(event.getPlayer().getName())) {
+            plugin_.getServer().getBanList().addBan(event.getPlayer().getName(),Tran.getLocal("Too many commands sent in a short time"), std::chrono::hours(24), "Tianyan Plugin");
+            plugin_.getServer().broadcastMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Player") + ": " + event.getPlayer().getName() + " " + Tran.getLocal("has been banned for sending too many commands in a short time"));
+        }
+    }
+
+    //拒绝封禁玩家加入
+    void onPlayerTryJoin(const endstone::PlayerLoginEvent &event) {
+        const auto player_name = event.getPlayer().getName();
+        const auto device_id = event.getPlayer().getDeviceId();
+        //检查玩家设备是否已封禁
+        if (const auto banData = TianyanProtect::getBannedPlayerByDeviceId(device_id);banData.has_value()) {
+            const auto reason = banData.value().reason.value_or("");
+            if (banData->player_name == "Null") {
+                if (TianyanProtect::updatePlayerNameForDeviceId(banData.value().device_id,player_name)) {
+                    plugin_.getLogger().info(endstone::ColorFormat::Yellow+Tran.getLocal("Player")+": "+player_name + " " + Tran.getLocal("has been banned for using a banned device")+": " + banData.value().device_id);
+                } else {
+                    plugin_.getLogger().error(Tran.getLocal("Unknow Error"));
+                }
+                event.getPlayer().kick(Tran.getLocal("Your device has been baned")+": "+reason);
+            } else {
+                event.getPlayer().kick(Tran.getLocal("Your device has been baned")+": "+reason);
+            }
+        }
+        //通过设备ID检查，检查是否使用过封禁设备
+        else {
+            if (TianyanProtect::isPlayerBanned(player_name)) {
+                plugin_.getLogger().info(endstone::ColorFormat::Yellow+Tran.getLocal("Baned player: ")+player_name+" "+Tran.getLocal("try to join server"));
+                string reason;
+                chrono::seconds time;
+                for (const auto &baned_player : BanIDPlayers) {
+                    if (baned_player.player_name == player_name) {
+                        reason = baned_player.reason.value_or("");
+                        time = baned_player.time.value_or(std::chrono::seconds(0));
+                        break;
+                    }
+                }
+                const int64_t hours = std::chrono::duration_cast<std::chrono::hours>(time).count();
+                if (reason.empty()) {
+                    (void)plugin_.getServer().dispatchCommand(plugin_.getServer().getCommandSender(),"ban-id " + device_id + " " + to_string(hours));
+                } else {
+                    (void)plugin_.getServer().dispatchCommand(plugin_.getServer().getCommandSender(),"ban-id " + device_id + " " + to_string(hours) + " \"" + reason +"\"");
+                }
+            }
+        }
     }
 
 private:

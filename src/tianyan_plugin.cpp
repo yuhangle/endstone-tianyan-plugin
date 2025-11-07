@@ -4,7 +4,7 @@
 
 #include "tianyan_plugin.h"
 
-ENDSTONE_PLUGIN("tianyan_plugin", "1.2.0-alpha.2", TianyanPlugin)
+ENDSTONE_PLUGIN("tianyan_plugin", "1.2.0-alpha.3", TianyanPlugin)
 {
     description = "A plugin for endstone to record behavior";
 
@@ -32,6 +32,18 @@ ENDSTONE_PLUGIN("tianyan_plugin", "1.2.0-alpha.2", TianyanPlugin)
                     "/tys <time: float>",
                     "/tys <time: float> <source_id | source_name | target_id | target_name> <keywords: str>",
                     "/tys <time: float> <action> <block_break | block_place | entity_damage | player_right_click_block | player_right_click_entity | entity_bomb | block_break_bomb | piston_extend | piston_retract | entity_die | player_pickup_item>"
+                    )
+            .permissions("ty.command.op");
+
+        command("ban-id")
+            .description(Tran.getLocal("Ban player by device id"))
+            .usages("/ban-id <device-id: str> [time: int] [reason: str]"
+                    )
+            .permissions("ty.command.op");
+
+        command("unban-id")
+            .description(Tran.getLocal("Unban player by device id"))
+            .usages("/unban-id <device-id: str>"
                     )
             .permissions("ty.command.op");
 

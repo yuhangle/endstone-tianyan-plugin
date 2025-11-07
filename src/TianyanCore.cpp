@@ -116,3 +116,83 @@ vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& 
     }
     return LogDatas;
 }
+
+int TianyanCore::recordPlayerSendMSG(const string& player_name) {
+    const auto now = std::chrono::steady_clock::now();
+    auto& timestamps = playerMessageTimes[player_name];
+
+    // 添加当前时间
+    timestamps.push_back(now);
+
+    // 清理超过10秒的旧记录（保留 [now - 10s, now] 范围内的）
+    constexpr auto tenSeconds = std::chrono::seconds(10);
+    std::erase_if(timestamps,
+                  [now, tenSeconds](const TimePoint& t) {
+                      return (now - t) > tenSeconds;
+                  });
+
+    // 返回当前10秒内消息数量
+    return static_cast<int>(timestamps.size());
+}
+
+// 检查玩家在10秒内是否发送消息超过阈值
+bool TianyanCore::checkPlayerSendMSG(const string& player_name) {
+    const auto now = std::chrono::steady_clock::now();
+    constexpr auto tenSeconds = std::chrono::seconds(10);
+
+    const auto it = playerMessageTimes.find(player_name);
+    if (it == playerMessageTimes.end()) {
+        return false; // 无记录，肯定未超限
+    }
+
+    auto& timestamps = it->second;
+
+    // 再次清理（防止长时间未调用 record 导致脏数据）
+    std::erase_if(timestamps,
+                  [now, tenSeconds](const TimePoint& t) {
+                      return (now - t) > tenSeconds;
+                  });
+
+    // 超过阈值即视为违规
+    return timestamps.size() > max_message_in_10s;
+}
+
+int TianyanCore::recordPlayerSendCMD(const string& player_name) {
+    const auto now = std::chrono::steady_clock::now();
+    auto& timestamps = playerCommandTimes[player_name];
+
+    // 添加当前时间
+    timestamps.push_back(now);
+
+    // 清理超过10秒的旧记录（保留 [now - 10s, now] 范围内的）
+    constexpr auto tenSeconds = std::chrono::seconds(10);
+    std::erase_if(timestamps,
+                  [now, tenSeconds](const TimePoint& t) {
+                      return (now - t) > tenSeconds;
+                  });
+
+    // 返回当前10秒内命令数量
+    return static_cast<int>(timestamps.size());
+}
+
+// 检查玩家在10秒内是否发送命令超过阈值
+bool TianyanCore::checkPlayerSendCMD(const string& player_name) {
+    const auto now = std::chrono::steady_clock::now();
+    constexpr auto tenSeconds = std::chrono::seconds(10);
+
+    const auto it = playerCommandTimes.find(player_name);
+    if (it == playerCommandTimes.end()) {
+        return false; // 无记录，肯定未超限
+    }
+
+    auto& timestamps = it->second;
+
+    // 再次清理（防止长时间未调用 record 导致脏数据）
+    std::erase_if(timestamps,
+                  [now, tenSeconds](const TimePoint& t) {
+                      return (now - t) > tenSeconds;
+                  });
+
+    // 超过阈值即视为违规
+    return timestamps.size() > max_command_in_10s;
+}

@@ -5,10 +5,26 @@
 #ifndef TIANYAN_TIANYANCORE_H
 #define TIANYAN_TIANYANCORE_H
 #include "DataBase.hpp"
-#include <iomanip>  // 👈 Windows需要
-#include <chrono>  // 👈 Windows需要
-#include <ctime>   // 👈 Windows需要
+
 using namespace std;
+using TimePoint = std::chrono::steady_clock::time_point;
+//文件目录
+inline string dataPath = "plugins/tianyan_data";
+inline string dbPath = "plugins/tianyan_data/ty_data.db";
+inline string config_path = "plugins/tianyan_data/config.json";
+inline string ban_id_path = "plugins/tianyan_data/ban-id.json";
+//配置变量
+inline int max_message_in_10s;
+inline int max_command_in_10s;
+inline vector<string> no_log_mobs;
+// 存储每个玩家的上次触发时间
+inline std::unordered_map<string, TimePoint> lastTriggerTime;
+// 全局缓存：每个玩家的消息时间戳列表（仅保留最近10秒内的）
+inline std::unordered_map<string, std::vector<TimePoint>> playerMessageTimes;
+// 全局缓存：每个玩家的命令时间戳列表（仅保留最近10秒内的）
+inline std::unordered_map<string, std::vector<TimePoint>> playerCommandTimes;
+// 回溯状态缓存 - 存储需要标记为"reverted"的日志UUID和状态
+inline vector<pair<string, string>> revertStatusCache;
 
 class TianyanCore {
 public:
@@ -31,6 +47,14 @@ public:
         string status;
     };
 
+    //封禁设备ID玩家数据
+    struct BanIDPlayer {
+        string player_name;
+        string device_id;
+        optional<string> reason;
+        optional<std::chrono::seconds> time;
+    };
+
     //将字符串形式的Unix时间戳转换为 2 long 类型
     static long long stringToTimestamp(const std::string& timestampStr) ;
 
@@ -48,6 +72,18 @@ public:
     
     //查询日志并在指定世界和坐标范围内筛选
     [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key, double x, double y, double z, double r, const string& world) const;
+
+    // 记录玩家发送了一条消息（自动清理过期记录）
+    static int recordPlayerSendMSG(const string& player_name);
+
+    // 检查玩家在10秒内是否发送消息超过6条（即 ≥7 条）
+    static bool checkPlayerSendMSG(const string& player_name);
+
+    // 记录玩家发送了一条消息（自动清理过期记录）
+    static int recordPlayerSendCMD(const string& player_name);
+
+    // 检查玩家在10秒内是否发送消息超过6条（即 ≥7 条）
+    static bool checkPlayerSendCMD(const string& player_name);
 private:
     DataBase Database;
 };
