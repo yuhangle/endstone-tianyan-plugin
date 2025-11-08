@@ -53,6 +53,12 @@ ENDSTONE_PLUGIN("tianyan_plugin", "1.2.0-alpha.3", TianyanPlugin)
                     )
             .permissions("ty.command.op");
 
+        command("tyclean")
+            .description(Tran.getLocal("Clean database"))
+            .usages("/tyclean <time: int>"
+                    )
+            .permissions("ty.command.op");
+
     permission("ty.command.member")
             .description("Allow users to use the /ty command.")
             .default_(endstone::PermissionDefault::True);

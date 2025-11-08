@@ -3,8 +3,8 @@
   "Source ID": "行为实施者ID",
   "Source Type": "行为实施者类型",
   "Player": "玩家",
-  "Target Name" : "行为对象名",
-  "Target ID" : "行为对象ID",
+  "Target Name": "行为对象名",
+  "Target ID": "行为对象ID",
   "Data": "数据",
   "Time": "时间",
   "Action": "行为",
@@ -86,5 +86,15 @@
   "Reason: {}": "理由: {}",
   "Dimension": "维度",
   "Console not support this command": "控制台不支持此命令",
-  "Too many logs, please narrow the search range,display only 5,001 logs": "过多的日志，请缩小搜索范围，只展示5001条日志"
+  "Too many logs, please narrow the search range,display only 5,001 logs": "过多的日志，请缩小搜索范围，只展示5001条日志",
+  "Database clean over": "数据库清理完成",
+  "Database clean error": "数据库清理错误",
+  "Time elapsed: ": "耗时: ",
+  "Number of cleaned logs: ": "清理的日志数: ",
+  "Clean database": "清理数据库",
+  "Check behavior logs at server": "搜索服务器行为日志",
+  "Start cleaning logs older than {} hours": "开始清理超过{}小时的日志",
+  "Unable to write a large volume of logs; cached logs will be discarded": "大量日志无法写入，将丢弃缓存的日志",
+  "Update revert status failed": "更新回溯状态失败",
+  "Failed to write cached logs": "缓存日志写入失败"
 }

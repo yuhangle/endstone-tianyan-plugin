@@ -19,8 +19,8 @@ public:
         if (lastTriggerTime.contains(playername)) {
             const auto lastTime = lastTriggerTime[playername];
 
-            // 如果时间差小于 0.2 秒，不允许触发
-            if (const auto elapsedTime = std::chrono::duration<double>(now - lastTime).count(); elapsedTime < 0.2) {
+            // 如果时间差小于 0.1 秒，不允许触发
+            if (const auto elapsedTime = std::chrono::duration<double>(now - lastTime).count(); elapsedTime < 0.1) {
                 return false;
             }
         }

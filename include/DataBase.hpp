@@ -16,6 +16,10 @@
 #include <random>
 #include <chrono>
 
+//数据库清理输出语句缓存
+inline std::vector<std::string> clean_data_message;
+inline int clean_data_status;//0:未开始 1:成功 -1:失败
+
 class DataBase {
 public:
     // 构造时需要指定数据库文件名
@@ -148,6 +152,109 @@ public:
 
         sqlite3_close(db);
         return rc;
+    }
+
+    // 清理数据库中超过指定时间的数据
+    [[nodiscard]] bool cleanDataBase(double hours) const {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        
+        sqlite3* db;
+        int rc = sqlite3_open(db_filename.c_str(), &db);
+        if (rc) {
+            std::ostringstream ss;
+            ss << "Can not open database: " << sqlite3_errmsg(db);
+            clean_data_message.push_back(ss.str());
+            clean_data_status = -1;
+            return false;
+        }
+
+        // 获取当前时间戳（秒）
+        const long long currentTime = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        
+        // 计算时间阈值（秒）
+        const long long timeThreshold = currentTime - static_cast<long long>(hours * 3600);
+
+        // 查询将要删除的记录数
+        const std::string countSql = "SELECT COUNT(*) FROM LOGDATA WHERE time < " + std::to_string(timeThreshold) + ";";
+        sqlite3_stmt* countStmt;
+        rc = sqlite3_prepare_v2(db, countSql.c_str(), -1, &countStmt, nullptr);
+        if (rc != SQLITE_OK) {
+            std::ostringstream ss;
+            ss << "SQL 预处理失败: " << sqlite3_errmsg(db);
+            clean_data_message.push_back(ss.str());
+            sqlite3_close(db);
+            clean_data_status = -1;
+            return false;
+        }
+
+        int deletedCount = 0;
+        if (sqlite3_step(countStmt) == SQLITE_ROW) {
+            deletedCount = sqlite3_column_int(countStmt, 0);
+        }
+        sqlite3_finalize(countStmt);
+
+        // 开始事务以提高性能
+        rc = sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+        if (rc != SQLITE_OK) {
+            std::ostringstream ss;
+            ss << "Can not begin transaction: " << sqlite3_errmsg(db);
+            clean_data_message.push_back(ss.str());
+            sqlite3_close(db);
+            clean_data_status = -1;
+            return false;
+        }
+
+        // 删除超过指定时间的数据
+        const std::string deleteSql = "DELETE FROM LOGDATA WHERE time < " + std::to_string(timeThreshold) + ";";
+        rc = sqlite3_exec(db, deleteSql.c_str(), nullptr, nullptr, nullptr);
+        if (rc != SQLITE_OK) {
+            std::ostringstream ss;
+            ss << "SQL delete failed: " << sqlite3_errmsg(db);
+            clean_data_message.push_back(ss.str());
+            sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+            sqlite3_close(db);
+            clean_data_status = -1;
+            return false;
+        }
+
+        // 提交事务
+        rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+        if (rc != SQLITE_OK) {
+            std::ostringstream ss;
+            ss << "Can not commit: " << sqlite3_errmsg(db);
+            clean_data_message.push_back(ss.str());
+            sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+            sqlite3_close(db);
+            clean_data_status = -1;
+            return false;
+        }
+
+        // 整理数据库以释放空间
+        rc = sqlite3_exec(db, "VACUUM;", nullptr, nullptr, nullptr);
+        if (rc != SQLITE_OK) {
+            std::ostringstream ss;
+            ss << "Database vacuum failed: " << sqlite3_errmsg(db);
+            clean_data_message.push_back(ss.str());
+            sqlite3_close(db);
+            clean_data_status = -1;
+            return false;
+        }
+
+        // 计算耗时
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+        double seconds = std::chrono::duration_cast<std::chrono::duration<double>>(duration).count();
+
+        // 添加耗时和清理日志数信息
+        clean_data_message.emplace_back("Time elapsed: ");
+        clean_data_message.emplace_back(std::to_string(seconds));
+        clean_data_message.emplace_back("Number of cleaned logs: ");
+        clean_data_message.emplace_back(std::to_string(deletedCount));
+
+        sqlite3_close(db);
+        clean_data_status = 1;
+        return true;
     }
 
     // 查找指定表中是否存在指定值

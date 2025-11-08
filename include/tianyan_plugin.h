@@ -146,10 +146,55 @@ public:
         if (logDataCache.empty()) {
             return;
         }
+        //检查写入状态
         if (tyCore.recordLogs(logDataCache)) {
-            getLogger().error("写入错误");
-        };
-        logDataCache.clear();
+            getLogger().error(Tran.getLocal("Failed to write cached logs"));
+            if (logDataCache.size() > 100000) {
+                getLogger().error("Unable to write a large volume of logs; cached logs will be discarded");
+                logDataCache.clear();
+            }
+        } else {
+            logDataCache.clear();
+        }
+    }
+
+    //检查异步的数据库清理状态
+    void checkDatabaseCleanStatus() const {
+        if (clean_data_status == 0) {
+            return;
+        }
+        const auto player = getServer().getPlayer(clean_data_sender_name);
+        const auto green = endstone::ColorFormat::Green;
+        if (clean_data_status == 1) {
+            if (clean_data_sender_name!="Server" && player) {
+                player->sendMessage(green+Tran.getLocal("Database clean over"));
+                player->sendMessage(green+Tran.getLocal(clean_data_message[0]) + clean_data_message[1] + "s");
+                player->sendMessage(green+Tran.getLocal(clean_data_message[2])+clean_data_message[3]);
+                getLogger().info(green+Tran.getLocal("Database clean over"));
+                getLogger().info(green+Tran.getLocal(clean_data_message[0]) + clean_data_message[1] + "s");
+                getLogger().info(green+Tran.getLocal(clean_data_message[2])+clean_data_message[3]);
+            } else {
+                getLogger().info(green+Tran.getLocal("Database clean over"));
+                getLogger().info(green+Tran.getLocal(clean_data_message[0]) + clean_data_message[1] + "s");
+                getLogger().info(green+Tran.getLocal(clean_data_message[2])+clean_data_message[3]);
+            }
+        } else if (clean_data_status == -1) {
+            if (clean_data_sender_name!="Server" && player) {
+                player->sendErrorMessage(Tran.getLocal("Database clean error"));
+                getLogger().error(Tran.getLocal("Database clean error"));
+                for (const string& info : clean_data_message) {
+                    player->sendErrorMessage(info);
+                    getLogger().error(info);
+                }
+            } else {
+                getLogger().error(Tran.getLocal("Database clean error"));
+                for (const string& info : clean_data_message) {
+                    getLogger().error(info);
+                }
+            }
+        }
+        clean_data_status = 0;
+        clean_data_message.clear();
     }
 
     // 批量更新回溯状态
@@ -160,11 +205,15 @@ public:
 
         // 使用数据库的批量更新方法更新状态
         if (!Database.updateStatusesByUUIDs(revertStatusCache)) {
-            getLogger().error("更新回溯状态失败");
+            getLogger().error("Update revert status failed");
+            if (revertStatusCache.size() > 100000) {
+                getLogger().error("Unable to write a large volume of logs; cached logs will be discarded");
+                revertStatusCache.clear();
+            }
+        } else {
+            // 写入成功才清空缓存
+            revertStatusCache.clear();
         }
-
-        // 清空缓存
-        revertStatusCache.clear();
     }
     void onEnable() override
     {
@@ -192,6 +241,7 @@ public:
         }
         //定期写入
         auto_write_task = getServer().getScheduler().runTaskTimer(*this, [&]() {logsCacheWrite();},0,60);
+        getServer().getScheduler().runTaskTimer(*this,[&](){checkDatabaseCleanStatus();},0,20);
         //完成外部类初始化
         protect_ = std::make_unique<TianyanProtect>(*this);
         eventListener_ = std::make_unique<EventListener>(*this);
@@ -584,6 +634,17 @@ public:
                 sender.sendMessage("----------------------");
             }
         }
+        else if (command.getName() == "tyclean") {
+            if (!args.empty()) {
+                int hours = DataBase::stringToInt(args[0]);
+                clean_data_sender_name = sender.getName();
+                sender.sendMessage(endstone::ColorFormat::Yellow+Tran.tr(Tran.getLocal("Start cleaning logs older than {} hours"), args[0]));
+                std::thread clean_thread([hours]() {
+                    (void)Database.cleanDataBase(hours);
+                });
+                clean_thread.detach();
+            }
+        }
         return true;
     }
 
@@ -591,4 +652,5 @@ private:
     std::unique_ptr<TianyanProtect> protect_;
     std::unique_ptr<EventListener> eventListener_;
     std::unique_ptr<Menu> menu_;
+    string clean_data_sender_name;
 };
