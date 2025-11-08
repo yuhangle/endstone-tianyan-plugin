@@ -58,6 +58,9 @@ public:
                 logFields.emplace_back(Tran.getLocal("Position"),
                                       fmt::format("{:.2f},{:.2f},{:.2f}", logData.pos_x, logData.pos_y, logData.pos_z));
 
+                //添加维度信息
+                logFields.emplace_back(Tran.getLocal("Dimension"), logData.world);
+
                 // 添加时间信息
                 logFields.emplace_back(Tran.getLocal("Time"), TianyanCore::timestampToString(logData.time));
 

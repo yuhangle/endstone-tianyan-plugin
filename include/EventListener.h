@@ -326,7 +326,9 @@ public:
     void onPlayerSendMSG(const endstone::PlayerChatEvent &event) {
         TianyanCore::recordPlayerSendMSG(event.getPlayer().getName());
         if (TianyanCore::checkPlayerSendMSG(event.getPlayer().getName())) {
-            plugin_.getServer().getBanList().addBan(event.getPlayer().getName(),Tran.getLocal("Too many messages sent in a short time"), std::chrono::hours(24), "Tianyan Plugin");
+            string reason = Tran.getLocal("Too many messages sent in a short time");
+            plugin_.getServer().getBanList().addBan(event.getPlayer().getName(),reason, std::chrono::hours(24), "Tianyan Plugin");
+            event.getPlayer().kick(reason);
             plugin_.getServer().broadcastMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Player") + ": " + event.getPlayer().getName() + " " + Tran.getLocal("has been banned for sending too many messages in a short time"));
         }
     }
@@ -335,7 +337,9 @@ public:
     void onPlayerSendCMD(const endstone::PlayerChatEvent &event) {
         TianyanCore::recordPlayerSendCMD(event.getPlayer().getName());
         if (TianyanCore::checkPlayerSendCMD(event.getPlayer().getName())) {
-            plugin_.getServer().getBanList().addBan(event.getPlayer().getName(),Tran.getLocal("Too many commands sent in a short time"), std::chrono::hours(24), "Tianyan Plugin");
+            string reason = Tran.getLocal("Too many commands sent in a short time");
+            plugin_.getServer().getBanList().addBan(event.getPlayer().getName(),reason, std::chrono::hours(24), "Tianyan Plugin");
+            event.getPlayer().kick(reason);
             plugin_.getServer().broadcastMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Player") + ": " + event.getPlayer().getName() + " " + Tran.getLocal("has been banned for sending too many commands in a short time"));
         }
     }
@@ -356,27 +360,26 @@ public:
                 event.getPlayer().kick(Tran.getLocal("Your device has been baned")+": "+reason);
             } else {
                 event.getPlayer().kick(Tran.getLocal("Your device has been baned")+": "+reason);
+                plugin_.getLogger().info(endstone::ColorFormat::Yellow+Tran.getLocal("Baned player: ")+player_name+" ("+device_id+") "+Tran.getLocal("try to join server"));
             }
         }
         //通过设备ID检查，检查是否使用过封禁设备
         else {
             if (TianyanProtect::isPlayerBanned(player_name)) {
-                plugin_.getLogger().info(endstone::ColorFormat::Yellow+Tran.getLocal("Baned player: ")+player_name+" "+Tran.getLocal("try to join server"));
+                plugin_.getLogger().info(endstone::ColorFormat::Yellow+Tran.getLocal("Baned player: ")+player_name+" ("+device_id+") "+Tran.getLocal("try to join server"));
                 string reason;
-                chrono::seconds time;
                 for (const auto &baned_player : BanIDPlayers) {
                     if (baned_player.player_name == player_name) {
                         reason = baned_player.reason.value_or("");
-                        time = baned_player.time.value_or(std::chrono::seconds(0));
                         break;
                     }
                 }
-                const int64_t hours = std::chrono::duration_cast<std::chrono::hours>(time).count();
                 if (reason.empty()) {
-                    (void)plugin_.getServer().dispatchCommand(plugin_.getServer().getCommandSender(),"ban-id " + device_id + " " + to_string(hours));
+                    (void)plugin_.getServer().dispatchCommand(plugin_.getServer().getCommandSender(),"ban-id " + device_id);
                 } else {
-                    (void)plugin_.getServer().dispatchCommand(plugin_.getServer().getCommandSender(),"ban-id " + device_id + " " + to_string(hours) + " \"" + reason +"\"");
+                    (void)plugin_.getServer().dispatchCommand(plugin_.getServer().getCommandSender(),"ban-id " + device_id+ " \"" + reason +"\"");
                 }
+                event.getPlayer().kick(Tran.getLocal("Your device has been baned")+": "+reason);
             }
         }
     }

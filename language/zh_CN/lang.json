@@ -55,8 +55,8 @@
   "Device ID: ": "设备ID: ",
   "Too many messages sent in a short time": "短时间内发送过多消息",
   "Too many commands sent in a short time": "短时间内发送过多命令",
-  "has been banned for sending too many messages in a short time": "由于时间内发送过多消息被封禁",
-  "has been banned for sending too many commands in a short time": "由于时间内发送过多命令被封禁",
+  "has been banned for sending too many messages in a short time": "由于短时间内发送过多消息被封禁",
+  "has been banned for sending too many commands in a short time": "由于短时间内发送过多命令被封禁",
   "Automatically create a device ID blacklist file": "自动创建设备ID黑名单文件",
   "Failed to create the device ID blacklist file": "创建设备ID黑名单文件失败",
   "The data for device ID {} is missing the 'player_name' field": "设备ID {} 的数据缺少 player_name 字段",
@@ -77,5 +77,14 @@
   "Baned player: ": "被封禁的玩家: ",
   "try to join server": "尝试加入服务器",
   "Ban player by device id": "通过设备ID封禁玩家",
-  "Unban player by device id": "通过设备ID解封玩家"
+  "Unban player by device id": "通过设备ID解封玩家",
+  "List baned player by device id": "列出设备ID封禁的玩家",
+  "The list of baned device: ": "被封禁设备列表: ",
+  "Nothing": "无",
+  "Device ID: {}": "设备ID: {}",
+  "Player: {}": "玩家: {}",
+  "Reason: {}": "理由: {}",
+  "Dimension": "维度",
+  "Console not support this command": "控制台不支持此命令",
+  "Too many logs, please narrow the search range,display only 5,001 logs": "过多的日志，请缩小搜索范围，只展示5001条日志"
 }

@@ -36,6 +36,12 @@ public:
         }
         return key; // 如果找不到，返回原始 key
     }
+
+    template<typename... Args>
+    std::string tr(const std::string& key, Args&&... args) {
+        const std::string pattern = getLocal(key);
+        return fmt::vformat(pattern, fmt::make_format_args(args...));
+    }
 };
 
 inline translate::translate() {

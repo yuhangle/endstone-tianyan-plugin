@@ -57,29 +57,14 @@ public:
                         ban_player.reason = value["reason"];
                     }
                     
-                    if (value.contains("time")) {
-                        // 处理时间值
-                        if (string time_str = value["time"]; time_str != "0") {
-                            try {
-                                long long time_val = stoll(time_str);
-                                ban_player.time = std::chrono::seconds(time_val);
-                            } catch (...) {
-                                // 时间格式无效，默认不设置时间或设置为0
-                                ban_player.time = std::chrono::seconds(0);
-                            }
-                        } else {
-                            ban_player.time = std::chrono::seconds(0);
-                        }
-                    }
-                    
                     BanIDPlayers.push_back(ban_player);
                 } else {
-                    plugin_.getLogger().error(Tran.getLocal("The data for device ID {} is missing the 'player_name' field")+","+device_id);
+                    plugin_.getLogger().error(Tran.tr(Tran.getLocal("The data for device ID {} is missing the 'player_name' field")+","+device_id));
                 }
             }
             
         } catch (const std::exception& e) {
-            plugin_.getLogger().error(Tran.getLocal("Error occurred while parsing the device ID blacklist file: {}")+","+ e.what());
+            plugin_.getLogger().error(Tran.tr(Tran.getLocal("Error occurred while parsing the device ID blacklist file: {}")+","+ e.what()));
         }
     }
 
@@ -88,7 +73,7 @@ public:
         // 检查该设备ID是否已经存在于缓存中
         for (const auto& existingPlayer : BanIDPlayers) {
             if (existingPlayer.device_id == banPlayer.device_id) {
-                plugin_.getLogger().error(Tran.getLocal("The device ID {} already exists")+","+banPlayer.device_id);
+                plugin_.getLogger().error(Tran.tr(Tran.getLocal("The device ID {} already exists"), banPlayer.device_id));
                 return false;
             }
         }
@@ -110,7 +95,7 @@ public:
 
             // 检查该设备ID是否已经存在于文件中
             if (jsonData.contains(banPlayer.device_id)) {
-                plugin_.getLogger().error(Tran.getLocal("The device ID {} already exists")+","+banPlayer.device_id);
+                plugin_.getLogger().error(Tran.tr(Tran.getLocal("The device ID {} already exists"), banPlayer.device_id));
                 return false;
             }
 
@@ -122,13 +107,6 @@ public:
                 newEntry["reason"] = banPlayer.reason.value();
             } else {
                 newEntry["reason"] = "";
-            }
-            
-            if (banPlayer.time.has_value()) {
-                long long timeValue = banPlayer.time.value().count();
-                newEntry["time"] = std::to_string(timeValue);
-            } else {
-                newEntry["time"] = "0";
             }
 
             // 添加到JSON对象
@@ -142,13 +120,13 @@ public:
                 // 添加到缓存
                 BanIDPlayers.push_back(banPlayer);
                 
-                plugin_.getLogger().info(Tran.getLocal("Device ID {} banned successfully")+","+banPlayer.device_id);
+                plugin_.getLogger().info(Tran.tr(Tran.getLocal("Device ID {} banned successfully"),banPlayer.device_id));
                 return true;
             }
             plugin_.getLogger().error(Tran.getLocal("Failed to write to the device ID blacklist file"));
             return false;
         } catch (const std::exception& e) {
-            plugin_.getLogger().error(Tran.getLocal("Error occurred while banning device ID {}: {}")+","+banPlayer.device_id+","+e.what());
+            plugin_.getLogger().error(Tran.tr(Tran.getLocal("Error occurred while banning device ID {}: {}"), banPlayer.device_id, e.what()));
             return false;
         }
     }
@@ -168,7 +146,7 @@ public:
         }
         
         if (!foundInCache) {
-            plugin_.getLogger().error(Tran.getLocal("Device ID {} not found in cache")+","+deviceId);
+            plugin_.getLogger().error(Tran.tr(Tran.getLocal("Device ID {} not found in cache"), deviceId));
         }
 
         try {
@@ -191,7 +169,7 @@ public:
 
             // 检查该设备ID是否存在于文件中
             if (!jsonData.contains(deviceId)) {
-                plugin_.getLogger().error(Tran.getLocal("Device ID {} not found in file")+","+deviceId);
+                plugin_.getLogger().error(Tran.tr(Tran.getLocal("Device ID {} not found in file"), deviceId));
                 return foundInCache; // 如果缓存中有就返回true，否则false
             }
 
@@ -203,13 +181,13 @@ public:
                 outfile << jsonData.dump(4);
                 outfile.close();
                 
-                plugin_.getLogger().info(Tran.getLocal("Device ID {} unbanned successfully")+","+deviceId);
+                plugin_.getLogger().info(Tran.tr(Tran.getLocal("Device ID {} unbanned successfully"), deviceId));
                 return true;
             }
             plugin_.getLogger().error(Tran.getLocal("Failed to write to the device ID blacklist file"));
             return false;
         } catch (const std::exception& e) {
-            plugin_.getLogger().error(Tran.getLocal("Error occurred while unbanning device ID {}: {}")+","+deviceId+","+e.what());
+            plugin_.getLogger().error(Tran.tr(Tran.getLocal("Error occurred while unbanning device ID {}: {}"),deviceId, e.what()));
             return false;
         }
     }

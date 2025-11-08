@@ -52,7 +52,6 @@ public:
         string player_name;
         string device_id;
         optional<string> reason;
-        optional<std::chrono::seconds> time;
     };
 
     //将字符串形式的Unix时间戳转换为 2 long 类型

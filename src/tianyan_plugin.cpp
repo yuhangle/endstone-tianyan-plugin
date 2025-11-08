@@ -37,13 +37,19 @@ ENDSTONE_PLUGIN("tianyan_plugin", "1.2.0-alpha.3", TianyanPlugin)
 
         command("ban-id")
             .description(Tran.getLocal("Ban player by device id"))
-            .usages("/ban-id <device-id: str> [time: int] [reason: str]"
+            .usages("/ban-id <device-id: str> [reason: str]"
                     )
             .permissions("ty.command.op");
 
         command("unban-id")
             .description(Tran.getLocal("Unban player by device id"))
             .usages("/unban-id <device-id: str>"
+                    )
+            .permissions("ty.command.op");
+
+        command("banlist-id")
+            .description(Tran.getLocal("List baned player by device id"))
+            .usages("/banlist-id"
                     )
             .permissions("ty.command.op");
 

@@ -23,7 +23,6 @@
 #include <endstone/event/block/block_piston_retract_event.h>
 #include <endstone/color_format.h>
 #include <algorithm>
-#include <complex>
 #include <endstone/event/player/player_pickup_item_event.h>
 #include <endstone/endstone.hpp>
 #include "TianyanProtect.h"
@@ -70,15 +69,14 @@ public:
                 for (auto& [key, value] : df_config.items()) {
                     if (!loaded_config.contains(key)) {
                         loaded_config[key] = value;
-                        getLogger().info(Tran.getLocal("Config '{}' has update with default config")+","+ key);
+                        getLogger().info(Tran.tr(Tran.getLocal("Config '{}' has update with default config"), key));
                         need_update = true;
                     }
                 }
 
                 // 如果需要更新配置文件，则进行写入
                 if (need_update) {
-                    std::ofstream outfile(config_path);
-                    if (outfile.is_open()) {
+                    if (std::ofstream outfile(config_path); outfile.is_open()) {
                         outfile << loaded_config.dump(4);
                         outfile.close();
                         getLogger().info(Tran.getLocal("Config file update over"));
@@ -247,6 +245,7 @@ public:
             }
             else if (args.size() >= 2) {
                 if (!sender.asPlayer()) {
+                    sender.sendErrorMessage(Tran.getLocal("Console not support this command"));
                     return false;
                 }
                 try {
@@ -305,6 +304,10 @@ public:
                             if (!key_logData.empty()) {
                                 Menu::showLogMenu(*sender.asPlayer(), key_logData);
                                 sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs about")+"` "+search_key+" `");
+                                //提示数据过大
+                                if (searchData.size() > 5000) {
+                                    sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 5,001 logs"));
+                                }
                             }
                             else {
                                 sender.sendErrorMessage(Tran.getLocal("No log found"));
@@ -312,6 +315,10 @@ public:
                         } else {
                             Menu::showLogMenu(*sender.asPlayer(), searchData);
                             sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs"));
+                            //提示数据过大
+                            if (searchData.size() > 5000) {
+                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 5,001 logs"));
+                            }
                         }
                     }
 
@@ -333,6 +340,7 @@ public:
             }
             else if (args.size() >=2) {
                 if (!sender.asPlayer()) {
+                    sender.sendErrorMessage(Tran.getLocal("Console not support this command"));
                     return false;
                 }
                 try {
@@ -433,6 +441,10 @@ public:
                         updateRevertStatus();
                         if (success_times > 0) {
                             sender.sendMessage(Tran.getLocal("Revert times: ")+std::to_string(success_times));
+                            //提示数据过大
+                            if (searchData.size() > 5000) {
+                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 5,001 logs"));
+                            }
                         } else {
                             sender.sendMessage(Tran.getLocal("Nothing happened"));
                         }
@@ -455,6 +467,7 @@ public:
             }
             else if (!args.empty()) {
                 if (!sender.asPlayer()) {
+                    sender.sendErrorMessage(Tran.getLocal("Console not support this command"));
                     return false;
                 }
                 try {
@@ -501,6 +514,10 @@ public:
                             if (!key_logData.empty()) {
                                 Menu::showLogMenu(*sender.asPlayer(), key_logData);
                                 sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs about")+"` "+search_key+" `");
+                                //提示数据过大
+                                if (searchData.size() > 5000) {
+                                    sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 5,001 logs"));
+                                }
                             }
                             else {
                                 sender.sendErrorMessage(Tran.getLocal("No log found"));
@@ -508,6 +525,10 @@ public:
                         } else {
                             Menu::showLogMenu(*sender.asPlayer(), searchData);
                             sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs"));
+                            //提示数据过大
+                            if (searchData.size() > 5000) {
+                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 5,001 logs"));
+                            }
                         }
                     }
 
@@ -520,9 +541,7 @@ public:
         else if (command.getName() == "ban-id") {
             if (!args.empty()) {
                 string device_id = args[0];
-                const double time = args.size() > 1 ? stod(args[1]) : 0;
-                const auto duration = std::chrono::hours(static_cast<int64_t>(time));
-                const string reason = args.size() > 2 ? args[2] : "";
+                const string reason = args.size() > 1 ? args[1] : "";
                 string player_name = "Null";
                 for (auto &player : getServer().getOnlinePlayers()) {
                     if (player->getDeviceId() == device_id) {
@@ -530,13 +549,13 @@ public:
                         player->kick(reason);
                     }
                 }
-                TianyanCore::BanIDPlayer banIDPlayer = {player_name,device_id, reason, duration};
+                TianyanCore::BanIDPlayer banIDPlayer = {player_name,device_id, reason};
                 auto status = protect_->BanDeviceID(banIDPlayer);
                 if (sender.asPlayer()) {
                     if (status) {
-                        sender.sendMessage(Tran.getLocal("Device ID {} banned successfully")+","+device_id);
+                        sender.sendMessage(Tran.tr(Tran.getLocal("Device ID {} banned successfully"),device_id));
                     } else {
-                        sender.sendErrorMessage(Tran.getLocal("Error occurred while banning device ID {}: {}")+","+device_id+","+Tran.getLocal("View more in console"));
+                        sender.sendErrorMessage(Tran.tr(Tran.getLocal("Error occurred while banning device ID {}: {}"), device_id, Tran.getLocal("View more in console")));
                     }
                 }
             }
@@ -546,11 +565,23 @@ public:
                 const auto status = protect_->UnbanDeviceID(device_id);
                 if (sender.asPlayer()) {
                     if (status) {
-                        sender.sendMessage(Tran.getLocal("Device ID {} unbanned successfully")+","+device_id);
+                        sender.sendMessage(Tran.tr(Tran.getLocal("Device ID {} unbanned successfully"), device_id));
                     } else {
-                        sender.sendErrorMessage(Tran.getLocal("Error occurred while unbanning device ID {}: {}")+","+device_id+","+Tran.getLocal("View more in console"));
+                        sender.sendErrorMessage(Tran.tr(Tran.getLocal("Error occurred while unbanning device ID {}: {}"), device_id, Tran.getLocal("View more in console")));
                     }
                 }
+            }
+        } else if (command.getName() == "banlist-id") {
+            sender.sendMessage(Tran.getLocal("The list of baned device: "));
+            if (BanIDPlayers.empty()) {
+                sender.sendErrorMessage(Tran.getLocal("Nothing"));
+                return true;
+            }
+            for (auto &[player_name, device_id, reason] : BanIDPlayers) {
+                sender.sendMessage(Tran.tr(Tran.getLocal("Device ID: {}"), device_id));
+                sender.sendMessage(Tran.tr(Tran.getLocal("Player: {}"), player_name));
+                sender.sendMessage(Tran.tr(Tran.getLocal("Reason: {}"), reason.value_or("")));
+                sender.sendMessage("----------------------");
             }
         }
         return true;
