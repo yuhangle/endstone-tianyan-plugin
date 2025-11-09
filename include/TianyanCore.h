@@ -14,6 +14,7 @@ inline string dataPath = "plugins/tianyan_data";
 inline string dbPath = "plugins/tianyan_data/ty_data.db";
 inline string config_path = "plugins/tianyan_data/config.json";
 inline string ban_id_path = "plugins/tianyan_data/ban-id.json";
+inline string language_file = "plugins/tianyan_data/language/en_US.json";
 //配置变量
 inline int max_message_in_10s;
 inline int max_command_in_10s;
@@ -53,6 +54,7 @@ public:
         string player_name;
         string device_id;
         optional<string> reason;
+        string time;
     };
 
     //将字符串形式的Unix时间戳转换为 2 long 类型

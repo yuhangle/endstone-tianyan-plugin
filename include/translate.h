@@ -11,21 +11,21 @@ using namespace std;
 
 class translate {
 public:
-    const string langFile = "plugins/tianyan_data/lang.json";
     using json = nlohmann::json;
     json languageResource; // 存储从 lang.json 加载的语言资源
 
     // 构造函数中加载语言资源文件
-    translate();
+    explicit translate(const string& lang);
 
     // 加载语言资源文件
-    pair<bool,string> loadLanguage() {
-        if (std::ifstream f(langFile); f.is_open()) {
+    pair<bool,string> loadLanguage(const string& lang) {
+        lang_file = lang;
+        if (std::ifstream f(lang_file); f.is_open()) {
             languageResource = json::parse(f);
             f.close();
-            return {true,"lang.json is normal"};
+            return {true,"language file is normal"};
         } else {
-            return {false,"you can download lang.json from github to change tianyan plugin language"};
+            return {false,"you can download language file from github to change tianyan plugin language"};
         }
     }
 
@@ -42,10 +42,12 @@ public:
         const std::string pattern = getLocal(key);
         return fmt::vformat(pattern, fmt::make_format_args(args...));
     }
+private:
+    string lang_file = "plugins/tianyan_data/language/en_US.json";
 };
 
-inline translate::translate() {
-    loadLanguage();
+inline translate::translate(const string& lang) {
+    loadLanguage(lang);
 }
 
 #endif //TIANYAN_TRANSLATE_H

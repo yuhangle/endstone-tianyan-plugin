@@ -52,6 +52,7 @@ public:
                     TianyanCore::BanIDPlayer ban_player;
                     ban_player.device_id = device_id;
                     ban_player.player_name = value["player_name"];
+                    ban_player.time = value["time"];
                     
                     if (value.contains("reason")) {
                         ban_player.reason = value["reason"];
@@ -108,6 +109,8 @@ public:
             } else {
                 newEntry["reason"] = "";
             }
+
+            newEntry["time"] = banPlayer.time;
 
             // 添加到JSON对象
             jsonData[banPlayer.device_id] = newEntry;

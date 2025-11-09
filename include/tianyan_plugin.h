@@ -35,6 +35,7 @@ public:
         //数据目录和配置文件检查
     void datafile_check() const {
         json df_config = {
+            {"language","zh_CN"},
             {"10s_message_max", 6},
             {"10s_command_max", 12},
             {"no_log_mobs", {"minecraft:zombie_pigman","minecraft:zombie","minecraft:skeleton","minecraft:bogged","minecraft:slime"}}
@@ -111,7 +112,7 @@ public:
             filesystem::create_directory(dataPath);
         }
         //加载语言
-        const auto [fst, snd] = Tran.loadLanguage();
+        const auto [fst, snd] = Tran.loadLanguage(language_file);
         getLogger().info(snd);
 #ifdef __linux__
         namespace fs = std::filesystem;
@@ -141,92 +142,21 @@ public:
 #endif
     }
 
-    //缓存写入机制
-    void logsCacheWrite() const {
-        if (logDataCache.empty()) {
-            return;
-        }
-        //检查写入状态
-        if (tyCore.recordLogs(logDataCache)) {
-            getLogger().error(Tran.getLocal("Failed to write cached logs"));
-            if (logDataCache.size() > 100000) {
-                getLogger().error("Unable to write a large volume of logs; cached logs will be discarded");
-                logDataCache.clear();
-            }
-        } else {
-            logDataCache.clear();
-        }
-    }
-
-    //检查异步的数据库清理状态
-    void checkDatabaseCleanStatus() const {
-        if (clean_data_status == 0) {
-            return;
-        }
-        const auto player = getServer().getPlayer(clean_data_sender_name);
-        const auto green = endstone::ColorFormat::Green;
-        if (clean_data_status == 1) {
-            if (clean_data_sender_name!="Server" && player) {
-                player->sendMessage(green+Tran.getLocal("Database clean over"));
-                player->sendMessage(green+Tran.getLocal(clean_data_message[0]) + clean_data_message[1] + "s");
-                player->sendMessage(green+Tran.getLocal(clean_data_message[2])+clean_data_message[3]);
-                getLogger().info(green+Tran.getLocal("Database clean over"));
-                getLogger().info(green+Tran.getLocal(clean_data_message[0]) + clean_data_message[1] + "s");
-                getLogger().info(green+Tran.getLocal(clean_data_message[2])+clean_data_message[3]);
-            } else {
-                getLogger().info(green+Tran.getLocal("Database clean over"));
-                getLogger().info(green+Tran.getLocal(clean_data_message[0]) + clean_data_message[1] + "s");
-                getLogger().info(green+Tran.getLocal(clean_data_message[2])+clean_data_message[3]);
-            }
-        } else if (clean_data_status == -1) {
-            if (clean_data_sender_name!="Server" && player) {
-                player->sendErrorMessage(Tran.getLocal("Database clean error"));
-                getLogger().error(Tran.getLocal("Database clean error"));
-                for (const string& info : clean_data_message) {
-                    player->sendErrorMessage(info);
-                    getLogger().error(info);
-                }
-            } else {
-                getLogger().error(Tran.getLocal("Database clean error"));
-                for (const string& info : clean_data_message) {
-                    getLogger().error(info);
-                }
-            }
-        }
-        clean_data_status = 0;
-        clean_data_message.clear();
-    }
-
-    // 批量更新回溯状态
-    void updateRevertStatus() const {
-        if (revertStatusCache.empty()) {
-            return;
-        }
-
-        // 使用数据库的批量更新方法更新状态
-        if (!Database.updateStatusesByUUIDs(revertStatusCache)) {
-            getLogger().error("Update revert status failed");
-            if (revertStatusCache.size() > 100000) {
-                getLogger().error("Unable to write a large volume of logs; cached logs will be discarded");
-                revertStatusCache.clear();
-            }
-        } else {
-            // 写入成功才清空缓存
-            revertStatusCache.clear();
-        }
-    }
     void onEnable() override
     {
         getLogger().info("onEnable is called");
         (void)Database.init_database();
         datafile_check();
-                //进行一个配置文件的读取
+        //进行一个配置文件的读取
         json json_msg = read_config();
         try {
+            string lang = "en_US";
             if (!json_msg.contains("error")) {
                 max_message_in_10s = json_msg["10s_message_max"];
                 max_command_in_10s = json_msg["10s_command_max"];
                 no_log_mobs = json_msg["no_log_mobs"];
+                lang = json_msg["language"];
+                language_file = dataPath + "/language/"+lang+".json";
             } else {
                 getLogger().error(Tran.getLocal("Config file error!Use default config"));
                 max_message_in_10s = 6;
@@ -239,6 +169,7 @@ public:
             no_log_mobs = {"minecraft:zombie_pigman","minecraft:zombie","minecraft:skeleton","minecraft:bogged","minecraft:slime"};
             getLogger().error(Tran.getLocal("Config file error!Use default config")+","+e.what());
         }
+        Tran = translate(language_file);
         //定期写入
         auto_write_task = getServer().getScheduler().runTaskTimer(*this, [&]() {logsCacheWrite();},0,60);
         getServer().getScheduler().runTaskTimer(*this,[&](){checkDatabaseCleanStatus();},0,20);
@@ -599,7 +530,7 @@ public:
                         player->kick(reason);
                     }
                 }
-                TianyanCore::BanIDPlayer banIDPlayer = {player_name,device_id, reason};
+                TianyanCore::BanIDPlayer banIDPlayer = {player_name,device_id, reason, TianyanCore::timestampToString(std::time(nullptr))};
                 auto status = protect_->BanDeviceID(banIDPlayer);
                 if (sender.asPlayer()) {
                     if (status) {
@@ -624,13 +555,14 @@ public:
         } else if (command.getName() == "banlist-id") {
             sender.sendMessage(Tran.getLocal("The list of baned device: "));
             if (BanIDPlayers.empty()) {
-                sender.sendErrorMessage(Tran.getLocal("Nothing"));
+                sender.sendMessage(Tran.getLocal("Nothing"));
                 return true;
             }
-            for (auto &[player_name, device_id, reason] : BanIDPlayers) {
+            for (auto &[player_name, device_id, reason, time] : BanIDPlayers) {
                 sender.sendMessage(Tran.tr(Tran.getLocal("Device ID: {}"), device_id));
                 sender.sendMessage(Tran.tr(Tran.getLocal("Player: {}"), player_name));
                 sender.sendMessage(Tran.tr(Tran.getLocal("Reason: {}"), reason.value_or("")));
+                sender.sendMessage(Tran.tr(Tran.getLocal("Time: {}"), time));
                 sender.sendMessage("----------------------");
             }
         }
@@ -646,6 +578,81 @@ public:
             }
         }
         return true;
+    }
+
+        //缓存写入机制
+    void logsCacheWrite() const {
+        if (logDataCache.empty()) {
+            return;
+        }
+        //检查写入状态
+        if (tyCore.recordLogs(logDataCache)) {
+            getLogger().error(Tran.getLocal("Failed to write cached logs"));
+            if (logDataCache.size() > 100000) {
+                getLogger().error("Unable to write a large volume of logs; cached logs will be discarded");
+                logDataCache.clear();
+            }
+        } else {
+            logDataCache.clear();
+        }
+    }
+
+    //检查异步的数据库清理状态
+    void checkDatabaseCleanStatus() const {
+        if (clean_data_status == 0) {
+            return;
+        }
+        const auto player = getServer().getPlayer(clean_data_sender_name);
+        const auto green = endstone::ColorFormat::Green;
+        if (clean_data_status == 1) {
+            if (clean_data_sender_name!="Server" && player) {
+                player->sendMessage(green+Tran.getLocal("Database clean over"));
+                player->sendMessage(green+Tran.getLocal(clean_data_message[0]) + clean_data_message[1] + "s");
+                player->sendMessage(green+Tran.getLocal(clean_data_message[2])+clean_data_message[3]);
+                getLogger().info(green+Tran.getLocal("Database clean over"));
+                getLogger().info(green+Tran.getLocal(clean_data_message[0]) + clean_data_message[1] + "s");
+                getLogger().info(green+Tran.getLocal(clean_data_message[2])+clean_data_message[3]);
+            } else {
+                getLogger().info(green+Tran.getLocal("Database clean over"));
+                getLogger().info(green+Tran.getLocal(clean_data_message[0]) + clean_data_message[1] + "s");
+                getLogger().info(green+Tran.getLocal(clean_data_message[2])+clean_data_message[3]);
+            }
+        } else if (clean_data_status == -1) {
+            if (clean_data_sender_name!="Server" && player) {
+                player->sendErrorMessage(Tran.getLocal("Database clean error"));
+                getLogger().error(Tran.getLocal("Database clean error"));
+                for (const string& info : clean_data_message) {
+                    player->sendErrorMessage(info);
+                    getLogger().error(info);
+                }
+            } else {
+                getLogger().error(Tran.getLocal("Database clean error"));
+                for (const string& info : clean_data_message) {
+                    getLogger().error(info);
+                }
+            }
+        }
+        clean_data_status = 0;
+        clean_data_message.clear();
+    }
+
+    // 批量更新回溯状态
+    void updateRevertStatus() const {
+        if (revertStatusCache.empty()) {
+            return;
+        }
+
+        // 使用数据库的批量更新方法更新状态
+        if (!Database.updateStatusesByUUIDs(revertStatusCache)) {
+            getLogger().error("Update revert status failed");
+            if (revertStatusCache.size() > 100000) {
+                getLogger().error("Unable to write a large volume of logs; cached logs will be discarded");
+                revertStatusCache.clear();
+            }
+        } else {
+            // 写入成功才清空缓存
+            revertStatusCache.clear();
+        }
     }
 
 private:

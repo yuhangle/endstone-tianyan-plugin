@@ -122,7 +122,6 @@ jobs:
       - name: Prepare and Package All
         run: |
           VERSION=${{ github.event.inputs.version }}
-          LANGS=(zh_CN)
           OS_LIST=(linux windows)
           for OS in "${OS_LIST[@]}"; do
             if [[ "$OS" == "linux" ]]; then
@@ -132,18 +131,16 @@ jobs:
               PLUGIN_PATH=$(find artifacts/tianyan-windows-plugin -name "endstone_tianyan.dll" | head -n 1)
               EXT=dll
             fi
-            for LANG in "${LANGS[@]}"; do
-              BUILD_DIR=package
-              mkdir -p ${BUILD_DIR}/tianyan
-              cp "$PLUGIN_PATH" ${BUILD_DIR}/endstone_tianyan.${EXT}
-              cp "language/${LANG}/lang.json" ${BUILD_DIR}/tianyan/lang.json
-              ZIP_NAME=tianyan_v${VERSION}_${OS}_${LANG}.zip
-              cd ${BUILD_DIR}
-              zip -r ../${ZIP_NAME} endstone_tianyan.${EXT} tianyan
-              cd ..
-              mv ${ZIP_NAME} artifacts/
-              rm -rf ${BUILD_DIR}
-            done
+            BUILD_DIR=package
+            mkdir -p ${BUILD_DIR}/tianyan_data/language
+            cp "$PLUGIN_PATH" ${BUILD_DIR}/endstone_tianyan.${EXT}
+            cp -r language/* ${BUILD_DIR}/tianyan_data/language/
+            ZIP_NAME=tianyan_v${VERSION}_${OS}.zip
+            cd ${BUILD_DIR}
+            zip -r ../${ZIP_NAME} endstone_tianyan.${EXT} tianyan_data
+            cd ..
+            mv ${ZIP_NAME} artifacts/
+            rm -rf ${BUILD_DIR}
           done
 
       - name: Create Release
@@ -156,5 +153,3 @@ jobs:
           files: artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          name: tianyan-windows-${{ matrix.lang }}
-          path: tianyan_v${{ github.event.inputs.version }}_${{ matrix.os }}_${{ matrix.lang }}.zip

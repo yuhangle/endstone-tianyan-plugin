@@ -16,7 +16,7 @@ inline vector<TianyanCore::LogData> logDataCache;
 //封禁设备ID玩家缓存
 inline vector<TianyanCore::BanIDPlayer> BanIDPlayers;
 //语言
-inline translate Tran;
+inline translate Tran(language_file);
 //初始化其它实例
 inline DataBase Database(dbPath);
 inline TianyanCore tyCore(Database);

@@ -96,5 +96,6 @@
   "Start cleaning logs older than {} hours": "开始清理超过{}小时的日志",
   "Unable to write a large volume of logs; cached logs will be discarded": "大量日志无法写入，将丢弃缓存的日志",
   "Update revert status failed": "更新回溯状态失败",
-  "Failed to write cached logs": "缓存日志写入失败"
+  "Failed to write cached logs": "缓存日志写入失败",
+  "Time: {}": "时间: {}"
 }
