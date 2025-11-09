@@ -97,5 +97,6 @@
   "Unable to write a large volume of logs; cached logs will be discarded": "Unable to write a large volume of logs; cached logs will be discarded",
   "Update revert status failed": "Update revert status failed",
   "Failed to write cached logs": "Failed to write cached logs",
-  "Time: {}": "Time: {}"
+  "Time: {}": "Time: {}",
+  "Repo: ": "Repo: "
 }
