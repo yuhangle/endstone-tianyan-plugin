@@ -11,6 +11,14 @@ on:
         options:
           - 'false'
           - 'true'
+      release_type:
+        description: '发布类型'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - 'development'
+          - 'release'
 
 jobs:
   build:
@@ -40,10 +48,17 @@ jobs:
       - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
         run: |
-          cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_C_COMPILER=clang-19 \
-                -DCMAKE_CXX_COMPILER=clang++-19 \
-                -DCMAKE_CXX_FLAGS="-stdlib=libc++"
+          if [ "${{ github.event.inputs.release_type }}" = "release" ]; then
+            cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DRELEASE_VERSION=1 \
+                  -DCMAKE_C_COMPILER=clang-19 \
+                  -DCMAKE_CXX_COMPILER=clang++-19 \
+                  -DCMAKE_CXX_FLAGS="-stdlib=libc++"
+          else
+            cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release \
+                  -DCMAKE_C_COMPILER=clang-19 \
+                  -DCMAKE_CXX_COMPILER=clang++-19 \
+                  -DCMAKE_CXX_FLAGS="-stdlib=libc++"
+          fi
       # ===== Windows =====
       - name: Set up MSVC
         if: runner.os == 'Windows'
@@ -66,9 +81,15 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows-static
+          if ("${{ github.event.inputs.release_type }}" -eq "release") {
+            cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DRELEASE_VERSION=1 `
+              -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+              -DVCPKG_TARGET_TRIPLET=x64-windows-static
+          } else {
+            cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release `
+              -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+              -DVCPKG_TARGET_TRIPLET=x64-windows-static
+          }
       # ===== Build =====
       - name: Build
         run: cmake --build build --config Release
@@ -113,21 +134,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Extract version from CMakeLists.txt and Git
+      - name: Extract version information
         id: get_version
         run: |
           # 从 CMakeLists.txt 中提取基础版本号
           BASE_VERSION=$(grep -o 'set(BASE_VERSION "[^"]*")' CMakeLists.txt | cut -d'"' -f2)
           
-          # 获取 Git 提交计数（作为构建号）
-          GIT_COMMIT_COUNT=$(git rev-list --count HEAD)
-          GIT_SHORT_HASH=$(git rev-parse --short HEAD)
-          
-          # 组合成完整版本
-          PROJECT_VERSION="${BASE_VERSION}.${GIT_COMMIT_COUNT}+${GIT_SHORT_HASH}"
+          if [ "${{ github.event.inputs.release_type }}" = "release" ]; then
+            # 正式发布版本
+            PROJECT_VERSION="${BASE_VERSION}"
+            TAG_VERSION="v${BASE_VERSION}"
+          else
+            # 开发版本
+            # 获取 Git 提交计数（作为构建号）
+            GIT_COMMIT_COUNT=$(git rev-list --count HEAD)
+            GIT_SHORT_HASH=$(git rev-parse --short HEAD)
+            
+            # 组合成完整版本
+            PROJECT_VERSION="${BASE_VERSION}-alpha.${GIT_COMMIT_COUNT}+${GIT_SHORT_HASH}"
+            TAG_VERSION="v${BASE_VERSION}-alpha.${GIT_COMMIT_COUNT}"
+          fi
           
           echo "VERSION=${PROJECT_VERSION}" >> $GITHUB_OUTPUT
-          echo "TAG_VERSION=v${BASE_VERSION}.${GIT_COMMIT_COUNT}" >> $GITHUB_OUTPUT
+          echo "TAG_VERSION=${TAG_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Download all plugin artifacts
         uses: actions/download-artifact@v4
@@ -166,7 +195,7 @@ jobs:
           tag_name: ${{ steps.get_version.outputs.TAG_VERSION }}
           name: endstone tianyan ${{ steps.get_version.outputs.VERSION }}
           draft: false
-          prerelease: false
+          prerelease: ${{ github.event.inputs.release_type == 'development' }}
           files: artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

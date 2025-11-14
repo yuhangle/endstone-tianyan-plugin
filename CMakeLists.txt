@@ -69,10 +69,16 @@ else()
 endif()
 
 # 基础版本（主版本号）
-set(BASE_VERSION "1.2.0-alpha")
+set(BASE_VERSION "1.2.0")
 
-# 组合成完整版本
-set(PROJECT_VERSION "${BASE_VERSION}.${GIT_COMMIT_COUNT}+${GIT_SHORT_HASH}")
+# 检查是否为正式发布版本（通过 CMake 变量 RELEASE_VERSION 判断）
+if(RELEASE_VERSION)
+    # 正式发布版本
+    set(PROJECT_VERSION "${BASE_VERSION}")
+else()
+    # 开发版本
+    set(PROJECT_VERSION "${BASE_VERSION}-alpha.${GIT_COMMIT_COUNT}+${GIT_SHORT_HASH}")
+endif()
 
 # 生成 version.h
 configure_file(
