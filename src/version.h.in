@@ -1,0 +1,2 @@
+#pragma once
+#define TIANYAN_PLUGIN_VERSION "@PROJECT_VERSION@"

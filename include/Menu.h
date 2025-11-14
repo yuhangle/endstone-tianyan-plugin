@@ -253,6 +253,168 @@ public:
         sender.asPlayer()->sendForm(tyMenu);
     }
 
+    //查看在线玩家物品栏函数
+    static void showOnlinePlayerBag(const endstone::CommandSender &sender, const endstone::Player& player) {
+        try {
+            std::vector<std::map<std::string, std::string>> all_item;
+            
+            // 获取玩家全部物品
+            for (auto items = player.getInventory().getContents(); auto &item : items) {
+                // 如果槽位不为空
+                if (item) {
+                    std::map<std::string, std::string> item_info;
+                    item_info["item"] = item->getType().getId();
+                    item_info["amount"] = std::to_string(item->getAmount());
+                    if (const auto meta = item->getItemMeta()) {
+                        if (auto display_name = meta->getDisplayName();display_name.has_value()) {
+                            item_info["name"] = display_name.value();
+                        }
+                        if (auto enhance = meta->getEnchants();!enhance.empty()) {
+                            string enhances;
+                            for (const auto &[fst, snd] : enhance) {
+                                enhances += fst + ":"+to_string(snd)+"\n";
+                            }
+                            item_info["enhance"] = enhances;
+                        }
+                    }
+                    all_item.push_back(item_info);
+                }
+            }
+            //盔甲
+            auto helmet = player.getInventory().getHelmet();
+            auto chestplate = player.getInventory().getChestplate();
+            auto leggings = player.getInventory().getLeggings();
+            auto boots = player.getInventory().getBoots();
+            
+            // 检查并添加头盔信息
+            if (helmet) {
+                std::map<std::string, std::string> item_info;
+                item_info["item"] = helmet->getType().getId();
+                item_info["amount"] = std::to_string(helmet->getAmount());
+                if (const auto meta = helmet->getItemMeta()) {
+                    if (auto display_name = meta->getDisplayName();display_name.has_value()) {
+                        item_info["name"] = display_name.value();
+                    }
+                    if (auto enhance = meta->getEnchants();!enhance.empty()) {
+                        string enhances;
+                        for (const auto &[fst, snd] : enhance) {
+                            enhances += fst + ":"+to_string(snd)+"\n";
+                        }
+                        item_info["enhance"] = enhances;
+                    }
+                }
+                all_item.push_back(item_info);
+            }
+            
+            // 检查并添加胸甲信息
+            if (chestplate) {
+                std::map<std::string, std::string> item_info;
+                item_info["item"] = chestplate->getType().getId();
+                item_info["amount"] = std::to_string(chestplate->getAmount());
+                if (const auto meta = chestplate->getItemMeta()) {
+                    if (auto display_name = meta->getDisplayName();display_name.has_value()) {
+                        item_info["name"] = display_name.value();
+                    }
+                    if (auto enhance = meta->getEnchants();!enhance.empty()) {
+                        string enhances;
+                        for (const auto &[fst, snd] : enhance) {
+                            enhances += fst + ":"+to_string(snd)+"\n";
+                        }
+                        item_info["enhance"] = enhances;
+                    }
+                }
+                all_item.push_back(item_info);
+            }
+            
+            // 检查并添加护腿信息
+            if (leggings) {
+                std::map<std::string, std::string> item_info;
+                item_info["item"] = leggings->getType().getId();
+                item_info["amount"] = std::to_string(leggings->getAmount());
+                if (const auto meta = leggings->getItemMeta()) {
+                    if (auto display_name = meta->getDisplayName();display_name.has_value()) {
+                        item_info["name"] = display_name.value();
+                    }
+                    if (auto enhance = meta->getEnchants();!enhance.empty()) {
+                        string enhances;
+                        for (const auto &[fst, snd] : enhance) {
+                            enhances += fst + ":"+to_string(snd)+"\n";
+                        }
+                        item_info["enhance"] = enhances;
+                    }
+                }
+                all_item.push_back(item_info);
+            }
+            
+            // 检查并添加靴子信息
+            if (boots) {
+                std::map<std::string, std::string> item_info;
+                item_info["item"] = boots->getType().getId();
+                item_info["amount"] = std::to_string(boots->getAmount());
+                if (const auto meta = boots->getItemMeta()) {
+                    if (auto display_name = meta->getDisplayName();display_name.has_value()) {
+                        item_info["name"] = display_name.value();
+                    }
+                    if (auto enhance = meta->getEnchants();!enhance.empty()) {
+                        string enhances;
+                        for (const auto &[fst, snd] : enhance) {
+                            enhances += fst + ":"+to_string(snd)+"\n";
+                        }
+                        item_info["enhance"] = enhances;
+                    }
+                }
+                all_item.push_back(item_info);
+            }
+
+            //副手
+            if (auto offhand = player.getInventory().getItemInOffHand()) {
+                std::map<std::string, std::string> item_info;
+                item_info["item"] = offhand->getType().getId();
+                item_info["amount"] = std::to_string(offhand->getAmount());
+                if (const auto meta = offhand->getItemMeta()) {
+                    if (auto display_name = meta->getDisplayName();display_name.has_value()) {
+                        item_info["name"] = display_name.value();
+                    }
+                    if (auto enhance = meta->getEnchants();!enhance.empty()) {
+                        string enhances;
+                        for (const auto &[fst, snd] : enhance) {
+                            enhances += fst + ":"+to_string(snd)+"\n";
+                        }
+                        item_info["enhance"] = enhances;
+                    }
+                }
+                all_item.push_back(item_info);
+            }
+
+            // 构建物品信息输出
+            std::string output_item;
+            for (const auto& item_info : all_item) {
+                std::string message = fmt::format("{}{}: {} \n {}: {} \n",
+                    endstone::ColorFormat::Yellow,
+                    Tran.getLocal("Item ID"), item_info.at("item"),
+                    Tran.getLocal("Amount"), item_info.at("amount"));
+                if (item_info.contains("name")) {
+                    message += fmt::format("{}: {}\n",Tran.getLocal("Custom name"),item_info.at("name"));
+                }
+                if (item_info.contains("enhance")) {
+                    message += fmt::format("{}: {}\n",Tran.getLocal("Enhance"),item_info.at("enhance"));
+                }
+                output_item += message + std::string(20, '-') + "\n";
+            }
+
+            if (output_item.empty()) {
+                sender.sendMessage(fmt::format("{}{}", endstone::ColorFormat::Red, Tran.getLocal("This player's inventory is empty")));
+            } else {
+                endstone::ActionForm form;
+                form.setTitle(player.getName());
+                form.setContent(output_item);
+                sender.asPlayer()->sendForm(form);
+            }
+        } catch (...) {
+            sender.sendMessage(fmt::format("{}{}", endstone::ColorFormat::Red, Tran.getLocal("Unknow Error")));
+        }
+    }
+
 private:
     endstone::Plugin &plugin_;
 };

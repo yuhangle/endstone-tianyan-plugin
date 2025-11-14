@@ -47,3 +47,38 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         SQLite::SQLite3
         fmt::fmt-header-only
 )
+
+# 获取 Git 提交计数（作为构建号）
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+    execute_process(
+            COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            OUTPUT_VARIABLE GIT_COMMIT_COUNT
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    execute_process(
+            COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            OUTPUT_VARIABLE GIT_SHORT_HASH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+else()
+    set(GIT_COMMIT_COUNT "0")
+    set(GIT_SHORT_HASH "unknown")
+endif()
+
+# 基础版本（主版本号）
+set(BASE_VERSION "1.2.0-alpha")
+
+# 组合成完整版本：1.2.0-alpha.4+567.gabc123
+set(PROJECT_VERSION "${BASE_VERSION}.${GIT_COMMIT_COUNT}+${GIT_SHORT_HASH}")
+
+# 生成 version.h
+configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/version.h"
+)
+
+# 将生成目录加入包含路径
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")

@@ -11,6 +11,7 @@ using namespace std;
 using TimePoint = std::chrono::steady_clock::time_point;
 //文件目录
 inline string dataPath = "plugins/tianyan_data";
+inline string language_path = "plugins/tianyan_data/language";
 inline string dbPath = "plugins/tianyan_data/ty_data.db";
 inline string config_path = "plugins/tianyan_data/config.json";
 inline string ban_id_path = "plugins/tianyan_data/ban-id.json";

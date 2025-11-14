@@ -98,5 +98,12 @@
   "Update revert status failed": "Update revert status failed",
   "Failed to write cached logs": "Failed to write cached logs",
   "Time: {}": "Time: {}",
-  "Repo: ": "Repo: "
+  "Repo: ": "Repo: ",
+  "Item ID": "Item ID",
+  "Amount": "Amount",
+  "Custom name": "Custom name",
+  "Enhance": "Enchantments",
+  "This player's inventory is empty": "This player's inventory is empty",
+  "View inventory of online player": "View inventory of online player",
+  "Player {} not found": "Player {} not found"
 }

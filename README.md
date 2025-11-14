@@ -158,11 +158,11 @@
 
 ## 修改&构建
 
-# 云构建
+### 云构建
 
 fork 项目，在自己fork的分支中，使用action运行构建，几分钟后即可看到构建结果。Release需要在自己的action中配置一个名为`RELEASE_TOKEN`的密钥。
 
-# 本地构建
+### 本地构建
 
 按照endstone文档配置好开发环境，linux需要安装sqlite3开发库，windows需要使用vcpkg安装sqlite3静态开发库，并为cmake配置以下参数：
 

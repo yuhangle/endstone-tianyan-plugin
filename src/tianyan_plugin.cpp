@@ -3,8 +3,9 @@
 //
 
 #include "tianyan_plugin.h"
+#include "version.h"
 
-ENDSTONE_PLUGIN("tianyan_plugin", "1.2.0-alpha.4", TianyanPlugin)
+ENDSTONE_PLUGIN("tianyan_plugin", TIANYAN_PLUGIN_VERSION, TianyanPlugin)
 {
     description = "A plugin for endstone to record behavior";
 
@@ -56,6 +57,12 @@ ENDSTONE_PLUGIN("tianyan_plugin", "1.2.0-alpha.4", TianyanPlugin)
         command("tyclean")
             .description(Tran.getLocal("Clean database"))
             .usages("/tyclean <time: int>"
+                    )
+            .permissions("ty.command.op");
+
+        command("tyo")
+            .description(Tran.getLocal("View inventory of online player"))
+            .usages("/tyo <player_name: player>"
                     )
             .permissions("ty.command.op");
 

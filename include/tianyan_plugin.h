@@ -44,6 +44,7 @@ public:
         if (!(std::filesystem::exists(dataPath))) {
             getLogger().info(Tran.getLocal("No data path,auto create"));
             std::filesystem::create_directory(dataPath);
+            std::filesystem::create_directory(language_path);
             if (!(std::filesystem::exists(config_path))) {
                 if (std::ofstream file(config_path); file.is_open()) {
                     file << df_config.dump(4);
@@ -577,6 +578,20 @@ public:
                     (void)Database.cleanDataBase(hours);
                 });
                 clean_thread.detach();
+            }
+        }
+        else if (command.getName() == "tyo") {
+            if (!sender.asPlayer()) {
+                sender.sendErrorMessage(Tran.getLocal("Console not support menu"));
+                return false;
+            }
+            if (!args.empty()) {
+                const string& player_name = args[0];
+                if (auto player = getServer().getPlayer(player_name)) {
+                    Menu::showOnlinePlayerBag(sender, *player);
+                } else {
+                    sender.sendErrorMessage(Tran.tr(Tran.getLocal("Player {} not found"), player_name));
+                }
             }
         }
         return true;

@@ -98,5 +98,12 @@
   "Update revert status failed": "Не удалось обновить статус отката",
   "Failed to write cached logs": "Не удалось записать кэшированные журналы",
   "Time: {}": "Время: {}",
-  "Repo: ": "Репозиторий: "
+  "Repo: ": "Репозиторий: ",
+  "Item ID": "ID предмета",
+  "Amount": "Количество",
+  "Custom name": "Пользовательское имя",
+  "Enhance": "Зачарования",
+  "This player's inventory is empty": "Инвентарь этого игрока пуст",
+  "View inventory of online player": "Просмотреть инвентарь онлайн игрока",
+  "Player {} not found": "Игрок {} не найден"
 }
