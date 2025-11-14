@@ -86,7 +86,7 @@
   "Reason: {}": "Reason: {}",
   "Dimension": "Dimension",
   "Console not support this command": "Console not support this command",
-  "Too many logs, please narrow the search range,display only 5,001 logs": "Too many logs, please narrow the search range,display only 5,001 logs",
+  "Too many logs, please narrow the search range,display only 25,001 logs": "Too many logs, please narrow the search range,display only 25,001 logs",
   "Database clean over": "Database clean over",
   "Database clean error": "Database clean error",
   "Time elapsed: ": "Time elapsed: ",

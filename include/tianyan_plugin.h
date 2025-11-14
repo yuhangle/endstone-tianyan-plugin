@@ -293,8 +293,8 @@ public:
                                 Menu::showLogMenu(*sender.asPlayer(), key_logData);
                                 sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs about")+"` "+search_key+" `");
                                 //提示数据过大
-                                if (searchData.size() > 5000) {
-                                    sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 5,001 logs"));
+                                if (searchData.size() > 25000) {
+                                    sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 25,001 logs"));
                                 }
                             }
                             else {
@@ -304,8 +304,8 @@ public:
                             Menu::showLogMenu(*sender.asPlayer(), searchData);
                             sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs"));
                             //提示数据过大
-                            if (searchData.size() > 5000) {
-                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 5,001 logs"));
+                            if (searchData.size() > 25000) {
+                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 25,001 logs"));
                             }
                         }
                     }
@@ -430,8 +430,8 @@ public:
                         if (success_times > 0) {
                             sender.sendMessage(Tran.getLocal("Revert times: ")+std::to_string(success_times));
                             //提示数据过大
-                            if (searchData.size() > 5000) {
-                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 5,001 logs"));
+                            if (searchData.size() > 25000) {
+                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 25,001 logs"));
                             }
                         } else {
                             sender.sendMessage(Tran.getLocal("Nothing happened"));
@@ -503,8 +503,8 @@ public:
                                 Menu::showLogMenu(*sender.asPlayer(), key_logData);
                                 sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs about")+"` "+search_key+" `");
                                 //提示数据过大
-                                if (searchData.size() > 5000) {
-                                    sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 5,001 logs"));
+                                if (searchData.size() > 25000) {
+                                    sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 25,001 logs"));
                                 }
                             }
                             else {
@@ -514,8 +514,8 @@ public:
                             Menu::showLogMenu(*sender.asPlayer(), searchData);
                             sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs"));
                             //提示数据过大
-                            if (searchData.size() > 5000) {
-                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 5,001 logs"));
+                            if (searchData.size() > 25000) {
+                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 25,001 logs"));
                             }
                         }
                     }

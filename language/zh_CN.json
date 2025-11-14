@@ -86,7 +86,7 @@
   "Reason: {}": "理由: {}",
   "Dimension": "维度",
   "Console not support this command": "控制台不支持此命令",
-  "Too many logs, please narrow the search range,display only 5,001 logs": "过多的日志，请缩小搜索范围，只展示5001条日志",
+  "Too many logs, please narrow the search range,display only 25,001 logs": "过多的日志，请缩小搜索范围，只展示25001条日志",
   "Database clean over": "数据库清理完成",
   "Database clean error": "数据库清理错误",
   "Time elapsed: ": "耗时: ",
