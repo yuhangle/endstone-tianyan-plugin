@@ -594,6 +594,39 @@ public:
                 }
             }
         }
+        else if (command.getName() == "density") {
+            if (!sender.asPlayer()) {
+                int size = 20;
+                if (!args.empty()) {
+                    size = DataBase::stringToInt(args[0]);
+                }
+                if (auto result = TianyanProtect::calculateEntityDensity(getServer(), size);result.dim.has_value()) {
+                    std::string content = fmt::format(
+                        "{}{} {},\n"
+                        "{}:({:.1f}, {:.1f}, {:.1f}),\n"
+                        "{}:{}\n"
+                        "{}: {},\n"
+                        "{}: {}",
+                        endstone::ColorFormat::Yellow,
+                        Tran.getLocal("Highest density region in dimension"), result.dim.value(),
+                        Tran.getLocal("Midpoint coordinates"), result.mid_x.value(), result.mid_y.value(), result.mid_z.value(),
+                        Tran.getLocal("Entity count"), result.count.value(),
+                        Tran.getLocal("Most common entity"), result.entity_type.value(),
+                        Tran.getLocal("Random entity position"), result.entity_pos.value()
+                    );
+                    sender.sendMessage(content);
+                } else {
+                    sender.sendMessage(endstone::ColorFormat::Yellow + Tran.getLocal("No entities detected currently"));
+                }
+            } else {
+                if (args.empty()) {
+                    menu_->findHighDensityRegion(*sender.asPlayer());
+                } else {
+                    int size = DataBase::stringToInt(args[0]);
+                    menu_->findHighDensityRegion(*sender.asPlayer(), size);
+                }
+            }
+        }
         return true;
     }
 

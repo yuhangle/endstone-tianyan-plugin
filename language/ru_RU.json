@@ -105,5 +105,15 @@
   "Enhance": "Зачарования",
   "This player's inventory is empty": "Инвентарь этого игрока пуст",
   "View inventory of online player": "Просмотреть инвентарь онлайн игрока",
-  "Player {} not found": "Игрок {} не найден"
+  "Player {} not found": "Игрок {} не найден",
+  "Highest density region in dimension": "Область с наибольшей плотностью в измерении",
+  "Midpoint coordinates": "Координаты центра",
+  "Entity count": "Количество сущностей",
+  "Most common entity": "Наиболее распространенная сущность",
+  "Random entity position": "Позиция случайной сущности",
+  "Entity Density Detection Result": "Результат обнаружения плотности сущностей",
+  "Teleport to this area": "Телепортироваться в эту область",
+  "Print information to chat": "Вывести информацию в чат",
+  "No entities detected currently": "В настоящее время сущности не обнаружены",
+  "Find the area with the highest entity density": "Найти область с максимальной плотностью сущностей"
 }

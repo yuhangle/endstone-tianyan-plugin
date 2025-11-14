@@ -415,6 +415,78 @@ public:
         }
     }
 
+    //查找实体密度高区域
+    void findHighDensityRegion(endstone::Player &player, const int size = 20) const {
+
+        // 调用TianyanProtect中的实现函数获取结果
+
+        // 显示结果
+        if (auto result = TianyanProtect::calculateEntityDensity(plugin_.getServer(),size); result.dim.has_value()) {
+            // 构建表单内容
+            std::string content = fmt::format(
+                "{}{} {},\n"
+                "{}:({:.1f}, {:.1f}, {:.1f}),\n"
+                "{}:{}\n"
+                "{}: {},\n"
+                "{}: {}",
+                endstone::ColorFormat::Yellow,
+                Tran.getLocal("Highest density region in dimension"), result.dim.value(),
+                Tran.getLocal("Midpoint coordinates"), result.mid_x.value(), result.mid_y.value(), result.mid_z.value(),
+                Tran.getLocal("Entity count"), result.count.value(),
+                Tran.getLocal("Most common entity"), result.entity_type.value(),
+                Tran.getLocal("Random entity position"), result.entity_pos.value()
+            );
+            
+            // 创建表单
+            endstone::ActionForm form;
+            form.setTitle(Tran.getLocal("Entity Density Detection Result"));
+            form.setContent(content);
+            
+            // 添加按钮
+            std::vector<std::variant<endstone::Button, endstone::Divider, endstone::Header, endstone::Label>> controls;
+            
+            // 传送按钮
+            endstone::Button tpButton;
+            tpButton.setText(Tran.getLocal("Teleport to this area"));
+            tpButton.setOnClick([this, result](const endstone::Player* p) {
+                const std::string dim = result.dim.value();
+                // 转换维度名称
+                const auto dimension = plugin_.getServer().getLevel()->getDimension(dim);
+                const auto location = endstone::Location(dimension,static_cast<float>(result.entity_pos_x.value()),static_cast<float>(result.entity_pos_y.value()),static_cast<float>(result.entity_pos_z.value()));
+                p->asPlayer()->teleport(location);
+
+            });
+            controls.emplace_back(tpButton);
+            
+            // 打印信息按钮
+            endstone::Button printButton;
+            printButton.setText(Tran.getLocal("Print information to chat"));
+            printButton.setOnClick([result](const endstone::Player* p) {
+                std::string message = fmt::format(
+                    "{}{} {},\n"
+                    "{}:({:.1f}, {:.1f}, {:.1f}),\n"
+                    "{}:{}\n"
+                    "{}: {},\n"
+                    "{}: {}",
+                    endstone::ColorFormat::Yellow,
+                    Tran.getLocal("Highest density region in dimension"), result.dim.value(),
+                    Tran.getLocal("Midpoint coordinates"), result.mid_x.value(), result.mid_y.value(), result.mid_z.value(),
+                    Tran.getLocal("Entity count"), result.count.value(),
+                    Tran.getLocal("Most common entity"), result.entity_type.value(),
+                    Tran.getLocal("Random entity position"), result.entity_pos.value()
+                );
+                p->sendMessage(message);
+            });
+            controls.emplace_back(printButton);
+            
+            form.setControls(controls);
+            player.sendForm(form);
+        } else {
+            player.sendMessage(endstone::ColorFormat::Yellow + Tran.getLocal("No entities detected currently"));
+        }
+    }
+
+
 private:
     endstone::Plugin &plugin_;
 };

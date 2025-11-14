@@ -105,5 +105,15 @@
   "Enhance": "附魔",
   "This player's inventory is empty": "此玩家的物品栏为空",
   "View inventory of online player": "查看在线玩家的物品栏",
-  "Player {} not found": "玩家{}未找到"
+  "Player {} not found": "玩家{}未找到",
+  "Highest density region in dimension": "最高密度区域在维度",
+  "Midpoint coordinates": "中点坐标",
+  "Entity count": "实体数量",
+  "Most common entity": "数量最多的实体",
+  "Random entity position": "随机实体位置",
+  "Entity Density Detection Result": "实体密度检测结果",
+  "Teleport to this area": "传送到该区域",
+  "Print information to chat": "打印信息到聊天栏",
+  "No entities detected currently": "当前没有检测到实体",
+  "Find the area with the highest entity density": "查找实体密度最高的区域"
 }

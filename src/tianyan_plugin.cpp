@@ -66,6 +66,12 @@ ENDSTONE_PLUGIN("tianyan_plugin", TIANYAN_PLUGIN_VERSION, TianyanPlugin)
                     )
             .permissions("ty.command.op");
 
+        command("density")
+            .description(Tran.getLocal("Find the area with the highest entity density"))
+            .usages("/density [size: int]"
+                    )
+            .permissions("ty.command.op");
+
     permission("ty.command.member")
             .description("Allow users to use the /ty command.")
             .default_(endstone::PermissionDefault::True);

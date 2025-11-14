@@ -58,6 +58,17 @@ public:
         string time;
     };
 
+    // 计算实体密度的结构体
+    struct DensityResult {
+        std::optional<std::string> dim;
+        std::optional<double> mid_x, mid_y, mid_z;
+        std::optional<int> count;
+        std::optional<std::string> entity_type;
+        std::optional<std::string> entity_pos;
+        std::optional<double> entity_pos_x, entity_pos_y, entity_pos_z;
+    };
+
+
     //将字符串形式的Unix时间戳转换为 2 long 类型
     static long long stringToTimestamp(const std::string& timestampStr) ;
 

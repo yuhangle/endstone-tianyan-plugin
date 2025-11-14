@@ -105,5 +105,14 @@
   "Enhance": "Enchantments",
   "This player's inventory is empty": "This player's inventory is empty",
   "View inventory of online player": "View inventory of online player",
-  "Player {} not found": "Player {} not found"
+  "Player {} not found": "Player {} not found",
+  "Highest density region in dimension": "Highest density region in dimension",
+  "Midpoint coordinates": "Midpoint coordinates",
+  "Entity count": "Entity count",
+  "Most common entity": "Most common entity",
+  "Random entity position": "Random entity position",
+  "Entity Density Detection Result": "Entity Density Detection Result",
+  "Teleport to this area": "Teleport to this area",
+  "Print information to chat": "Print information to chat",
+  "No entities detected currently": "No entities detected currently"
 }
