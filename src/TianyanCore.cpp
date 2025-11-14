@@ -17,7 +17,7 @@ long long TianyanCore::stringToTimestamp(const std::string& timestampStr) {
     }
 }
 
-std::string TianyanCore::timestampToString(long long timestamp) {
+std::string TianyanCore::timestampToString(const long long timestamp) {
 
     const auto time = static_cast<std::time_t>(timestamp);
 
