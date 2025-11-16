@@ -189,7 +189,7 @@ jobs:
             mkdir -p ${BUILD_DIR}/tianyan_data/language
             cp "$PLUGIN_PATH" ${BUILD_DIR}/endstone_tianyan.${EXT}
             cp -r language/* ${BUILD_DIR}/tianyan_data/language/
-            ZIP_NAME=tianyan_v${VERSION}_${OS}.zip
+            ZIP_NAME=tianyan_plugin_v${VERSION}_${OS}.zip
             cd ${BUILD_DIR}
             zip -r ../${ZIP_NAME} endstone_tianyan.${EXT} tianyan_data
             cd ..
