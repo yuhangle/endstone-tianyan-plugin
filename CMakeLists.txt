@@ -48,26 +48,27 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         fmt::fmt-header-only
 )
 
-if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
-    # 尝试找到最近的正式版 tag（匹配 v数字.数字.数字[.数字]）
+find_package(Git QUIET)
+if(GIT_FOUND)
+    # 获取最近的 tag
     execute_process(
-        COMMAND ${GIT_EXECUTABLE} describe --tags --match="v[0-9]*.[0-9]*.[0-9]*" --match="v[0-9]*.[0-9]*.[0-9]*.[0-9]*" --abbrev=0 HEAD
+        COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0 HEAD
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         OUTPUT_VARIABLE LAST_TAG
         ERROR_QUIET
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-    if(LAST_TAG)
-        # 计算从该 tag 到 HEAD 的提交数
 
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} rev-list --count "${LAST_TAG}..HEAD"
-        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        OUTPUT_VARIABLE GIT_COMMIT_COUNT
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
+    if(LAST_TAG)
+        # 计算自该 tag 以来的提交数
+        execute_process(
+            COMMAND ${GIT_EXECUTABLE} rev-list --count "${LAST_TAG}..HEAD"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            OUTPUT_VARIABLE GIT_COMMIT_COUNT
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
     else()
-        # 没有找到 tag，回退到总提交数
+        # 没有 tag，回退到总提交数
         execute_process(
             COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -76,6 +77,7 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
         )
     endif()
 
+    # 获取短哈希
     execute_process(
         COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
