@@ -1,181 +1,215 @@
-[**中文**](README.md)  
-A plugin for player behavior logging and query, compatible with the Endstone plugin loader.
+![header](https://capsule-render.vercel.app/api?type=waving&height=300&color=gradient&text=Tianyan%20Plugin&animation=fadeIn&textBg=false&descAlignY=78&desc=Behavior%20logging%20for%20Endstone&section=footer&reversal=true)
 
-# Feature Overview
 
-## Behavior Logging
+# Tianyan Plugin
 
-The Tianyan plugin uses Endstone's event API to record behavior events. It supports logging the following types of behavior events:
+[![中文](https://img.shields.io/badge/Chinese-README_chsinese.md-blue)](README.md) 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+![Build Status](https://github.com/yuhangle/endstone-tianyan-plugin/actions/workflows/workflow.yml/badge.svg)
 
-### Container Interaction and Other Interaction Events
+A player behavior logging and querying plugin for the [Endstone](https://github.com/EndstoneMC/endstone) plugin loader.
 
-Logs player interactions with containers like chests, trapped chests, shulker boxes, ender chests, barrels, furnaces, blast furnaces, hoppers, dispensers, and droppers. It also records player interactions with blocks using items like flint and steel, lava buckets, fire charges, water buckets (including buckets with mobs), and powdered snow buckets. Interactions with beds and respawn anchors are also recorded.
+## 📋 Feature Introduction
 
-### Block Destruction Events
+### 🔍 Behavior Logging
 
-- **When only artificial blocks are logged:** Records the destruction of all player-placed blocks and certain natural blocks (cannot log farmland trampled by players).  
-- **When logging all blocks:** Records all block destruction events caused by players (trampling farmland still cannot be logged).
+The Tianyan plugin uses Endstone's event API to log behavioral events, and can record the following behavioral events:
 
-### Entity Hit Events
+#### Player Interaction Events with Blocks and Entities
+Interaction events between players and blocks or certain entities will be recorded.
 
-- **When logging only important entities:** Logs hit events for specific entities such as horses, pigs, wolves, cats, sniffers, parrots, donkeys, mules, and villagers (even if not hit by a player).  
-- **When logging all entities:** Logs all hit events for all entities, including attacks by players, entity attacks on players, and attacks by non-player entities.
+#### Player Direct Block Breaking and Entity Explosion Block Destruction Events
+Both players direct block breaking and entity explosion block destruction events will be recorded. Indirect block breaking by players, such as trampling farmland, cannot trigger events; operations on blocks by non-player entities will not trigger events unless they explode themselves.
 
-### Entity Interaction Events
+#### Entity Damage Events
+Except for entities excluded in the configuration file, all entity damage events will be recorded. Some special entities, such as paintings that are directly removed when attacked, cannot trigger damage events.
 
-Logs all interactions between players and entities.
+#### Player Block Placement Events
+The plugin will record all direct block placement behaviors implemented by players.
 
-### Block Placement Events
+#### Piston Events
+All piston self-behaviors will be recorded, but the blocks being pushed cannot be recorded.
 
-Logs all block placement events performed directly by players.
+### 👤 Player Information Display and Ban Functions
 
-## Player Information Display and Ban Features
+#### Player Join Information Display
+The Tianyan plugin supports displaying player join information. When a player joins the server, the player's system name and device ID will be displayed.
 
-### Player Join Information Display
+#### Ban Function & Anti-Spam Function
+The plugin can ban devices by banning device IDs, adding devices using these device IDs to the ban list, preventing any player using that device (unchanged device ID) from entering the server. Players who have used banned devices will automatically have their new devices added to the ban list if they switch devices.
 
-The Tianyan plugin displays player system names and device IDs when they join the server.
+Automatic ban rules:
+- When players send a large number of messages in a short time (6 messages within 10 seconds) in the server, they will be automatically banned for 24 hours
+- When players send a large number of commands in a short time (12 commands within 10 seconds) in the server, they will be automatically banned for 24 hours
 
-### Ban and Anti-Spam Features
+### 🛠️ Other Features
 
-- **Ban Players by Name:** Prevent specific players from joining the server.  
-- **Ban Players by Device ID:** Blocks any player using a banned device (with the same device ID) from joining the server.  
-- **Anti-Spam:** Automatically bans players who send excessive messages (more than 6 within 10 seconds) or commands (more than 12 within 10 seconds). An administrator must be contacted to lift the ban.
+#### Restore Player-Caused Block Destruction, Placement, and Explosion Damage Functions
+The Tianyan plugin supports restoring player-directly caused block destruction, block placement, and explosion damage. The principle is simply using the setblock command to restore blocks from the database, but it does not currently support restoring details such as chest contents.
 
-## Additional Features
+#### View Player Inventory Function
+The Tianyan plugin supports viewing item information in players' inventories.
 
-### Restore Player-Triggered Block Destruction and Placement and the damage caused by the entity explosion
+## 🚀 Installation, Configuration & Usage
 
-The Tianyan plugin supports restoring blocks destroyed or placed directly by players as well as the damage caused by the entity explosion. This feature uses the `setblock` command to restore blocks based on data from the database. However, it cannot recover specific details such as the contents of chests. As an experimental feature, full restoration cannot be guaranteed.
+### Install Endstone
+Please refer to the [Endstone official documentation](https://github.com/EndstoneMC/endstone) for this step.
 
-### View Player Inventory
+### Install Tianyan Plugin
+1. Download the latest version of the plugin from the Releases page
+2. Extract the plugin files and data folder
+3. Place them in the `plugins` directory of the server directory
+4. Run the server to use it
 
-The Tianyan plugin allows viewing the items in a player's inventory.
+### Configure Tianyan Plugin
 
-# Installation, Configuration, and Usage
+After running the Tianyan plugin, the `tianyan_data` folder will be automatically generated in the `plugins` directory of the server directory, and the `config.json` file will be automatically generated. Language files will not be automatically generated, please download them from the GitHub repository.
 
-## Installing Endstone
-
-Refer to the official Endstone documentation for installation instructions.
-
-## Installing the Tianyan Plugin
-
-Download the latest plugin version from the release section and place it in the `plugins` directory of the server. Start the server to activate the plugin.
-
-## Configuring the Tianyan Plugin
-
-After running the plugin, a `tianyan_data` folder will be created in the `plugins` directory. Inside, there is a configuration file named `config.json` with the following default configuration:
+Default configuration:
 
 ```json
 {
-    "record_nature_block": true,
-    "record_human_block": true,
-    "only_record_important_animal": true,
+    "10s_command_max": 12,
     "10s_message_max": 6,
-    "10s_command_max": 12
+    "language": "zh_CN",
+    "no_log_mobs": [
+        "minecraft:zombie_pigman",
+        "minecraft:zombie",
+        "minecraft:skeleton",
+        "minecraft:bogged",
+        "minecraft:slime"
+    ]
 }
 ```
 
-From top to bottom, these options respectively represent: logging natural blocks, logging artificial blocks, logging only significant entities, the maximum number of messages a player can send within 10 seconds, and the maximum number of commands a player can execute within 10 seconds.
+Configuration item descriptions:
+- `10s_command_max`: Maximum number of commands players can use within 10 seconds
+- `10s_message_max`: Maximum number of messages players can send within 10 seconds
+- `language`: Plugin language
+- `no_log_mobs`: List of entities not to be logged
 
-- To log all entity hit events instead of just important ones, change `"Record only significant entities": true` to `"false"`.  
-- The plugin defaults to Chinese but supports English via a language configuration file (`lang.json`). A pre-translated English configuration file made by ChatGPT is available for download in the release section.
+> In entity-related events, entities in `no_log_mobs` will not be recorded unless named tags are used.
 
-## Plugin Command Usage
+The plugin configuration defaults to Chinese, and the language can be changed by modifying the `language` item in `config.json`. Supported languages can be viewed in the [language](language/zh_CN.json) folder.
 
-### Tianyan Commands
+Example: To change to English, modify the `language` item to `"en_US"`.
 
-Use `/ty` to query player and entity behavior logs. Format:
+## 📜 Plugin Command Usage
 
-```shell
-/ty x y z time (hours) radius
+### `/ty` - Query player and some entity behavior logs (cannot be used from console, regular members can use this command)
+```
+/ty <radius> <time (unit: hours)>
+```
+Without parameters, a quick menu will pop up where players can query. The maximum searchable radius is 100 (blocks), and the maximum searchable time is 672 (hours). (When query data exceeds 25,000 entries, the query will be truncated and only 25,000 data entries will be displayed)
+
+### `/tys` - Search keywords (cannot be used from console)
+```
+/tys <time (unit: hours)> [search object type] [search object keyword]
 ```
 
-Use `/tygui` to query logs using a graphical menu. Format:
+Without parameters, a quick menu will pop up where players can query. Maximum searchable radius and time are unlimited. (When query data exceeds 25,000 entries, the query will be truncated and only 25,000 data entries will be displayed)
 
-```shell
-/tygui
+Search object types:
+- `source_id`: Behavior source ID
+- `source_name`: Behavior source name
+- `target_id`: Behavior target ID
+- `target_name`: Behavior target name
+
+Example: Search for behaviors implemented by a player named "ZhangSan" within 2 hours
+```
+/tys 2 source_name "ZhangSan"
 ```
 
-Use `/tys` to search for specific keywords. Format:
-
-```shell
-/tys search_type keyword time (hours)
+Search specific behavior types:
+```
+/tys <time (unit: hours)> <action> <search behavior type>
 ```
 
-- **Search types:** `player`, `action`, `object` (e.g., player name, action type, or target object).  
-- **Keywords:** Examples include player names, action types (`Interact`, `Destroy`, `Attack`, `Place`), or object names in-game IDs.
+Search behavior types:
+- `block_break`: Block breaking
+- `block_place`: Block placement
+- `entity_damage`: Entity damage
+- `player_right_click_block`: Player right-clicking block
+- `player_right_click_entity`: Player right-clicking entity
+- `entity_bomb`: Entity explosion
+- `block_break_bomb`: Block explosion
+- `piston_extend`: Piston extending
+- `piston_retract`: Piston retracting
+- `entity_die`: Entity death
+- `player_pickup_item`: Player picking up item
 
-Use `/tysgui` to perform keyword searches with a graphical menu. Format:
-
-```shell
-/tysgui
+Example: Search for player block placement behaviors within 2 hours
+```
+/tys 2 action block_place
 ```
 
-### Player Ban Commands
-
-- **Ban a player:**  
-  ```shell
-  /tyban player_name reason (optional)
-  ```  
-- **Unban a player:**  
-  ```shell
-  /tyunban player_name
-  ```  
-- **List banned players:**  
-  ```shell
-  /tybanlist
-  ```  
-- **Ban a device:**  
-  ```shell
-  /banid device_id
-  ```  
-- **Unban a device:**  
-  ```shell
-  /unbanid device_id
-  ```  
-- **List banned devices:**  
-  ```shell
-  /banidlist
-  ```  
-
-Use /tyclean command to clean database
-
-```shell
-/tyclean time(hours)
+### `/tyo` - View online player inventory (cannot be used from console)
+```
+/tyo <player name>
 ```
 
-Use the /tydensity command to detect the area with the highest entity density
-
-```shell
-/tydensity area_size
+### `/ban-id` - Add device to blacklist
+```
+/ban-id <device ID> [reason]
 ```
 
-
-### Experimental Features
-
-- Use `/tyback` to restore block placement and destruction actions as well as the damage caused by the entity explosion. Format:
-  ```shell
-  /tyback coordinates time (hours) radius player_name or the ID of the exploding entity (optional)
-  ```
-
-## Development & Packaging
-
-Ensure `endstone` and `pipx` are installed in your Python environment.
-
-### Clone the Code
-
-```shell
-git clone https://github.com/yuhangle/endstone_TianyanPlugin.git
+### `/unban-id` - Remove device from blacklist
+```
+/unban-id <device ID>
 ```
 
-### Navigate to the Code Directory
-
-```shell
-cd endstone_TianyanPlugin
+### `/banlist-id` - List all banned device IDs
+```
+/banlist-id
 ```
 
-### Package the Plugin
+### `/tyclean` - Clean database
+```
+/tyclean <time (unit: hours)>
+```
 
+This command can clean logs in the database that exceed the specified time.
+
+### `/density` - Detect areas with the highest entity density
+```
+/density [area size (unit: blocks)]
+```
+
+This command can find areas with the highest entity density in the server and support teleporting to that area. Area size represents the edge length of a single search area (cube).
+
+### `/tyback` - Restore player or entity partial behaviors (experimental; cannot be used from console)
+```
+/tyback <radius> <time (unit: hours)> <behavior type> <keyword>
+```
+
+This command can restore partial behaviors of players or entities. Including: player direct block destruction and placement, block destruction caused by entity explosions, entity deaths, and block changes caused by player interactions. Entity deaths will not restore attributes such as fur color and age; water-containing blocks created by players cannot be restored to their original state. The principle is to use setblock and summon commands to restore from the log database.
+Without parameters, a quick menu will pop up where players can query. The maximum restorable radius is 100 (blocks), and time is unlimited. (When query data exceeds 25,000 entries, the query will be truncated and only 25,000 data entries will be restored. The actual restorable radius is affected by chunks, and restoration will not be possible if beyond the limit distance of setblock and summon commands, requiring you to get closer and try again)
+
+## 🔧 Modification & Building
+
+### Cloud Building
+1. Fork the project
+2. In your forked branch, run builds using Actions
+3. Build results can be seen after a few minutes
+4. Releases need to configure a secret named `RELEASE_TOKEN` in your own Actions
+
+### Local Building
+
+Configure the development environment according to Endstone documentation:
+
+- Linux needs to install sqlite3 development library
+- Windows needs to use vcpkg or other package managers to install sqlite3 static development library
+
+Clone the project code:
 ```shell
-pipx run build --wheel
+git clone https://github.com/yuhangle/endstone-tianyan-plugin.git
+```
+
+Open the code directory with your preferred development tool. Taking CLion as an example, click build project in the build to build the plugin.
+
+When using vcpkg, Windows needs to configure the following parameters for CMake:
+
+```
+-DCMAKE_TOOLCHAIN_FILE="{Your vcpkg path}\scripts\buildsystems\vcpkg.cmake" \
+-DVCPKG_TARGET_TRIPLET=x64-windows-static
 ```
