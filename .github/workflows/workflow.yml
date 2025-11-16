@@ -146,8 +146,15 @@ jobs:
             TAG_VERSION="v${BASE_VERSION}"
           else
             # 开发版本
-            # 获取 Git 提交计数（作为构建号）
-            GIT_COMMIT_COUNT=$(git rev-list --count HEAD)
+            # 尝试获取最近的正式版 tag
+            LAST_TAG=$(git describe --tags --match="v[0-9]*.[0-9]*.[0-9]*" --match="v[0-9]*.[0-9]*.[0-9]*.[0-9]*" --abbrev=0 2>/dev/null || echo "")
+            
+            if [ -n "$LAST_TAG" ]; then
+              GIT_COMMIT_COUNT=$(git rev-list --count "${LAST_TAG}"..HEAD)
+            else
+              GIT_COMMIT_COUNT=$(git rev-list --count HEAD)  # 无 tag 时回退
+            fi
+            
             GIT_SHORT_HASH=$(git rev-parse --short HEAD)
             
             # 组合成完整版本

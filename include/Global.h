@@ -7,7 +7,6 @@
 #include "DataBase.hpp"
 #include "TianyanCore.h"
 #include "translate.h"
-#include "endstone/endstone.hpp"
 #include <nlohmann/json.hpp>
 #include <condition_variable>
 using namespace nlohmann;
@@ -16,13 +15,11 @@ inline vector<TianyanCore::LogData> logDataCache;
 //封禁设备ID玩家缓存
 inline vector<TianyanCore::BanIDPlayer> BanIDPlayers;
 //语言
-inline translate Tran(language_file);
+inline translate Tran;
 //初始化其它实例
 inline DataBase Database(dbPath);
 inline TianyanCore tyCore(Database);
 //缓存锁
 inline std::mutex cacheMutex;
 
-//任务
-inline shared_ptr<endstone::Task> auto_write_task;
 #endif //TIANYAN_GLOBAL_H

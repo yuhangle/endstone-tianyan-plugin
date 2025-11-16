@@ -114,7 +114,8 @@ public:
         }
         //获取服务器语言
         const string sever_lang = getServer().getLanguage().getLocale();
-        Tran = translate(dataPath + "/language/"+sever_lang+".json");
+        language_file = dataPath + "/language/"+sever_lang+".json";
+        Tran = translate(language_file);
         //加载语言
         const auto [fst, snd] = Tran.loadLanguage();
         getLogger().info(snd);
@@ -175,8 +176,9 @@ public:
         }
         Tran = translate(language_file);
         Tran.loadLanguage();
+        translate::checkLanguageCommon(language_file,dataPath+"/language/lang.json");
         //定期写入
-        auto_write_task = getServer().getScheduler().runTaskTimer(*this, [&]() {logsCacheWrite();},0,60);
+        getServer().getScheduler().runTaskTimer(*this, [&]() {logsCacheWrite();},0,60);
         //数据库清理后台检查
         getServer().getScheduler().runTaskTimer(*this,[&](){checkDatabaseCleanStatus();},0,20);
         //tyback命令后台检查
@@ -219,7 +221,6 @@ public:
     {
         getLogger().info("onDisable is called");
         logsCacheWrite();
-        auto_write_task->cancel();
     }
 
     bool onCommand(endstone::CommandSender &sender, const endstone::Command &command, const std::vector<std::string> &args) override
@@ -296,8 +297,8 @@ public:
                                 Menu::showLogMenu(*sender.asPlayer(), key_logData);
                                 sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs about")+"` "+search_key+" `");
                                 //提示数据过大
-                                if (searchData.size() > 25000) {
-                                    sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 25,001 logs"));
+                                if (searchData.size() > 9999) {
+                                    sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
                                 }
                             }
                             else {
@@ -307,8 +308,8 @@ public:
                             Menu::showLogMenu(*sender.asPlayer(), searchData);
                             sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs"));
                             //提示数据过大
-                            if (searchData.size() > 25000) {
-                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 25,001 logs"));
+                            if (searchData.size() > 9999) {
+                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
                             }
                         }
                     }
@@ -356,7 +357,7 @@ public:
                         sender.sendErrorMessage(Tran.getLocal("No log found"));
                     } else {
                         //数据过大，启动后台模式
-                        if (searchData.size() > 25000 && tyback_cache.status == false) {
+                        if (searchData.size() > 9999 && tyback_cache.status == false) {
                             sender.sendMessage(Tran.getLocal("Too many logs. Loading in the background to avoid lag — please wait"));
                             //不允许多个后台任务
                             if (tyback_cache.is_running) {
@@ -548,8 +549,8 @@ public:
                                 Menu::showLogMenu(*sender.asPlayer(), key_logData);
                                 sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs about")+"` "+search_key+" `");
                                 //提示数据过大
-                                if (searchData.size() > 25000) {
-                                    sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 25,001 logs"));
+                                if (searchData.size() > 9999) {
+                                    sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
                                 }
                             }
                             else {
@@ -559,8 +560,8 @@ public:
                             Menu::showLogMenu(*sender.asPlayer(), searchData);
                             sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs"));
                             //提示数据过大
-                            if (searchData.size() > 25000) {
-                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 25,001 logs"));
+                            if (searchData.size() > 9999) {
+                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
                             }
                         }
                     }

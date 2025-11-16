@@ -86,7 +86,7 @@
   "Reason: {}": "Причина: {}",
   "Dimension": "Измерение",
   "Console not support this command": "Консоль не поддерживает эту команду",
-  "Too many logs, please narrow the search range,display only 25,001 logs": "Слишком много журналов, пожалуйста, сузьте диапазон поиска, отображаются только 25,001 журналов",
+  "Too many logs, please narrow the search range,display only 10,000 logs": "Слишком много журналов, пожалуйста, сузьте диапазон поиска, отображаются только 10,000 журналов",
   "Database clean over": "Очистка базы данных завершена",
   "Database clean error": "Ошибка очистки базы данных",
   "Time elapsed: ": "Затраченное время: ",

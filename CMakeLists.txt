@@ -48,20 +48,39 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         fmt::fmt-header-only
 )
 
-# 获取 Git 提交计数（作为构建号）
-find_package(Git QUIET)
 if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+    # 尝试找到最近的正式版 tag（匹配 v数字.数字.数字[.数字]）
     execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --match="v[0-9]*.[0-9]*.[0-9]*" --match="v[0-9]*.[0-9]*.[0-9]*.[0-9]*" --abbrev=0 HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE LAST_TAG
+        ERROR_QUIET
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(LAST_TAG)
+        # 计算从该 tag 到 HEAD 的提交数
+
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-list --count "${LAST_TAG}..HEAD"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE GIT_COMMIT_COUNT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    else()
+        # 没有找到 tag，回退到总提交数
+        execute_process(
             COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
             OUTPUT_VARIABLE GIT_COMMIT_COUNT
             OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
+        )
+    endif()
+
     execute_process(
-            COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
-            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-            OUTPUT_VARIABLE GIT_SHORT_HASH
-            OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE GIT_SHORT_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 else()
     set(GIT_COMMIT_COUNT "0")
@@ -71,7 +90,7 @@ endif()
 # 基础版本（主版本号）
 set(BASE_VERSION "1.2.0")
 
-# 检查是否为正式发布版本（通过 CMake 变量 RELEASE_VERSION 判断）
+# 检查是否为正式发布版本
 if(RELEASE_VERSION)
     # 正式发布版本
     set(PROJECT_VERSION "${BASE_VERSION}")

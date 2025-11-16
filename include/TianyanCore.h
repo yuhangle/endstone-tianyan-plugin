@@ -15,7 +15,6 @@ inline string language_path = "plugins/tianyan_data/language";
 inline string dbPath = "plugins/tianyan_data/ty_data.db";
 inline string config_path = "plugins/tianyan_data/config.json";
 inline string ban_id_path = "plugins/tianyan_data/ban-id.json";
-inline string language_file = "plugins/tianyan_data/language/en_US.json";
 //配置变量
 inline int max_message_in_10s;
 inline int max_command_in_10s;
