@@ -6,10 +6,9 @@
 #define TIANYAN_GLOBAL_H
 #include "database.hpp"
 #include "tianyan_core.h"
-#include "translate.h"
+#include "translate.hpp"
 #include <nlohmann/json.hpp>
 #include <condition_variable>
-#include <endstone/endstone.hpp>
 using namespace nlohmann;
 //日志缓存
 inline vector<TianyanCore::LogData> logDataCache;

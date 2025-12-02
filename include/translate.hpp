@@ -8,6 +8,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <utility>
+#include <fmt/format.h>
 using namespace std;
 inline string language_file = "plugins/tianyan_data/language/lang.json";
 class translate {
