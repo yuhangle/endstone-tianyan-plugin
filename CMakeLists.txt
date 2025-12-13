@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.15)
 
 project(tianyan CXX)
 
+set(BASE_VERSION "1.2.0")
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -55,9 +57,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 find_package(Git QUIET)
 if(GIT_FOUND)
-    # 尝试找最近的正式版本 tag
+    # 1. 查找最近的【纯净】正式版本 Tag (排除带 - 的 Tag)
     execute_process(
-            COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0 --match "v[0-9]*.[0-9]*.[0-9]*" HEAD
+            COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0 --match "v[0-9]*" --exclude "*-*" HEAD
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
             OUTPUT_VARIABLE LAST_STABLE_TAG
             ERROR_QUIET
@@ -65,18 +67,15 @@ if(GIT_FOUND)
     )
 
     if(LAST_STABLE_TAG)
-        # 基于最近的正式版本计算开发版
+        # 有稳定版基准：计算距离该 Tag 的提交数
         execute_process(
                 COMMAND ${GIT_EXECUTABLE} rev-list --count "${LAST_STABLE_TAG}..HEAD"
                 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                 OUTPUT_VARIABLE GIT_COMMIT_COUNT
                 OUTPUT_STRIP_TRAILING_WHITESPACE
         )
-        # 提取基础版本号
-        string(REGEX REPLACE "^v(.*)" "\\1" BASE_VERSION_FROM_TAG "${LAST_STABLE_TAG}")
-        set(BASE_VERSION "${BASE_VERSION_FROM_TAG}")
     else()
-        set(BASE_VERSION "1.2.0")
+        # 无稳定版基准：计算总提交数
         execute_process(
                 COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD
                 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -93,7 +92,6 @@ if(GIT_FOUND)
             OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 else()
-    set(BASE_VERSION "1.2.0")
     set(GIT_COMMIT_COUNT "0")
     set(GIT_SHORT_HASH "unknown")
 endif()

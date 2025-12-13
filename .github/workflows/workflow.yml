@@ -137,29 +137,38 @@ jobs:
       - name: Extract version information
         id: get_version
         run: |
+          # 从 CMakeLists.txt 读取预设的 Base Version (作为真理来源)
+          # 假设 CMakeLists.txt 中有一行 set(BASE_VERSION "1.2.0")
+          FILE_BASE_VERSION=$(grep -o 'set(BASE_VERSION "[^"]*")' CMakeLists.txt | cut -d'"' -f2)
+          
           if [ "${{ github.event.inputs.release_type }}" = "release" ]; then
-            # 正式发布
-            BASE_VERSION=$(grep -o 'set(BASE_VERSION "[^"]*")' CMakeLists.txt | cut -d'"' -f2)
-            PROJECT_VERSION="${BASE_VERSION}"
-            TAG_VERSION="v${BASE_VERSION}"
-            RELEASE_TITLE="Release v${BASE_VERSION}"
+            # === 正式发布 ===
+            PROJECT_VERSION="${FILE_BASE_VERSION}"
+            TAG_VERSION="v${FILE_BASE_VERSION}"
+            RELEASE_TITLE="Release v${FILE_BASE_VERSION}"
           else
-            # 开发版本
-            LAST_STABLE_TAG=$(git describe --tags --match="v[0-9]*.[0-9]*.[0-9]*" --abbrev=0 2>/dev/null || echo "")
+            # === 开发版本 (Alpha) ===
+          
+            # 查找最近的"纯净"稳定版 Tag (排除 alpha/beta 等带 - 的标签)
+            # 注意：--exclude 需要 Git 2.13+
+            LAST_STABLE_TAG=$(git describe --tags --match="v[0-9]*" --exclude="*-*" --abbrev=0 2>/dev/null || echo "")
           
             if [ -n "$LAST_STABLE_TAG" ]; then
-              # 提取基础版本
-              BASE_VERSION=$(echo "$LAST_STABLE_TAG" | sed 's/^v//')
+              # 如果找到了稳定版 Tag，计算从该 Tag 至今的 commit 数量
               GIT_COMMIT_COUNT=$(git rev-list --count "${LAST_STABLE_TAG}..HEAD")
             else
-              BASE_VERSION=$(grep -o 'set(BASE_VERSION "[^"]*")' CMakeLists.txt | cut -d'"' -f2)
+              # 如果没找到任何稳定版 Tag，计算总 commit 数量
               GIT_COMMIT_COUNT=$(git rev-list --count HEAD)
             fi
           
+            # 获取短哈希
             GIT_SHORT_HASH=$(git rev-parse --short HEAD)
-            PROJECT_VERSION="${BASE_VERSION}-alpha.${GIT_COMMIT_COUNT}+${GIT_SHORT_HASH}"
-            TAG_VERSION="v${BASE_VERSION}-alpha.${GIT_COMMIT_COUNT}"
-            RELEASE_TITLE="Development Build (based on v${BASE_VERSION})"
+          
+            # 组合版本号：始终使用 CMakeLists 中的版本号作为前缀
+            # 格式: 1.2.0-alpha.<距离上次稳定版的提交数>+<Hash>
+            PROJECT_VERSION="${FILE_BASE_VERSION}-alpha.${GIT_COMMIT_COUNT}+${GIT_SHORT_HASH}"
+            TAG_VERSION="v${FILE_BASE_VERSION}-alpha.${GIT_COMMIT_COUNT}"
+            RELEASE_TITLE="Development Build (based on v${FILE_BASE_VERSION})"
           fi
           
           echo "VERSION=${PROJECT_VERSION}" >> $GITHUB_OUTPUT
