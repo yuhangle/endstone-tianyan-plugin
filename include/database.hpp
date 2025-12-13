@@ -18,6 +18,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <filesystem>
 
 //数据库清理输出语句缓存
 inline std::vector<std::string> clean_data_message;
