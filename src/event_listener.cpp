@@ -114,6 +114,27 @@ void EventListener::onPlayerRightClickBlock(const endstone::PlayerInteractEvent&
     if (!event.getBlock()) {
         return;
     }
+    //对特定物品的交互进行记录
+    bool danger_item = false;
+    if (event.hasItem())
+    {
+        static const std::vector<std::string> dangerKeywords = {
+            "end_crystal", "flint_and_steel", "fire_charge"
+        };
+        const auto item_id = event.getItem()->getType().getId();
+        auto containsKeyword = [&item_id](const std::string& kw) {
+            return item_id.find(kw) != std::string::npos;
+        };
+
+        if (ranges::any_of(dangerKeywords, containsKeyword)) {
+            danger_item = true;
+        }
+    }
+    if (event.getBlock()->getData()->getBlockStates().empty() && !danger_item)
+    {
+        return;
+    }
+
     if (!canTriggerEvent(event.getPlayer().getName())) {
         return;
     }
@@ -274,7 +295,7 @@ void EventListener::onPistonRetract(const endstone::BlockPistonRetractEvent&even
     logData.world = event.getBlock().getLocation().getDimension()->getName();
     logData.time = std::time(nullptr);
     logData.type = "piston_retract";
-    auto Face = event.getDirection();
+    const auto Face = event.getDirection();
     string direct;
     if (Face == endstone::BlockFace::Down) {
         direct = "down";
