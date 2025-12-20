@@ -84,34 +84,47 @@ void TianyanPlugin::datafile_check() const {
 
 
 #ifdef _WIN32
-#include <windows.h>
+    #include <windows.h>
+    // Windows 下使用 HANDLE 记录进程
+    static HANDLE g_web_handle = NULL;
 #else
-#include <unistd.h>
-#include <csignal>
+    #include <unistd.h>
+    #include <csignal>
+    #include <sys/types.h>
+    // Linux 下使用 pid_t
+    static pid_t g_web_pid = 0;
 #endif
 
 namespace fs = std::filesystem;
-static pid_t g_web_pid = 0; // 全局变量记录
 
 void start_web_server(const std::string& pluginDir) {
-    const fs::path base_path = fs::absolute(pluginDir).parent_path(); // 插件根目录
+    const fs::path base_path = fs::absolute(pluginDir).parent_path();
     const fs::path py_script = base_path / "WebUI" / "server.py";
 
-    const std::string cmd = "python3 " + py_script.string();
-
-    //std::cout << "[Tianyan] Attempting to start WebUI with: " << cmd << std::endl;
+    // 构造命令
+#ifdef _WIN32
+    std::string cmd = "python \"" + py_script.string() + "\"";
+#else
+    std::string cmd = "python3 " + py_script.string();
+#endif
 
 #ifdef _WIN32
-    STARTUPINFO si = { sizeof(si) };
+    STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi;
-    if (CreateProcessA(NULL, (char*)cmd.c_str(), NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
+    // 创建一个临时 buffer
+    char* cmd_buf = _strdup(cmd.c_str());
+
+    if (CreateProcessA(NULL, cmd_buf, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        g_web_handle = pi.hProcess; // 保存进程句柄用于后续关闭
+        CloseHandle(pi.hThread);    // 直接关闭
+        std::cout << "[Tianyan] WebUI started (PID: " << pi.dwProcessId << ")" << std::endl;
+    } else {
+        std::cerr << "[Tianyan] Failed to start WebUI. Error: " << GetLastError() << std::endl;
     }
+    free(cmd_buf);
 #else
     g_web_pid = fork();
     if (g_web_pid == 0) {
-        // 子进程：脱离控制台会话
         setsid();
         execlp("python3", "python3", py_script.c_str(), NULL);
         _exit(1);
@@ -120,19 +133,26 @@ void start_web_server(const std::string& pluginDir) {
 }
 
 void stop_web_server() {
-#ifndef _WIN32
-    if (g_web_pid > 0) {
-        // 发送 SIGTERM 信号给子进程
-        if (kill(g_web_pid, SIGTERM) == 0) {
-            cout << "[Tianyan] Web server (PID: " << g_web_pid << ") terminated." << endl;
+#ifdef _WIN32
+    if (g_web_handle != NULL) {
+        // 尝试关闭进程
+        if (TerminateProcess(g_web_handle, 0)) {
+            std::cout << "[Tianyan] Web server process terminated." << std::endl;
         } else {
-            // 如果 Terminate 失败，尝试强制杀掉
+            std::cerr << "[Tianyan] Failed to terminate web server. Error: " << GetLastError() << std::endl;
+        }
+        CloseHandle(g_web_handle); // 释放句柄资源
+        g_web_handle = NULL;
+    }
+#else
+    if (g_web_pid > 0) {
+        if (kill(g_web_pid, SIGTERM) == 0) {
+            std::cout << "[Tianyan] Web server (PID: " << g_web_pid << ") terminated." << std::endl;
+        } else {
             kill(g_web_pid, SIGKILL);
         }
         g_web_pid = 0;
     }
-#else
-    system("taskkill /F /IM python.exe /T");
 #endif
 }
 
