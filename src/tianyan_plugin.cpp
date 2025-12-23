@@ -10,6 +10,7 @@
 void TianyanPlugin::datafile_check() const {
     json df_config = {
         {"language","zh_CN"},
+        {"enable_web_ui",false},
         {"10s_message_max", 6},
         {"10s_command_max", 12},
         {"no_log_mobs", {"minecraft:zombie_pigman","minecraft:zombie","minecraft:skeleton","minecraft:bogged","minecraft:slime"}}
@@ -81,6 +82,80 @@ void TianyanPlugin::datafile_check() const {
     }
 }
 
+
+#ifdef _WIN32
+    #include <windows.h>
+    // Windows 下使用 HANDLE 记录进程
+    static HANDLE g_web_handle = NULL;
+#else
+    #include <unistd.h>
+    #include <csignal>
+    #include <sys/types.h>
+    // Linux 下使用 pid_t
+    static pid_t g_web_pid = 0;
+#endif
+
+namespace fs = std::filesystem;
+
+void start_web_server(const std::string& pluginDir) {
+    const fs::path base_path = fs::absolute(pluginDir).parent_path();
+    const fs::path py_script = base_path / "WebUI" / "server.py";
+
+    // 构造命令
+#ifdef _WIN32
+    std::string cmd = "python \"" + py_script.string() + "\"";
+#else
+    std::string cmd = "python3 " + py_script.string();
+#endif
+
+#ifdef _WIN32
+    STARTUPINFOA si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
+    // 创建一个临时 buffer
+    char* cmd_buf = _strdup(cmd.c_str());
+
+    if (CreateProcessA(NULL, cmd_buf, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        g_web_handle = pi.hProcess; // 保存进程句柄用于后续关闭
+        CloseHandle(pi.hThread);    // 直接关闭
+        std::cout << "[Tianyan] WebUI started (PID: " << pi.dwProcessId << ")" << std::endl;
+    } else {
+        std::cerr << "[Tianyan] Failed to start WebUI. Error: " << GetLastError() << std::endl;
+    }
+    free(cmd_buf);
+#else
+    g_web_pid = fork();
+    if (g_web_pid == 0) {
+        setsid();
+        execlp("python3", "python3", py_script.c_str(), NULL);
+        _exit(1);
+    }
+#endif
+}
+
+void stop_web_server() {
+#ifdef _WIN32
+    if (g_web_handle != NULL) {
+        // 尝试关闭进程
+        if (TerminateProcess(g_web_handle, 0)) {
+            std::cout << "[Tianyan] Web server process terminated." << std::endl;
+        } else {
+            std::cerr << "[Tianyan] Failed to terminate web server. Error: " << GetLastError() << std::endl;
+        }
+        CloseHandle(g_web_handle); // 释放句柄资源
+        g_web_handle = NULL;
+    }
+#else
+    if (g_web_pid > 0) {
+        if (kill(g_web_pid, SIGTERM) == 0) {
+            std::cout << "[Tianyan] Web server (PID: " << g_web_pid << ") terminated." << std::endl;
+        } else {
+            kill(g_web_pid, SIGKILL);
+        }
+        g_web_pid = 0;
+    }
+#endif
+}
+
 void TianyanPlugin::onLoad()
 {
     getLogger().info("onLoad is called");
@@ -139,6 +214,7 @@ void TianyanPlugin::onEnable()
             no_log_mobs = json_msg["no_log_mobs"];
             lang = json_msg["language"];
             language_file = language_path +lang+".json";
+            enable_web_ui = json_msg["enable_web_ui"];
         } else {
             getLogger().error(Tran.getLocal("Config file error!Use default config"));
             max_message_in_10s = 6;
@@ -193,12 +269,20 @@ _____   _
     getLogger().info(endstone::ColorFormat::Yellow + Tran.getLocal("Tianyan Plugin Version: ") + p_version);
     getLogger().info(endstone::ColorFormat::Yellow + Tran.getLocal("Repo: ")+"https://github.com/yuhangle/endstone-tianyan-plugin");
     getLogger().info("You can change the plugin’s language by editing the config file. Choose a language from the language folder.");
+    if (enable_web_ui)
+    {
+        start_web_server(dbPath);
+    }
 }
 
 void TianyanPlugin::onDisable()
 {
     getLogger().info("onDisable is called");
     logsCacheWrite();
+    if (enable_web_ui)
+    {
+        stop_web_server();
+    }
 }
 
 bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::Command &command, const std::vector<std::string> &args)

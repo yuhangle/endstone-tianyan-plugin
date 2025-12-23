@@ -1,2 +1,4 @@
 /cmake-build-relwithdebinfo/
 /.idea/
+/*.zip
+/WebUI/.idea/

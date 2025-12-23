@@ -198,9 +198,11 @@ jobs:
             mkdir -p ${BUILD_DIR}/tianyan_data/language
             cp "$PLUGIN_PATH" ${BUILD_DIR}/endstone_tianyan.${EXT}
             cp -r language/* ${BUILD_DIR}/tianyan_data/language/
+            # Copy WebUI folder
+            cp -r WebUI ${BUILD_DIR}/
             ZIP_NAME=tianyan_plugin_v${VERSION}_${OS}.zip
             cd ${BUILD_DIR}
-            zip -r ../${ZIP_NAME} endstone_tianyan.${EXT} tianyan_data
+            zip -r ../${ZIP_NAME} endstone_tianyan.${EXT} tianyan_data WebUI
             cd ..
             mv ${ZIP_NAME} artifacts/
             rm -rf ${BUILD_DIR}

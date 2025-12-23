@@ -19,6 +19,7 @@ inline string ban_id_path = "plugins/tianyan_data/ban-id.json";
 inline int max_message_in_10s;
 inline int max_command_in_10s;
 inline vector<string> no_log_mobs;
+inline bool enable_web_ui = false;
 // 存储每个玩家的上次触发时间
 inline std::unordered_map<string, TimePoint> lastTriggerTime;
 // 全局缓存：每个玩家的消息时间戳列表（仅保留最近10秒内的）
