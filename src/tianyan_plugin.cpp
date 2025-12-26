@@ -64,6 +64,66 @@ void TianyanPlugin::datafile_check() const {
     {
         std::filesystem::create_directory(language_path);
     }
+    // 数据迁移
+    migrateOldBanData();
+}
+
+void TianyanPlugin::migrateOldBanData()
+{
+    filesystem::path oldFile = filesystem::path(dataPath) / "banidlist.json";
+    filesystem::path newFile = filesystem::path(dataPath) / "ban-id.json";
+
+    if (filesystem::exists(newFile)) {
+        std::cout << "[Tianyan] New ban data exists, skip migration.\n";
+        return;
+    }
+
+    if (!filesystem::exists(oldFile)) {
+        return;
+    }
+
+    json oldJson;
+    {
+        std::ifstream in(oldFile);
+        if (!in.is_open()) {
+            std::cerr << "[Tianyan] Failed to open old ban data.\n";
+            return;
+        }
+        in >> oldJson;
+    }
+
+    json newJson = json::object();
+
+    for (auto& [uuid, value] : oldJson.items()) {
+        // 跳过空ID
+        if (uuid.empty()) continue;
+
+        std::string timeStr;
+        if (value.contains("timestamp") && value["timestamp"].is_string()) {
+            timeStr = value["timestamp"].get<std::string>();
+            if (size_t dotPos = timeStr.find('.'); dotPos != std::string::npos) {
+                timeStr = timeStr.substr(0, dotPos);
+            }
+            for (char& c : timeStr) {
+                if (c == 'T') c = '-';
+            }
+        }
+
+        newJson[uuid] = {
+            { "player_name", "" },
+            { "reason", "" },
+            { "time", timeStr }
+        };
+    }
+
+    std::ofstream out(newFile);
+    if (!out.is_open()) {
+        std::cerr << "[Tianyan] Failed to write new ban data.\n";
+        return;
+    }
+    out << newJson.dump(4);
+
+    std::cout << "[Tianyan] Ban data migration completed.\n";
 }
 
 // 读取配置文件
