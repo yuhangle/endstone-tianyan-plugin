@@ -470,18 +470,22 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                                 continue;
                             }
                         }
+                        endstone::CommandSenderWrapper wrapper_sender(sender,
+                        [](const endstone::Message &) {},
+                        [](const endstone::Message &) {}
+                        );
                         //破坏和爆炸方块的恢复
                         if (logData.type == "block_break" || logData.type == "block_break_bomb" || (logData.type == "actor_bomb" && logData.id == "minecraft:tnt")) {
                             string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
                             std::ostringstream cmd;
                             cmd << "setblock " << pos << " " << logData.obj_id << logData.data;
-                            endstone::CommandSenderWrapper wrapper_sender(sender,
-                                [&success_times](const endstone::Message &message) {success_times++;},
-                                [&failed_times](const endstone::Message &message) {failed_times++;}
-                                );
                             // 将已回溯的事件UUID和状态添加到缓存中
                             if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
                                 revertStatusCache.emplace_back(logData.uuid, "reverted");
+                                success_times++;
+                            } else
+                            {
+                                failed_times++;
                             }
                         }
                         //对玩家右键方块的状态复原
@@ -505,12 +509,12 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                                 string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
                                 std::ostringstream cmd;
                                 cmd << "setblock " << pos << " " << logData.obj_id << hand_block[1];
-                                endstone::CommandSenderWrapper wrapper_sender(sender,
-                                [&success_times](const endstone::Message &message) {success_times++;},
-                                [&failed_times](const endstone::Message &message) {failed_times++;}
-                                );
                                 if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
                                     revertStatusCache.emplace_back(logData.uuid, "reverted");
+                                    success_times++;
+                                } else
+                                {
+                                    failed_times++;
                                 }
                             }
                         }
@@ -519,12 +523,12 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                             string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
                             std::ostringstream cmd;
                             cmd << "setblock " << pos << " minecraft:air";
-                            endstone::CommandSenderWrapper wrapper_sender(sender,
-                            [&success_times](const endstone::Message &message) {success_times++;},
-                            [&failed_times](const endstone::Message &message) {failed_times++;}
-                            );
                             if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
                                 revertStatusCache.emplace_back(logData.uuid, "reverted");
+                                success_times++;
+                            } else
+                            {
+                                failed_times++;
                             }
                         }
                         //复活吧我的生物
@@ -540,12 +544,12 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                             }
                             std::ostringstream cmd;
                             cmd << "summon " << obj_id << " " << pos;
-                            endstone::CommandSenderWrapper wrapper_sender(sender,
-                            [&success_times](const endstone::Message &message) {success_times++;},
-                            [&failed_times](const endstone::Message &message) {failed_times++;}
-                            );
                             if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
                                 revertStatusCache.emplace_back(logData.uuid, "reverted");
+                                success_times++;
+                            } else
+                            {
+                                failed_times++;
                             }
                         }
                     }
