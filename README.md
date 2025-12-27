@@ -47,8 +47,26 @@
 #### 复原玩家直接造成的方块破坏与方块放置以及实体爆炸造成的破坏的功能
 天眼插件支持复原玩家直接造成的方块破坏与方块放置以及实体爆炸造成的破坏，其原理是简单的使用了 setblock 命令从数据库中还原了方块，暂不支持还原箱子内容物之类的细节。
 
-#### 查看玩家物品栏功能
-天眼插件支持查看玩家的物品栏内的物品信息。
+#### 查看在线玩家物品栏功能
+天眼插件支持查看在线玩家的物品栏内的物品信息。
+
+### 🌐 WebUI面板
+天眼插件提供了 WebUI 面板，可以在浏览器中访问面板，查看行为记录。 启用WebUI功能需要在配置文件中修改"enable_web_ui"为true。
+WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config.json:
+```json
+{
+    "secret": "your_secret",
+    "backend_port": 8098
+}
+```
+- `secret`: WebUI 访问密钥，用于验证身份
+- `backend_port`: WebUI 端口
+
+运行WebUI需要以下pip包：`fastapi` `uvicorn`,WebUI在运行时会自动安装pip包。
+
+你可以通过`服务器IP:WebUI端口`访问WebUI面板,例如，默认端口为8098，访问地址为`http://127.0.0.1:8098`。
+
+你也可以在WebUI指定连接后端IP和端口。
 
 ## 🚀 安装 & 配置 & 使用方法
 
@@ -71,6 +89,7 @@
 {
     "10s_command_max": 12,
     "10s_message_max": 6,
+    "enable_web_ui": false,
     "language": "zh_CN",
     "no_log_mobs": [
         "minecraft:zombie_pigman",
@@ -85,6 +104,7 @@
 配置项说明：
 - `10s_command_max`: 10秒内玩家可使用命令的最大次数
 - `10s_message_max`: 10秒内玩家可发送消息的最大次数
+- `enable_web_ui`: 是否启用 WebUI
 - `language`: 插件语言
 - `no_log_mobs`: 不被记录的实体列表
 
