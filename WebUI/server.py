@@ -7,7 +7,6 @@ import sqlite3
 import subprocess
 import sys
 import time
-from os import mkdir
 from typing import List, Dict, Any
 
 logger = logging.getLogger("tianyan_plugin")
@@ -840,9 +839,9 @@ if __name__ == "__main__":
     }
 
     logger.info(f"Start WebUI Service，127.0.0.1:{config['port']}")
-    with open(READY_FILE, "w", encoding="utf-8"):
-        pass
     if conf.get("secret", "your_secret") == "your_secret":
         logger.warning("Using the default secret 'your_secret' — please update it for better security.")
+    with open(READY_FILE, "w", encoding="utf-8"):
+        pass
 
     uvicorn.run(app, **config)

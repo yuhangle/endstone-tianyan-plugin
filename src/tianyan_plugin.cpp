@@ -233,6 +233,8 @@ void TianyanPlugin::dump_webui_log_once() const
     while (std::getline(file, line)) {
         std::cout << line << std::endl;
     }
+    std::error_code ec;
+    std::filesystem::remove(ready_file, ec);
     getServer().getScheduler().cancelTask(windows_print_webui_log->getTaskId());
 }
 #endif
