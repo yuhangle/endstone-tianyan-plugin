@@ -218,7 +218,8 @@ void stop_web_server() {
 #ifdef _WIN32
 void TianyanPlugin::dump_webui_log_once() const
 {
-    if (const string ready_file = dataPath + "/WebUI/ready"; !filesystem::exists(ready_file))
+    const string ready_file = dataPath + "/WebUI/ready";
+    if (!filesystem::exists(ready_file))
     {
         return;
     }
