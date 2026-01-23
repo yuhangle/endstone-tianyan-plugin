@@ -15,8 +15,11 @@
 
 class TianyanPlugin : public endstone::Plugin {
 public:
-        //数据目录和配置文件检查
+    //数据目录和配置文件检查
     void datafile_check() const;
+
+    //python版本封禁数据迁移
+    static void migrateOldBanData();
 
     // 读取配置文件
     [[nodiscard]] json read_config() const;
@@ -54,4 +57,8 @@ private:
         double r,time;
     };
     TybackCache tyback_cache = {false};
+    shared_ptr<endstone::Task> windows_print_webui_log;
+#ifdef _WIN32
+    void dump_webui_log_once() const;
+#endif
 };

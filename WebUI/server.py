@@ -160,6 +160,7 @@ DB_PATH = "../ty_data.db"
 CONFIG_PATH = "../web_config.json"
 LOG_PATH = "../logs/webui.log"
 LANGUAGES_DIR = "languages"
+READY_FILE = "ready"
 
 # 确保日志目录存在
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
@@ -840,5 +841,7 @@ if __name__ == "__main__":
     logger.info(f"Start WebUI Service，127.0.0.1:{config['port']}")
     if conf.get("secret", "your_secret") == "your_secret":
         logger.warning("Using the default secret 'your_secret' — please update it for better security.")
+    with open(READY_FILE, "w", encoding="utf-8"):
+        pass
 
     uvicorn.run(app, **config)

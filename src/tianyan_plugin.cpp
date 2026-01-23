@@ -64,6 +64,66 @@ void TianyanPlugin::datafile_check() const {
     {
         std::filesystem::create_directory(language_path);
     }
+    // 数据迁移
+    migrateOldBanData();
+}
+
+void TianyanPlugin::migrateOldBanData()
+{
+    filesystem::path oldFile = filesystem::path(dataPath) / "banidlist.json";
+    filesystem::path newFile = filesystem::path(dataPath) / "ban-id.json";
+
+    if (filesystem::exists(newFile)) {
+        std::cout << "[Tianyan] New ban data exists, skip migration.\n";
+        return;
+    }
+
+    if (!filesystem::exists(oldFile)) {
+        return;
+    }
+
+    json oldJson;
+    {
+        std::ifstream in(oldFile);
+        if (!in.is_open()) {
+            std::cerr << "[Tianyan] Failed to open old ban data.\n";
+            return;
+        }
+        in >> oldJson;
+    }
+
+    json newJson = json::object();
+
+    for (auto& [uuid, value] : oldJson.items()) {
+        // 跳过空ID
+        if (uuid.empty()) continue;
+
+        std::string timeStr;
+        if (value.contains("timestamp") && value["timestamp"].is_string()) {
+            timeStr = value["timestamp"].get<std::string>();
+            if (size_t dotPos = timeStr.find('.'); dotPos != std::string::npos) {
+                timeStr = timeStr.substr(0, dotPos);
+            }
+            for (char& c : timeStr) {
+                if (c == 'T') c = '-';
+            }
+        }
+
+        newJson[uuid] = {
+            { "player_name", "" },
+            { "reason", "" },
+            { "time", timeStr }
+        };
+    }
+
+    std::ofstream out(newFile);
+    if (!out.is_open()) {
+        std::cerr << "[Tianyan] Failed to write new ban data.\n";
+        return;
+    }
+    out << newJson.dump(4);
+
+    std::cout << "[Tianyan] Ban data migration completed.\n";
 }
 
 // 读取配置文件
@@ -155,6 +215,30 @@ void stop_web_server() {
     }
 #endif
 }
+#ifdef _WIN32
+void TianyanPlugin::dump_webui_log_once() const
+{
+    const string ready_file = dataPath + "/WebUI/ready";
+    if (!filesystem::exists(ready_file))
+    {
+        return;
+    }
+    const string log_path = dataPath + "/logs/webui.log";
+    std::ifstream file(log_path);
+    if (!file.is_open()) {
+        std::cerr << "[Tianyan] webui.log not found." << std::endl;
+        return;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        std::cout << line << std::endl;
+    }
+    std::error_code ec;
+    std::filesystem::remove(ready_file, ec);
+    getServer().getScheduler().cancelTask(windows_print_webui_log->getTaskId());
+}
+#endif
 
 void TianyanPlugin::onLoad()
 {
@@ -253,6 +337,7 @@ void TianyanPlugin::onEnable()
     registerEvent<endstone::ActorDeathEvent>(EventListener::onActorDie);
     registerEvent<endstone::PlayerPickupItemEvent>(EventListener::onPlayPickup);
     registerEvent<endstone::PlayerDeathEvent>(EventListener::onPlayerDie);
+    registerEvent<endstone::PlayerDropItemEvent>(EventListener::onPlayerDropItem);
     registerEvent(&EventListener::onPlayerJoin, *eventListener_);
     registerEvent(&EventListener::onPlayerSendMSG, *eventListener_);
     registerEvent(&EventListener::onPlayerSendCMD, *eventListener_);
@@ -272,6 +357,9 @@ _____   _
     if (enable_web_ui)
     {
         start_web_server(dbPath);
+#ifdef _WIN32
+        windows_print_webui_log = getServer().getScheduler().runTaskTimer(*this, [&]() {dump_webui_log_once();},0,20);
+#endif
     }
 }
 
@@ -283,6 +371,7 @@ void TianyanPlugin::onDisable()
     {
         stop_web_server();
     }
+    getServer().getScheduler().cancelTasks(*this);
 }
 
 bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::Command &command, const std::vector<std::string> &args)
@@ -470,18 +559,22 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                                 continue;
                             }
                         }
+                        endstone::CommandSenderWrapper wrapper_sender(sender,
+                        [](const endstone::Message &) {},
+                        [](const endstone::Message &) {}
+                        );
                         //破坏和爆炸方块的恢复
                         if (logData.type == "block_break" || logData.type == "block_break_bomb" || (logData.type == "actor_bomb" && logData.id == "minecraft:tnt")) {
                             string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
                             std::ostringstream cmd;
                             cmd << "setblock " << pos << " " << logData.obj_id << logData.data;
-                            endstone::CommandSenderWrapper wrapper_sender(sender,
-                                [&success_times](const endstone::Message &message) {success_times++;},
-                                [&failed_times](const endstone::Message &message) {failed_times++;}
-                                );
                             // 将已回溯的事件UUID和状态添加到缓存中
                             if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
                                 revertStatusCache.emplace_back(logData.uuid, "reverted");
+                                success_times++;
+                            } else
+                            {
+                                failed_times++;
                             }
                         }
                         //对玩家右键方块的状态复原
@@ -505,12 +598,12 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                                 string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
                                 std::ostringstream cmd;
                                 cmd << "setblock " << pos << " " << logData.obj_id << hand_block[1];
-                                endstone::CommandSenderWrapper wrapper_sender(sender,
-                                [&success_times](const endstone::Message &message) {success_times++;},
-                                [&failed_times](const endstone::Message &message) {failed_times++;}
-                                );
                                 if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
                                     revertStatusCache.emplace_back(logData.uuid, "reverted");
+                                    success_times++;
+                                } else
+                                {
+                                    failed_times++;
                                 }
                             }
                         }
@@ -519,12 +612,12 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                             string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
                             std::ostringstream cmd;
                             cmd << "setblock " << pos << " minecraft:air";
-                            endstone::CommandSenderWrapper wrapper_sender(sender,
-                            [&success_times](const endstone::Message &message) {success_times++;},
-                            [&failed_times](const endstone::Message &message) {failed_times++;}
-                            );
                             if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
                                 revertStatusCache.emplace_back(logData.uuid, "reverted");
+                                success_times++;
+                            } else
+                            {
+                                failed_times++;
                             }
                         }
                         //复活吧我的生物
@@ -540,12 +633,12 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                             }
                             std::ostringstream cmd;
                             cmd << "summon " << obj_id << " " << pos;
-                            endstone::CommandSenderWrapper wrapper_sender(sender,
-                            [&success_times](const endstone::Message &message) {success_times++;},
-                            [&failed_times](const endstone::Message &message) {failed_times++;}
-                            );
                             if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
                                 revertStatusCache.emplace_back(logData.uuid, "reverted");
+                                success_times++;
+                            } else
+                            {
+                                failed_times++;
                             }
                         }
                     }
@@ -897,7 +990,7 @@ ENDSTONE_PLUGIN("tianyan_plugin", TIANYAN_PLUGIN_VERSION, TianyanPlugin)
             .usages("/ty",
                     "/ty <r: float> <time: float>",
                     "/ty <r: float> <time: float> <source_id | source_name | target_id | target_name> <keywords: str>",
-                    "/ty <r: float> <time: float> <action> <block_break | block_place | entity_damage | player_right_click_block | player_right_click_entity | entity_bomb | block_break_bomb | piston_extend | piston_retract | entity_die | player_pickup_item>"
+                    "/ty <r: float> <time: float> <action> <block_break | block_place | entity_damage | player_right_click_block | player_right_click_entity | entity_bomb | block_break_bomb | piston_extend | piston_retract | entity_die | player_pickup_item | player_drop_item>"
                     )
             .permissions("ty.command.member");
 
@@ -915,7 +1008,7 @@ ENDSTONE_PLUGIN("tianyan_plugin", TIANYAN_PLUGIN_VERSION, TianyanPlugin)
             .usages("/tys",
                     "/tys <time: float>",
                     "/tys <time: float> <source_id | source_name | target_id | target_name> <keywords: str>",
-                    "/tys <time: float> <action> <block_break | block_place | entity_damage | player_right_click_block | player_right_click_entity | entity_bomb | block_break_bomb | piston_extend | piston_retract | entity_die | player_pickup_item>"
+                    "/tys <time: float> <action> <block_break | block_place | entity_damage | player_right_click_block | player_right_click_entity | entity_bomb | block_break_bomb | piston_extend | piston_retract | entity_die | player_pickup_item | player_drop_item>"
                     )
             .permissions("ty.command.op");
 

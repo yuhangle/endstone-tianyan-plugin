@@ -35,7 +35,6 @@ namespace yuhangle {
 
         bool open() {
             if (sqlite3_open(db_filename.c_str(), &db)) {
-                std::cerr << "无法打开数据库: " << sqlite3_errmsg(db) << std::endl;
                 return false;
             }
             return true;

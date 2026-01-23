@@ -47,8 +47,29 @@ Automatic ban rules:
 #### Restore Player-Caused Block Destruction, Placement, and Explosion Damage Functions
 The Tianyan plugin supports restoring player-directly caused block destruction, block placement, and explosion damage. The principle is simply using the setblock command to restore blocks from the database, but it does not currently support restoring details such as chest contents.
 
-#### View Player Inventory Function
-The Tianyan plugin supports viewing item information in players' inventories.
+#### View Online Player Inventory Function
+The Tianyan plugin supports viewing item information in online players' inventories.
+
+#### 🌐 WebUI Panel
+
+The Tianyan plugin provides a WebUI panel that can be accessed through a browser to view behavior records. To enable the WebUI feature, set "enable_web_ui" to true in the configuration file.
+
+After the WebUI is started, a WebUI configuration file web_config.json will be generated in the plugin data directory:
+```json
+{
+"secret": "your_secret",
+"backend_port": 8098
+}
+```
+- `secret`: Access key for the WebUI, used for authentication
+
+- `backend_port`: WebUI port
+
+Running the WebUI requires the following pip packages: `fastapi`, `uvicorn`. These packages will be automatically installed when the WebUI runs.
+
+You can access the WebUI panel via `server_IP:WebUI_port`. For example, with the default port 8098, the access URL is `http://127.0.0.1:8098`.
+
+You can also specify the backend IP and port within the WebUI after connecting.
 
 ## 🚀 Installation, Configuration & Usage
 
@@ -71,6 +92,7 @@ Default configuration:
 {
     "10s_command_max": 12,
     "10s_message_max": 6,
+    "enable_web_ui": false,
     "language": "zh_CN",
     "no_log_mobs": [
         "minecraft:zombie_pigman",
@@ -85,6 +107,7 @@ Default configuration:
 Configuration item descriptions:
 - `10s_command_max`: Maximum number of commands players can use within 10 seconds
 - `10s_message_max`: Maximum number of messages players can send within 10 seconds
+- `enable_web_ui`: Enable WebUI
 - `language`: Plugin language
 - `no_log_mobs`: List of entities not to be logged
 
@@ -137,6 +160,7 @@ Search behavior types:
 - `piston_retract`: Piston retracting
 - `entity_die`: Entity death
 - `player_pickup_item`: Player picking up item
+- `player_drop_item`: Player dropping item
 
 Example: Search for player block placement behaviors within 2 hours
 ```

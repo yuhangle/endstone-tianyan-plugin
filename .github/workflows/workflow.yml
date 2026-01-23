@@ -168,7 +168,7 @@ jobs:
             # 格式: 1.2.0-alpha.<距离上次稳定版的提交数>+<Hash>
             PROJECT_VERSION="${FILE_BASE_VERSION}-alpha.${GIT_COMMIT_COUNT}+${GIT_SHORT_HASH}"
             TAG_VERSION="v${FILE_BASE_VERSION}-alpha.${GIT_COMMIT_COUNT}"
-            RELEASE_TITLE="Development Build (based on v${FILE_BASE_VERSION})"
+            RELEASE_TITLE="Development Build ${PROJECT_VERSION}"
           fi
           
           echo "VERSION=${PROJECT_VERSION}" >> $GITHUB_OUTPUT
