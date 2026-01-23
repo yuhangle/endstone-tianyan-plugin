@@ -157,7 +157,7 @@ WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config
 - `piston_retract`: 活塞收回
 - `entity_die`: 实体死亡
 - `player_pickup_item`: 玩家拾取物品
-- `player_drop_item`: Player dropping item
+- `player_drop_item`: 玩家丢弃物品
 
 示例：搜索2小时内的玩家方块放置行为
 ```
