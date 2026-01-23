@@ -160,6 +160,7 @@ Search behavior types:
 - `piston_retract`: Piston retracting
 - `entity_die`: Entity death
 - `player_pickup_item`: Player picking up item
+- `player_drop_item`: Player dropping item
 
 Example: Search for player block placement behaviors within 2 hours
 ```

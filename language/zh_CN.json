@@ -29,6 +29,7 @@
   "piston_retract": "活塞收回",
   "entity_die": "实体死亡",
   "player_pickup_item": "玩家拾取物品",
+  "player_drop_item": "Item Drop by Player",
   "hand": "空手",
   "Page Down": "下一页",
   "Page Up": "上一页",
