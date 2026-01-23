@@ -44,6 +44,10 @@ void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event)
     if (event.isCancelled()) {
         logData.status = "canceled";
     }
+    {
+        std::lock_guard lock(cacheMutex);
+        logDataCache.push_back(logData);
+    }
 }
 
 void EventListener::onBlockBreak(const endstone::BlockBreakEvent& event){
