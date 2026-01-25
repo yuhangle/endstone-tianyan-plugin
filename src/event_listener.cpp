@@ -4,6 +4,9 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "event_listener.h"
 #include "tianyan_protect.h"
+#include <unordered_set>
+#include <string>
+#include <mutex>
 
 // 检查是否允许触发事件
 bool EventListener::canTriggerEvent(const string& playername) {
@@ -25,10 +28,33 @@ bool EventListener::canTriggerEvent(const string& playername) {
 }
 
 // Addded
-void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event) {
-    TianyanCore::LogData logData;
 
+// Edge cases fix - prevent drop item during login, for some reason getLocation will segfaults
+std::unordered_set<std::string> joinedPlayers; // list player that is already joined
+std::mutex playerSetMutex;
+
+// on Join, add player to joinedPlayers
+void EventListener::edgeCaseOnPlayerJoin(const endstone::PlayerJoinEvent& event) {
+    std::lock_guard<std::mutex> lock(playerSetMutex);
+    joinedPlayers.insert(event.getPlayer().getUniqueId().str());
+}
+
+// on Quit, remove player from joinedPlayers
+void EventListener::edgeCaseOnPlayerQuit(const endstone::PlayerQuitEvent& event) {
+    std::lock_guard<std::mutex> lock(playerSetMutex);
+    joinedPlayers.erase(event.getPlayer().getUniqueId().str());
+}
+
+void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event) {
+    
+    TianyanCore::LogData logData;
     const endstone::Player& player = event.getPlayer();
+
+    // check if player is in joinedPlayers
+    {
+        std::lock_guard<std::mutex> lock(playerSetMutex);
+        if (joinedPlayers.find(player.getUniqueId().str()) == joinedPlayers.end()) return; 
+    }
 
     logData.uuid = yuhangle::Database::generate_uuid_v4();
     logData.id = player.getType();
@@ -36,7 +62,13 @@ void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event)
     logData.pos_x = player.getLocation().getX();
     logData.pos_y = player.getLocation().getY();
     logData.pos_z = player.getLocation().getZ();
-    logData.world = player.getLocation().getDimension()->getName();
+    auto* dimension = player.getLocation().getDimension();
+    if (dimension) {
+        logData.world = dimension->getName();
+    } else {
+        logData.world = "Unknown/Loading"; // Handle the null case gracefully
+    }
+    // logData.world = player.getLocation().getDimension()->getName();
     logData.obj_id = event.getItem().getType().getId();
     logData.status = event.getItem().getAmount();
     logData.type = "player_drop_item";

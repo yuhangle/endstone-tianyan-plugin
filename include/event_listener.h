@@ -17,6 +17,9 @@ public:
     static bool canTriggerEvent(const std::string& playername);
 
     // Added
+    static void edgeCaseOnPlayerJoin(const endstone::PlayerJoinEvent& event);
+    static void edgeCaseOnPlayerQuit(const endstone::PlayerQuitEvent& event);
+
     static void onPlayerDropItem(const endstone::PlayerDropItemEvent& event);
 
     static void onBlockBreak(const endstone::BlockBreakEvent& event);
