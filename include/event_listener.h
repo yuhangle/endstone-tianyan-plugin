@@ -16,9 +16,6 @@ public:
     // 检查是否允许触发事件
     static bool canTriggerEvent(const std::string& playername);
 
-    // Added
-    static void onPlayerDropItem(const endstone::PlayerDropItemEvent& event);
-
     static void onBlockBreak(const endstone::BlockBreakEvent& event);
 
     static void onBlockPlace(const endstone::BlockPlaceEvent& event);
@@ -40,6 +37,8 @@ public:
     static void onPlayerDie(const endstone::PlayerDeathEvent&event);
 
     static void onPlayPickup(const endstone::PlayerPickupItemEvent&event);
+
+    static void onPlayerDropItem(const endstone::PlayerDropItemEvent& event);
 
     //玩家加入事件
     void onPlayerJoin(const endstone::PlayerJoinEvent &event);

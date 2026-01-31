@@ -24,32 +24,6 @@ bool EventListener::canTriggerEvent(const string& playername) {
     return true;
 }
 
-// Addded
-void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event) {
-    TianyanCore::LogData logData;
-
-    const endstone::Player& player = event.getPlayer();
-
-    logData.uuid = yuhangle::Database::generate_uuid_v4();
-    logData.id = player.getType();
-    logData.name = player.getName();
-    logData.pos_x = player.getLocation().getX();
-    logData.pos_y = player.getLocation().getY();
-    logData.pos_z = player.getLocation().getZ();
-    logData.world = player.getLocation().getDimension()->getName();
-    logData.obj_id = event.getItem().getType().getId();
-    logData.status = event.getItem().getAmount();
-    logData.type = "player_drop_item";
-    logData.time = std::time(nullptr);
-    if (event.isCancelled()) {
-        logData.status = "canceled";
-    }
-    {
-        std::lock_guard lock(cacheMutex);
-        logDataCache.push_back(logData);
-    }
-}
-
 void EventListener::onBlockBreak(const endstone::BlockBreakEvent& event){
     TianyanCore::LogData logData;
     logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
@@ -398,6 +372,30 @@ void EventListener::onPlayPickup(const endstone::PlayerPickupItemEvent&event) {
     logData.obj_name = event.getItem().getName();
     logData.time = std::time(nullptr);
     logData.type = "player_pickup_item";
+    if (event.isCancelled()) {
+        logData.status = "canceled";
+    }
+    {
+        std::lock_guard lock(cacheMutex);
+        logDataCache.push_back(logData);
+    }
+}
+
+void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event) {
+    TianyanCore::LogData logData;
+
+    const endstone::Player& player = event.getPlayer();
+
+    logData.uuid = yuhangle::Database::generate_uuid_v4();
+    logData.id = player.getType();
+    logData.name = player.getName();
+    logData.pos_x = player.getLocation().getX();
+    logData.pos_y = player.getLocation().getY();
+    logData.pos_z = player.getLocation().getZ();
+    logData.world = player.getLocation().getDimension()->getName();
+    logData.obj_id = event.getItem().getType().getId();
+    logData.time = std::time(nullptr);
+    logData.type = "player_drop_item";
     if (event.isCancelled()) {
         logData.status = "canceled";
     }

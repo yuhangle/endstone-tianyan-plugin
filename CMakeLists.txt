@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 project(tianyan CXX)
 
-set(BASE_VERSION "1.2.0")
+set(BASE_VERSION "1.2.1")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
