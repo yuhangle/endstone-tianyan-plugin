@@ -335,7 +335,7 @@ void TianyanPlugin::onEnable()
     registerEvent<endstone::BlockPistonExtendEvent>(EventListener::onPistonExtend);
     registerEvent<endstone::BlockPistonRetractEvent>(EventListener::onPistonRetract);
     registerEvent<endstone::ActorDeathEvent>(EventListener::onActorDie);
-    registerEvent<endstone::PlayerPickupItemEvent>(EventListener::onPlayPickup);
+    registerEvent<endstone::PlayerPickupItemEvent>(EventListener::onPlayerPickup);
     registerEvent<endstone::PlayerDeathEvent>(EventListener::onPlayerDie);
     registerEvent<endstone::PlayerDropItemEvent>(EventListener::onPlayerDropItem);
     registerEvent(&EventListener::onPlayerJoin, *eventListener_);
@@ -974,6 +974,35 @@ void TianyanPlugin::updateRevertStatus() {
         }
     });
     updateRevertStatus_thread.detach();
+}
+
+TianyanCore::SafeActorData TianyanPlugin::getSafeActorData(const endstone::Actor& actor) {
+    TianyanCore::SafeActorData data;
+
+    // 检查对象是否合法
+    if (!actor.isValid()) {
+        return data;
+    }
+
+    try {
+        const auto location = actor.getLocation();
+        data.x = location.getX();
+        data.y = location.getY();
+        data.z = location.getZ();
+
+        if (const auto* dimension = location.getDimension(); dimension != nullptr) {
+            data.dimension_name = dimension->getName();
+        } else {
+            return data;
+        }
+
+        data.name = actor.getName();
+        data.valid = true;
+    } catch (...) {
+        data.valid = false;
+    }
+
+    return data;
 }
 
 

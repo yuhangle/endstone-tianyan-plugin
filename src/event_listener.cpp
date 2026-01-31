@@ -4,6 +4,7 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "event_listener.h"
 #include "tianyan_protect.h"
+#include "tianyan_plugin.h"
 
 // 检查是否允许触发事件
 bool EventListener::canTriggerEvent(const string& playername) {
@@ -50,9 +51,11 @@ void EventListener::onBlockBreak(const endstone::BlockBreakEvent& event){
 
 void EventListener::onBlockPlace(const endstone::BlockPlaceEvent& event){
     TianyanCore::LogData logData;
-    logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
-    logData.id = event.getPlayer().getType();
-    logData.name = event.getPlayer().getName();
+    logData.uuid = yuhangle::Database::generate_uuid_v4();
+    const auto& player = event.getPlayer();
+    const auto [valid, x, y, z, dimension_name, name, id] = TianyanPlugin::getSafeActorData(player);
+    logData.id = id;
+    logData.name = name;
     logData.pos_x = event.getBlockPlacedState().getX();
     logData.pos_y = event.getBlockPlacedState().getY();
     logData.pos_z = event.getBlockPlacedState().getZ();
@@ -78,12 +81,15 @@ void EventListener::onActorDamage(const endstone::ActorDamageEvent& event){
         return;
     }
     TianyanCore::LogData logData;
-    logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
+    logData.uuid = yuhangle::Database::generate_uuid_v4();
 
+    const auto& actor = event.getActor();
+    const auto [valid, x, y, z, dimension_name, name, id] = TianyanPlugin::getSafeActorData(actor);
     //实体造成伤害
-    if (event.getDamageSource().getActor()) {
-        logData.id = event.getDamageSource().getActor()->getType();
-        logData.name = event.getDamageSource().getActor()->getName();
+    if (const auto source_actor = event.getDamageSource().getActor()) {
+        const auto safe_actor = TianyanPlugin::getSafeActorData(*source_actor);
+        logData.id = safe_actor.id;
+        logData.name = safe_actor.name;
         logData.type = "entity_damage";
     }
     //其余伤害
@@ -91,12 +97,12 @@ void EventListener::onActorDamage(const endstone::ActorDamageEvent& event){
         logData.id = event.getDamageSource().getType();
         logData.type = "damage";
     }
-    logData.pos_x = event.getActor().getLocation().getX();
-    logData.pos_y = event.getActor().getLocation().getY();
-    logData.pos_z = event.getActor().getLocation().getZ();
-    logData.world = event.getActor().getLocation().getDimension()->getName();
-    logData.obj_id = event.getActor().getType();
-    logData.obj_name = event.getActor().getName();
+    logData.pos_x = x;
+    logData.pos_y = y;
+    logData.pos_z = z;
+    logData.world = dimension_name;
+    logData.obj_id = id;
+    logData.obj_name = name;
     logData.time = std::time(nullptr);
     if (event.isCancelled()) {
         logData.status = "canceled";
@@ -135,16 +141,18 @@ void EventListener::onPlayerRightClickBlock(const endstone::PlayerInteractEvent&
         return;
     }
 
-    if (!canTriggerEvent(event.getPlayer().getName())) {
+    const auto& player = event.getPlayer();
+    const auto [valid, x, y, z, dimension_name, name, id] = TianyanPlugin::getSafeActorData(player);
+    if (!canTriggerEvent(name)) {
         return;
     }
     logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
-    logData.id = event.getPlayer().getType();
-    logData.name = event.getPlayer().getName();
+    logData.id = id;
+    logData.name = name;
     logData.pos_x = event.getBlock()->getX();
     logData.pos_y = event.getBlock()->getY();
     logData.pos_z = event.getBlock()->getZ();
-    logData.world = event.getPlayer().getLocation().getDimension()->getName();
+    logData.world = dimension_name;
     logData.obj_id = event.getBlock()->getType();
     logData.time = std::time(nullptr);
     logData.type = "player_right_click_block";
@@ -172,26 +180,37 @@ void EventListener::onPlayerRightClickActor(const endstone::PlayerInteractActorE
         return;
     }
     TianyanCore::LogData logData;
-    logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
-    logData.id = event.getPlayer().getType();
-    logData.name = event.getPlayer().getName();
-    logData.pos_x = event.getActor().getLocation().getX();
-    logData.pos_y = event.getActor().getLocation().getY();
-    logData.pos_z = event.getActor().getLocation().getZ();
-    logData.world = event.getActor().getLocation().getDimension()->getName();
-    logData.obj_id = event.getActor().getType();
-    logData.obj_name = event.getActor().getName();
+    logData.uuid = yuhangle::Database::generate_uuid_v4();
+    const auto& player = event.getPlayer();
+    const auto& actor = event.getActor();
+    const auto [valid, x, y, z, dimension_name, name, id] = TianyanPlugin::getSafeActorData(player);
+    const auto [valid_2, x_2, y_2, z_2, dimension_name_2, name_2, id_2] = TianyanPlugin::getSafeActorData(actor);
+    logData.id = id;
+    logData.name = name;
+    logData.pos_x = x;
+    logData.pos_y = y;
+    logData.pos_z = z;
+    logData.world = dimension_name;
+    logData.obj_id = id_2;
+    logData.obj_name = name_2;
     logData.time = std::time(nullptr);
     logData.type = "player_right_click_entity";
     if (event.isCancelled()) {
         logData.status = "canceled";
     }
     string hand_item;
-    if (event.getPlayer().getInventory().getItemInMainHand()) {
-        hand_item = event.getPlayer().getInventory().getItemInMainHand()->getType().getId();
-    } else {
-        hand_item = "hand";
+    if (valid)
+    {
+        if (event.getPlayer().getInventory().getItemInMainHand()) {
+            hand_item = event.getPlayer().getInventory().getItemInMainHand()->getType().getId();
+        } else {
+            hand_item = "hand";
+        }
+    }  else
+    {
+        hand_item = "null";
     }
+
     logData.data = fmt::format("{}", hand_item);
     {
         std::lock_guard lock(cacheMutex);
@@ -201,13 +220,14 @@ void EventListener::onPlayerRightClickActor(const endstone::PlayerInteractActorE
 
 void EventListener::onActorBomb(const endstone::ActorExplodeEvent& event) {
     TianyanCore::LogData logData;
-    logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
-    logData.id = event.getActor().getType();
-    logData.name = event.getActor().getName();
-    logData.pos_x = event.getLocation().getX();
-    logData.pos_y = event.getLocation().getY();
-    logData.pos_z = event.getLocation().getZ();
-    logData.world = event.getLocation().getDimension()->getName();
+    logData.uuid = yuhangle::Database::generate_uuid_v4();
+    const auto [valid, x, y, z, dimension_name, name, id] = TianyanPlugin::getSafeActorData(event.getActor());
+    logData.id = id;
+    logData.name = name;
+    logData.pos_x = x;
+    logData.pos_y = y;
+    logData.pos_z = z;
+    logData.world = dimension_name;
     if (!event.getBlockList().empty()) {
         logData.obj_name = "Block";
     }
@@ -327,13 +347,19 @@ void EventListener::onActorDie(const endstone::ActorDeathEvent&event) {
         return;
     }
     TianyanCore::LogData logData;
-    logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
-    logData.pos_x = event.getActor().getLocation().getX();
-    logData.pos_y = event.getActor().getLocation().getY();
-    logData.pos_z = event.getActor().getLocation().getZ();
-    logData.world = event.getActor().getLocation().getDimension()->getName();
-    logData.obj_id = event.getActor().getType();
-    logData.obj_name = event.getActor().getName();
+    const auto* sourceActor = event.getDamageSource().getActor();
+    const auto& die_actor = event.getActor();
+    const auto [d_valid, d_x, d_y, d_z, d_dimension_name, d_name, d_id] = TianyanPlugin::getSafeActorData(die_actor);
+    const auto [valid, x, y, z, dimension_name, name, id] = TianyanPlugin::getSafeActorData(*sourceActor);
+    logData.uuid = yuhangle::Database::generate_uuid_v4();
+    logData.id = id;
+    logData.name = name;
+    logData.pos_x = d_x;
+    logData.pos_y = d_y;
+    logData.pos_z = d_z;
+    logData.world = d_dimension_name;
+    logData.obj_id = d_id;
+    logData.obj_name = d_name;
     logData.time = std::time(nullptr);
     logData.type = "entity_die";
     {
@@ -344,13 +370,19 @@ void EventListener::onActorDie(const endstone::ActorDeathEvent&event) {
 
 void EventListener::onPlayerDie(const endstone::PlayerDeathEvent&event) {
     TianyanCore::LogData logData;
-    logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
-    logData.pos_x = event.getActor().getLocation().getX();
-    logData.pos_y = event.getActor().getLocation().getY();
-    logData.pos_z = event.getActor().getLocation().getZ();
-    logData.world = event.getActor().getLocation().getDimension()->getName();
-    logData.obj_id = event.getActor().getType();
-    logData.obj_name = event.getActor().getName();
+    logData.uuid = yuhangle::Database::generate_uuid_v4();
+    const auto* sourceActor = event.getDamageSource().getActor();
+    const auto& die_player = event.getPlayer();
+    const auto [valid, x, y, z, dimension_name, name, id] = TianyanPlugin::getSafeActorData(*sourceActor);
+    const auto [d_valid, d_x, d_y, d_z, d_dimension_name, d_name, d_id] = TianyanPlugin::getSafeActorData(die_player);
+    logData.id = id;
+    logData.name = name;
+    logData.pos_x = d_x;
+    logData.pos_y = d_y;
+    logData.pos_z = d_z;
+    logData.world = d_dimension_name;
+    logData.obj_id = d_id;
+    logData.obj_name = d_name;
     logData.time = std::time(nullptr);
     logData.type = "entity_die";
     {
@@ -359,15 +391,18 @@ void EventListener::onPlayerDie(const endstone::PlayerDeathEvent&event) {
     }
 }
 
-void EventListener::onPlayPickup(const endstone::PlayerPickupItemEvent&event) {
+void EventListener::onPlayerPickup(const endstone::PlayerPickupItemEvent&event) {
     TianyanCore::LogData logData;
-    logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
-    logData.id = event.getPlayer().getType();
-    logData.name = event.getPlayer().getName();
-    logData.pos_x = event.getPlayer().getLocation().getX();
-    logData.pos_y = event.getPlayer().getLocation().getY();
-    logData.pos_z = event.getPlayer().getLocation().getZ();
-    logData.world = event.getPlayer().getLocation().getDimension()->getName();
+    const auto& player = event.getPlayer();
+    const auto [valid, x, y, z, dimension_name, name, id] = TianyanPlugin::getSafeActorData(player);
+
+    logData.uuid = yuhangle::Database::generate_uuid_v4();
+    logData.id = id;
+    logData.name = name;
+    logData.pos_x = x;
+    logData.pos_y = y;
+    logData.pos_z = z;
+    logData.world = dimension_name;
     logData.obj_id = event.getItem().getItemStack()->getType().getId();
     logData.obj_name = event.getItem().getName();
     logData.time = std::time(nullptr);
@@ -384,15 +419,16 @@ void EventListener::onPlayPickup(const endstone::PlayerPickupItemEvent&event) {
 void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event) {
     TianyanCore::LogData logData;
 
-    const endstone::Player& player = event.getPlayer();
+    const auto& player = event.getPlayer();
+    const auto [valid, x, y, z, dimension_name, name, id] = TianyanPlugin::getSafeActorData(player);
 
     logData.uuid = yuhangle::Database::generate_uuid_v4();
-    logData.id = player.getType();
-    logData.name = player.getName();
-    logData.pos_x = player.getLocation().getX();
-    logData.pos_y = player.getLocation().getY();
-    logData.pos_z = player.getLocation().getZ();
-    logData.world = player.getLocation().getDimension()->getName();
+    logData.id = id;
+    logData.name = name;
+    logData.pos_x = x;
+    logData.pos_y = y;
+    logData.pos_z = z;
+    logData.world = dimension_name;
     logData.obj_id = event.getItem().getType().getId();
     logData.time = std::time(nullptr);
     logData.type = "player_drop_item";

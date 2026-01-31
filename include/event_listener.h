@@ -36,7 +36,7 @@ public:
 
     static void onPlayerDie(const endstone::PlayerDeathEvent&event);
 
-    static void onPlayPickup(const endstone::PlayerPickupItemEvent&event);
+    static void onPlayerPickup(const endstone::PlayerPickupItemEvent&event);
 
     static void onPlayerDropItem(const endstone::PlayerDropItemEvent& event);
 

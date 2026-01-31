@@ -68,6 +68,15 @@ public:
         std::optional<double> entity_pos_x, entity_pos_y, entity_pos_z;
     };
 
+    //安全储存实体属性数据拷贝
+    struct SafeActorData {
+        bool valid = false;
+        double x = 0, y = -404, z = 0;
+        std::string dimension_name = "null";
+        std::string name = "null";
+        std::string id = "null";
+    };
+
 
     //将字符串形式的Unix时间戳转换为 2 long 类型
     static long long stringToTimestamp(const std::string& timestampStr) ;
