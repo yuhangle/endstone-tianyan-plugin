@@ -1,1180 +1,184 @@
 <!DOCTYPE html>
-<html lang="en_US">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
-    <script src="https://unpkg.com/vue@3"></script>
-    <script src="https://unpkg.com/element-plus"></script>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <style>
-        .login-container { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f7fa; }
-        .dashboard { padding: 20px; }
-        .stats-card { margin-bottom: 20px; }
-        .search-bar { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ebeef5; }
-        .coord-input { width: 100px; }
-        .el-table__body-wrapper {
-            max-height: 600px;
-            overflow-y: auto;
-        }
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-        .pagination-container {
-            margin-top: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .coord-status {
-            background-color: #f0f9ff;
-            padding: 8px 12px;
-            border-radius: 4px;
-            border-left: 4px solid #409eff;
-            margin-bottom: 10px;
-        }
-        .coord-status span {
-            font-weight: bold;
-            color: #409eff;
-        }
-        .dimension-select {
-            width: 140px;
-        }
-        .custom-dimension-input {
-            width: 150px;
-            margin-left: 10px;
-        }
-        .export-dialog .el-dialog__body {
-            padding: 20px;
-        }
-        #debug-btn {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            z-index: 10000;
-            padding: 5px 10px;
-            background-color: #f56c6c;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .language-selector {
-            margin-bottom: 20px;
-        }
-        .lang-flag {
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-    </style>
-    <title>天眼插件Web UI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="page_title">天眼记录监控面板 | TitanEye</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="app">
-    <!-- 加载遮罩 -->
-    <div v-if="loading" class="loading-overlay">
-        <div style="text-align: center;">
-            <el-icon class="is-loading" style="font-size: 40px;"><Loading /></el-icon>
-            <div style="margin-top: 10px;">{{ t('Loading...') }} ({{loadingProgress}})</div>
+
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <div id="loading-text" class="loading-text" data-i18n="loading">加载中...</div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="login-view" class="view-container">
+        <div class="card login-box">
+            <div class="login-title" data-i18n="login_title">👁️ 天眼后台系统</div>
+
+            <div class="input-group">
+                <label class="input-label" data-i18n="backend_address">后端地址</label>
+                <input type="text" id="api-url" placeholder="http://127.0.0.1:8098" value="http://127.0.0.1:8098">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label" data-i18n="secret_key">Secret 密钥</label>
+                <input type="password" id="api-secret" placeholder="" data-placeholder-i18n="enter_secret">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label" data-i18n="language">语言</label>
+                <select id="language-select-login">
+                    <option value="en_US">English</option>
+                    <option value="zh_CN">中文</option>
+                    <option value="ru_RU">Русский</option>
+                </select>
+            </div>
+
+            <button class="btn btn-primary btn-block" id="btn-login" data-i18n="enter_console">进入控制台</button>
         </div>
     </div>
 
-    <div v-if="!isLoggedIn" class="login-container">
-        <el-card style="width: 400px">
-            <template #header>
-                <h3>{{ t('Tianyan Plugin - Authentication') }}</h3>
+    <div id="main-view" class="view-container" style="display: none;">
+        <header>
+            <div class="brand">
+                <span style="font-size: 24px;">👁️</span> <span data-i18n="console_title">Tianyan Console</span>
+            </div>
+            <div class="header-actions">
                 <div class="language-selector">
-                    <el-select v-model="currentLanguage" @change="changeLanguage" style="width: 100%">
-                        <el-option v-for="lang in availableLanguages" :key="lang.code" :value="lang.code">
-                            <span class="lang-flag">{{ lang.flag }}</span>
-                            {{ lang.name }}
-                        </el-option>
-                    </el-select>
+                    <select id="language-select-main">
+                        <option value="en_US">English</option>
+                        <option value="zh_CN">中文</option>
+                    </select>
                 </div>
-            </template>
-            <el-input v-model="apiBase" :placeholder="t('Please enter backend IP and port')" style="margin-bottom: 15px;" @keyup.enter="login"></el-input>
-            <el-input v-model="secret" :placeholder="t('Please enter WebUI Secret')" show-password @keyup.enter="login"></el-input>
-            <el-button type="primary" style="width: 100%; margin-top: 20px" @click="login">{{ t('Enter Console') }}</el-button>
-        </el-card>
-    </div>
+                <button class="btn btn-outline" id="btn-db-info" data-i18n="db_info">📊 数据库详情</button>
+                <button class="btn btn-danger-outline" id="btn-logout" data-i18n="logout">退出登录</button>
+            </div>
+        </header>
 
-    <div v-else class="dashboard">
-        <el-page-header @back="logout" :content="t('Tianyan Record Monitor Panel')">
-            <template #content>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <span>{{ t('Tianyan Record Monitor Panel') }}</span>
-                    <el-select v-model="currentLanguage" @change="changeLanguage" size="small" style="width: 120px; margin-left: 20px;">
-                        <el-option v-for="lang in availableLanguages" :key="lang.code" :value="lang.code">
-                            <span class="lang-flag">{{ lang.flag }}</span>
-                            {{ lang.name }}
-                        </el-option>
-                    </el-select>
+        <div class="dashboard-container">
+            <div class="stats-row">
+                <div class="card stat-card">
+                    <div class="stat-label" data-i18n="total_logs">总日志条数</div>
+                    <div class="stat-value" id="stat-total">--</div>
                 </div>
-            </template>
-        </el-page-header>
-
-        <el-row :gutter="20" class="stats-card">
-            <el-col :span="6">
-                <el-statistic :title="t('Total Logs')" :value="stats.total_logs" />
-            </el-col>
-            <el-col :span="6">
-                <el-statistic :title="t('Database Size')" :value="stats.db_size" />
-            </el-col>
-            <el-col :span="6">
-                <el-statistic :title="t('Query Time')" :value="lastQueryTime ? lastQueryTime + 'ms' : '--'" />
-            </el-col>
-            <el-col :span="6">
-                <el-button
-                    @click="fetchStats"
-                    icon="Refresh"
-                    :loading="statsLoading"
-                    >
-                    {{ statsLoading ? t('Refreshing...') : t('Refresh Status') }}
-                </el-button>
-                <el-button @click="showDbInfo" icon="InfoFilled">{{ t('Database Info') }}</el-button>
-                <el-button v-if="isDebugMode" @click="debugCheckData" type="warning" size="small">{{ t('Debug') }}</el-button>
-            </el-col>
-        </el-row>
-
-        <div class="search-bar">
-            <!-- 坐标状态显示 -->
-            <div v-if="hasActiveCoordQuery" class="coord-status">
-                <span>{{ t('Current query conditions') }}:</span>
-                X={{queryForm.center_x}}, Y={{queryForm.center_y}}, Z={{queryForm.center_z}}, {{ t('Radius') }}={{queryForm.radius}}{{ t('blocks') }}
-                <span v-if="queryForm.dimension && queryForm.dimension !== 'all'">, {{ t('World/Dimension') }}={{queryForm.dimension}}</span>
+                <div class="card stat-card">
+                    <div class="stat-label" data-i18n="db_size">数据库大小</div>
+                    <div class="stat-value" id="stat-size">--</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-label" data-i18n="query_time">查询耗时</div>
+                    <div class="stat-value" id="stat-time">-- ms</div>
+                </div>
+                <div class="card stat-card flex-center">
+                    <button class="btn btn-primary" id="btn-refresh-stats" data-i18n="refresh_stats">🔄 刷新状态</button>
+                </div>
             </div>
 
-            <el-form :inline="true" :model="queryForm">
-                <el-form-item :label="t('Items per page')">
-                    <el-input-number v-model="pagination.page_size" :min="10" :max="500" :step="10" @change="handlePageSizeChange" />
-                </el-form-item>
-                <el-form-item :label="t('Time Range')">
-                    <el-date-picker
-                        v-model="queryForm.timeRange"
-                        type="datetimerange"
-                        :range-separator="t('to')"
-                        :start-placeholder="t('Start')"
-                        :end-placeholder="t('End')"
-                        value-format="x"
-                        :disabled="loading">
-                    </el-date-picker>
-                </el-form-item>
-                <el-form-item :label="t('Keyword Filter')">
-                    <el-select v-model="queryForm.filterType" :placeholder="t('Select field')" style="width: 150px" clearable :disabled="loading">
-                        <el-option :label="t('Source ID')" value="id"></el-option>
-                        <el-option :label="t('Source Name')" value="name"></el-option>
-                        <el-option :label="t('Action Type')" value="type"></el-option>
-                        <el-option :label="t('Target ID')" value="obj_id"></el-option>
-                        <el-option :label="t('Target Name')" value="obj_name"></el-option>
-                        <el-option :label="t('World/Dimension')" value="world"></el-option>
-                        <el-option :label="t('Detailed Info')" value="data"></el-option>
-                    </el-select>
-                    <el-input v-model="queryForm.filterValue" :placeholder="t('Keyword (fuzzy matching)')" style="width: 180px; margin-left: 10px" :disabled="loading"></el-input>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="fetchLogs(1)" :disabled="loading">{{ t('Query Data') }}</el-button>
-                    <el-button @click="resetSearch" :disabled="loading">{{ t('Reset Conditions') }}</el-button>
-                    <el-button @click="showExportDialog" :disabled="loading || !hasQueryResults">{{ t('Export CSV') }}</el-button>
-                </el-form-item>
-            </el-form>
+            <div class="card">
+                <div class="filter-section">
+                    <div class="filter-row">
+                        <div class="filter-item">
+                            <label class="input-label" data-i18n="start_time">开始时间</label>
+                            <input type="datetime-local" id="filter-start" class="datetime-input">
+                        </div>
+                        <div class="filter-item">
+                            <label class="input-label" data-i18n="end_time">结束时间</label>
+                            <input type="datetime-local" id="filter-end" class="datetime-input">
+                        </div>
 
-            <el-divider></el-divider>
+                        <div class="filter-item">
+                            <label class="input-label" data-i18n="filter_field">查询字段</label>
+                            <select id="filter-type">
+                                <option value="" data-i18n="all_fields">全部字段 (不筛选)</option>
+                                <option value="name" data-i18n="actor_name">行为实施者名 (Name)</option>
+                                <option value="id" data-i18n="actor_id">行为实施者ID (ID)</option>
+                                <option value="type" data-i18n="action_type">行为类型 (Type)</option>
+                                <option value="obj_name" data-i18n="target_name">行为对象名 (Obj Name)</option>
+                                <option value="obj_id" data-i18n="target_id">行为对象ID (Obj ID)</option>
+                            </select>
+                        </div>
 
-            <el-form :inline="true" :model="tempCoord">
-                <el-form-item :label="t('Coordinate Query')">
-                    <el-input v-model="tempCoord.center_x" placeholder="X" class="coord-input" :disabled="loading"></el-input>
-                    <el-input v-model="tempCoord.center_y" placeholder="Y" class="coord-input" :disabled="loading"></el-input>
-                    <el-input v-model="tempCoord.center_z" placeholder="Z" class="coord-input" :disabled="loading"></el-input>
-                    <span style="margin: 0 10px;">{{ t('Radius') }}:</span>
-                    <el-input-number v-model="tempCoord.radius" :min="0" :step="1" :precision="1" :placeholder="t('Radius')" :disabled="loading"></el-input-number>
+                        <div class="filter-item" style="flex: 2;">
+                            <label class="input-label" data-i18n="keyword">关键词</label>
+                            <input type="text" id="filter-value" placeholder="" data-placeholder-i18n="enter_keyword">
+                        </div>
+                    </div>
 
-                    <el-select
-                        v-model="tempCoord.dimension"
-                        :placeholder="t('Select Dimension')"
-                        class="dimension-select"
-                        :disabled="loading"
-                        style="margin-left: 10px;"
-                    >
-                        <el-option :label="t('All (all dimensions)')" value="all"></el-option>
-                        <el-option :label="t('Overworld')" value="Overworld"></el-option>
-                        <el-option :label="t('Nether')" value="Nether"></el-option>
-                        <el-option :label="t('TheEnd')" value="TheEnd"></el-option>
-                        <el-option :label="t('Custom Dimension')" value="custom"></el-option>
-                    </el-select>
+                    <div class="coord-group">
+                        <div class="coord-title" data-i18n="coord_query">📍 空间范围查询 (可选)</div>
+                        <input type="number" class="coord-input" id="coord-x" placeholder="X">
+                        <input type="number" class="coord-input" id="coord-y" placeholder="Y">
+                        <input type="number" class="coord-input" id="coord-z" placeholder="Z">
+                        <div class="coord-radius-group">
+                            <span data-i18n="radius">半径:</span>
+                            <input type="number" class="coord-input" id="coord-r" placeholder="R" value="10">
+                        </div>
+                        <select id="coord-dim" class="dim-select">
+                            <option value="all" data-i18n="all_dimensions">所有维度</option>
+                            <option value="Overworld" data-i18n="overworld">主世界</option>
+                            <option value="Nether" data-i18n="nether">下界</option>
+                            <option value="TheEnd" data-i18n="the_end">末地</option>
+                            <option value="custom" data-i18n="custom">自定义...</option>
+                        </select>
+                        <input type="text" id="coord-dim-custom" placeholder="" data-placeholder-i18n="enter_dimension" style="display: none; width: 120px;">
+                    </div>
 
-                    <el-input
-                        v-if="tempCoord.dimension === 'custom'"
-                        v-model="tempCoord.customDimension"
-                        :placeholder="t('Enter dimension name')"
-                        class="custom-dimension-input"
-                        :disabled="loading"
-                    ></el-input>
-
-                    <el-button type="success" @click="applyCoordQuery" style="margin-left: 10px;" :disabled="loading">{{ t('Apply Coordinates') }}</el-button>
-                    <el-button @click="clearCoordQuery" :disabled="loading || !hasActiveCoordQuery">{{ t('Clear Coordinates') }}</el-button>
-                </el-form-item>
-            </el-form>
-        </div>
-
-        <div v-if="hasQueryResults" class="pagination-container">
-            <div>
-                <span>{{ pagination.total }} {{ t('records found, total') }} {{pagination.total_pages}} {{ t('pages') }}</span>
-                <span v-if="pagination.total > 0">，{{ t('Currently showing') }} {{(pagination.page - 1) * pagination.page_size + 1}}-{{Math.min(pagination.page * pagination.page_size, pagination.total)}} {{ t('records') }}</span>
+                    <div class="filter-row action-buttons">
+                        <button class="btn btn-outline" id="btn-reset" data-i18n="reset">重置</button>
+                        <button class="btn btn-outline" id="btn-export" data-i18n="export_csv">📥 导出CSV</button>
+                        <button class="btn btn-primary" id="btn-search" data-i18n="search_logs">🔍 查询日志</button>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div v-else-if="!hasQueryResults && logs.length === 0" style="text-align: center; padding: 40px; color: #999;">
-            <el-icon size="40"><Search /></el-icon>
-            <div style="margin-top: 10px;">{{ t('Please enter search conditions and click') }} "{{ t('Query Data') }}" {{ t('button') }}</div>
-            <div style="margin-top: 5px; font-size: 14px;">{{ t('Or use coordinate query for specific area') }}</div>
-        </div>
+            <div class="table-container">
+                <table id="logs-table">
+                    <thead>
+                        <tr>
+                            <th width="160" data-i18n="time">时间</th>
+                            <th width="140" data-i18n="actor">实施者 (ID/Name)</th>
+                            <th width="100" data-i18n="action_type">行为类型</th>
+                            <th width="140" data-i18n="target">对象 (ID/Name)</th>
+                            <th width="280" data-i18n="location">位置 (X, Y, Z, Dim)</th>
+                            <th width="80" id="th-dist" style="display: none;" data-i18n="distance">距离</th>
+                            <th data-i18n="details">详细数据</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body">
+                    </tbody>
+                </table>
+                <div id="empty-state" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📭</div>
+                    <div data-i18n="no_data">暂无数据，请尝试调整搜索条件</div>
+                </div>
+            </div>
 
-        <!-- 查询过但没有结果的提示 -->
-        <div v-else-if="hasQueryResults && logs.length === 0" style="text-align: center; padding: 40px; color: #999;">
-            <el-icon size="40"><Search /></el-icon>
-            <div style="margin-top: 10px;">{{ t('No matching records found') }}</div>
-        </div>
-
-        <!-- 使用一个表格，动态显示距离列 -->
-        <el-table
-            v-if="hasQueryResults && logs.length > 0"
-            :data="logs"
-            border
-            stripe
-            style="width: 100%"
-            height="600"
-            v-loading="tableLoading"
-            :row-key="getRowKey"
-            :default-sort="{prop: 'time', order: 'descending'}"
-            :key="tableKey"
-        >
-            <el-table-column :label="t('Time')" width="180" sortable prop="time">
-                <template #default="scope">
-                    {{ new Date(scope.row.time * 1000).toLocaleString() }}
-                </template>
-            </el-table-column>
-            <el-table-column prop="id" :label="t('Source ID')" width="200"></el-table-column>
-            <el-table-column prop="name" :label="t('Source Name')" width="180"></el-table-column>
-            <el-table-column prop="type" :label="t('Action Type')" width="200"></el-table-column>
-            <el-table-column prop="obj_id" :label="t('Target ID')" width="200"></el-table-column>
-            <el-table-column prop="obj_name" :label="t('Target Name')" width="180"></el-table-column>
-            <el-table-column :label="t('Position')" width="240">
-                <template #default="scope">
-                    {{scope.row.pos_x.toFixed(1)}}, {{scope.row.pos_y.toFixed(1)}}, {{scope.row.pos_z.toFixed(1)}} ({{scope.row.world}})
-                </template>
-            </el-table-column>
-            <!-- 动态显示距离列 -->
-            <el-table-column v-if="showDistanceColumn" :label="t('Distance')" width="80">
-                <template #default="scope">
-                    {{scope.row.distance ? scope.row.distance + t('blocks') : '-'}}
-                </template>
-            </el-table-column>
-            <el-table-column prop="data" :label="t('Detailed Data')" min-width="300"></el-table-column>
-        </el-table>
-
-        <div v-if="hasQueryResults && logs.length > 0" class="pagination-container" style="margin-top: 20px;">
-            <div></div> <!-- 占位 -->
-            <el-pagination
-                v-model:current-page="pagination.page"
-                v-model:page-size="pagination.page_size"
-                :page-sizes="[50, 100, 200, 500]"
-                :small="true"
-                :background="true"
-                layout="sizes, prev, pager, next, jumper, ->, total"
-                :total="pagination.total"
-                @size-change="handlePageSizeChange"
-                @current-change="handlePageChange"
-                :disabled="loading"
-            />
+            <div class="card pagination">
+                <div class="page-info" id="page-info"></div>
+                <div class="page-controls">
+                    <select id="page-size" data-i18n="page_size">
+                        <option value="50" data-i18n="per_page_50">50/页</option>
+                        <option value="100" selected data-i18n="per_page_100">100/页</option>
+                        <option value="200" data-i18n="per_page_200">200/页</option>
+                    </select>
+                    <button class="btn btn-outline" id="btn-prev" data-i18n="prev_page">上一页</button>
+                    <span id="page-curr" class="page-current">1</span>
+                    <span class="page-divider">/</span>
+                    <span id="page-total" class="page-total">1</span>
+                    <button class="btn btn-outline" id="btn-next" data-i18n="next_page">下一页</button>
+                    <div class="jump-page-group">
+                        <input type="number" id="jump-page-input" min="1" placeholder="" data-placeholder-i18n="jump_page_placeholder">
+                        <button class="btn btn-outline" id="btn-jump-page" data-i18n="jump_page">跳转</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- 导出对话框 -->
-    <el-dialog
-        v-model="exportDialogVisible"
-        :title="t('Export Data to CSV')"
-        width="500px"
-        class="export-dialog"
-    >
-        <div style="margin-bottom: 15px;">
-            <strong>{{ t('Export Options') }}</strong>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <el-radio v-model="exportOption" label="current">{{ t('Export current page') }} ({{pagination.page_size}}{{ t('records') }})</el-radio>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <el-radio v-model="exportOption" label="range">{{ t('Export specified page range') }}</el-radio>
-            <div v-if="exportOption === 'range'" style="margin-top: 10px; margin-left: 20px;">
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <div>{{ t('From page') }}</div>
-                    <el-input-number v-model="exportStartPage" :min="1" :max="pagination.total_pages" size="small" style="width: 100px;"></el-input-number>
-                    <div>{{ t('to page') }}</div>
-                    <el-input-number v-model="exportEndPage" :min="1" :max="pagination.total_pages" size="small" style="width: 100px;"></el-input-number>
-                    <div>({{ t('of total') }} {{pagination.total_pages}} {{ t('pages (total)') }})</div>
-                </div>
-                <div style="margin-top: 5px; color: #666; font-size: 12px;">
-                    {{ t('Max export data') }}: 50000 {{ t('records') }}, {{ t('approximately') }} {{Math.min(pagination.total_pages, Math.floor(50000/pagination.page_size))}} {{ t('pages') }}
-                </div>
-            </div>
-        </div>
-        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
-            <div style="color: #666; font-size: 13px;">
-                {{ t('Note: Exporting large amounts of data may take time, please be patient') }}
-            </div>
-        </div>
-        <template #footer>
-            <span class="dialog-footer">
-                <el-button @click="exportDialogVisible = false">{{ t('Cancel') }}</el-button>
-                <el-button type="primary" @click="handleExportConfirm" :disabled="exporting">
-                    {{ exporting ? t('Exporting...') : t('Start Export') }}
-                </el-button>
-            </span>
-        </template>
-    </el-dialog>
-</div>
-
-<script>
-    const { createApp, ref, reactive, onMounted, computed, watch, nextTick } = Vue;
-
-    // 语言配置
-    const languageConfig = {
-        'en_US': { name: 'English', flag: '🇺🇸' },
-        'zh_CN': { name: '中文', flag: '🇨🇳' },
-        'ru_RU': { name: 'Русский', flag: '🇷🇺' }
-    };
-
-    createApp({
-        setup() {
-            const isLoggedIn = ref(false);
-            const secret = ref(localStorage.getItem('ty_secret') || '');
-            const apiBase = ref(localStorage.getItem('ty_api_base') || 'http://127.0.0.1:8098');
-            const stats = reactive({ total_logs: 0, db_size: '0 MB' });
-            const logs = ref([]);
-            const loading = ref(false);
-            const tableLoading = ref(false);
-            const loadingProgress = ref('');
-            const lastQueryTime = ref(0);
-            const hasQueryResults = ref(false);
-            const statsLoading = ref(false);
-            const isQuerying = ref(false);
-
-            // 多语言相关
-            const currentLanguage = ref(localStorage.getItem('ty_language') || 'en_US');
-            const availableLanguages = ref([]);
-            const translations = ref({});
-
-            // 导出相关状态
-            const exportDialogVisible = ref(false);
-            const exportOption = ref('current');
-            const exportStartPage = ref(1);
-            const exportEndPage = ref(1);
-            const exporting = ref(false);
-
-            // 控制是否显示距离列
-            const showDistanceColumn = ref(false);
-
-            // 表格版本号，用于强制重新渲染
-            const tableVersion = ref(0);
-
-            // 调试模式
-            const isDebugMode = ref(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-            const queryForm = reactive({
-                timeRange: [Date.now() - 7200000, Date.now()], // 默认最近2小时
-                filterType: '',
-                filterValue: '',
-                center_x: null,
-                center_y: null,
-                center_z: null,
-                radius: null,
-                dimension: null
-            });
-
-            const tempCoord = reactive({
-                center_x: '',
-                center_y: '',
-                center_z: '',
-                radius: 10,
-                dimension: 'all',
-                customDimension: ''
-            });
-
-            const pagination = reactive({
-                page: 1,
-                page_size: 100,
-                total: 0,
-                total_pages: 1
-            });
-
-            const API_BASE = computed(() => {
-                return `${apiBase.value}/api`;
-            });
-
-            // 计算属性
-            const hasActiveCoordQuery = computed(() => {
-                return (queryForm.center_x !== null && queryForm.center_y !== null &&
-                       queryForm.center_z !== null && queryForm.radius !== null) ||
-                       (queryForm.dimension !== null && queryForm.dimension !== 'all');
-            });
-
-            // 表格key，强制重新渲染
-            const tableKey = computed(() => {
-                return `table-${tableVersion.value}`;
-            });
-
-            // 翻译函数
-            const t = (key) => {
-                return translations.value[key] || key;
-            };
-
-            // 加载可用语言
-            const loadAvailableLanguages = async () => {
-                try {
-                    const res = await axios.get(`${API_BASE.value}/languages`);
-                    const languages = res.data.languages || [];
-
-                    availableLanguages.value = languages.map(code => ({
-                        code,
-                        name: languageConfig[code]?.name || code,
-                        flag: languageConfig[code]?.flag || '🌐'
-                    }));
-
-                    // 如果当前语言不在可用语言中，使用默认语言
-                    if (!languages.includes(currentLanguage.value)) {
-                        currentLanguage.value = res.data.default || 'en_US';
-                    }
-
-                    await loadLanguage(currentLanguage.value);
-                } catch (error) {
-                    console.error('Failed to load languages:', error);
-                    // 默认加载英文
-                    await loadLanguage('en_US');
-                }
-            };
-
-            // 加载语言文件
-            const loadLanguage = async (langCode) => {
-                try {
-                    loading.value = true;
-                    loadingProgress.value = t('Loading language...');
-
-                    const res = await axios.get(`${API_BASE.value}/language/${langCode}`);
-                    translations.value = res.data;
-                    currentLanguage.value = langCode;
-                    localStorage.setItem('ty_language', langCode);
-
-                    // 更新页面标题
-                    document.title = t('Tianyan Plugin Web UI');
-
-                    console.log(`Loaded language: ${langCode}`);
-                } catch (error) {
-                    console.error(`Failed to load language ${langCode}:`, error);
-                    ElementPlus.ElMessage.error(`Failed to load language: ${langCode}`);
-                } finally {
-                    loading.value = false;
-                }
-            };
-
-            // 切换语言
-            const changeLanguage = async (langCode) => {
-                await loadLanguage(langCode);
-                ElementPlus.ElMessage.success(`Language changed to ${languageConfig[langCode]?.name || langCode}`);
-            };
-
-            // 监听导出页码变化
-            watch(() => exportStartPage.value, (newVal) => {
-                if (exportEndPage.value < newVal) {
-                    exportEndPage.value = newVal;
-                }
-                const maxPages = Math.min(pagination.total_pages, Math.floor(50000/pagination.page_size));
-                if (exportEndPage.value > maxPages) {
-                    exportEndPage.value = maxPages;
-                }
-            });
-
-            watch(() => pagination.total_pages, (newVal) => {
-                exportEndPage.value = Math.min(newVal, Math.floor(50000/pagination.page_size));
-            });
-
-            const login = async () => {
-                try {
-                    loading.value = true;
-                    loadingProgress.value = t('Verifying...');
-                    const res = await axios.get(`${API_BASE.value}/stats`, {
-                        headers: {
-                            'X-Secret': secret.value,
-                            'X-Lang': currentLanguage.value
-                        }
-                    });
-                    isLoggedIn.value = true;
-                    localStorage.setItem('ty_secret', secret.value);
-                    localStorage.setItem('ty_api_base', apiBase.value);
-                    Object.assign(stats, res.data);
-                    ElementPlus.ElMessage.success(t('Login successful'));
-
-                    // 重新加载语言列表以确保新后端地址的语言支持得到更新
-                    await loadAvailableLanguages();
-                    
-                    // 关键：登录成功后完全重置查询条件
-                    resetSearch();
-
-                    console.log('Login successful, query conditions reset');
-                } catch (e) {
-                    ElementPlus.ElMessage.error(t('Authentication failed, please check Secret'));
-                } finally {
-                    loading.value = false;
-                }
-            };
-
-            const logout = () => {
-                isLoggedIn.value = false;
-                localStorage.removeItem('ty_secret');
-                ElementPlus.ElMessage.success(t('Logged out'));
-            };
-
-            const fetchStats = async () => {
-                statsLoading.value = true;
-                try {
-                    const res = await axios.get(`${API_BASE.value}/stats`, {
-                        headers: {
-                            'X-Secret': secret.value,
-                            'X-Lang': currentLanguage.value
-                        }
-                    });
-                    Object.assign(stats, res.data);
-                    ElementPlus.ElMessage.success(t('Status refreshed successfully'));
-                } catch (e) {
-                    ElementPlus.ElMessage.error(t('Failed to get status') + ': ' + (e.response?.data?.detail || e.message));
-                } finally {
-                    statsLoading.value = false;
-                }
-            };
-
-            const fetchLogs = async (page = null) => {
-                // 防止并发查询
-                if (isQuerying.value) {
-                    console.log('Query in progress, skipping this request');
-                    return;
-                }
-
-                isQuerying.value = true;
-
-                try {
-                    if (page !== null) {
-                        pagination.page = page;
-                    }
-
-                    // 关键修复：在每次查询前完全清空旧数据
-                    logs.value = [];
-                    hasQueryResults.value = false;
-                    showDistanceColumn.value = false;
-
-                    // 强制Vue更新DOM
-                    await nextTick();
-
-                    console.log('Starting new query, old data cleared');
-
-                    const params = {
-                        page: pagination.page,
-                        page_size: pagination.page_size,
-                        start_time: queryForm.timeRange ? Math.floor(queryForm.timeRange[0] / 1000) : null,
-                        end_time: queryForm.timeRange ? Math.floor(queryForm.timeRange[1] / 1000) : null,
-                        filter_type: queryForm.filterType,
-                        filter_value: queryForm.filterValue
-                    };
-
-                    // 如果有坐标查询条件
-                    if (queryForm.center_x !== null && queryForm.center_y !== null &&
-                        queryForm.center_z !== null && queryForm.radius !== null) {
-                        params.center_x = queryForm.center_x;
-                        params.center_y = queryForm.center_y;
-                        params.center_z = queryForm.center_z;
-                        params.radius = queryForm.radius;
-                        showDistanceColumn.value = true;
-                    }
-
-                    // 如果有维度条件
-                    if (queryForm.dimension !== null && queryForm.dimension !== 'all' && queryForm.dimension !== '') {
-                        params.dimension = queryForm.dimension;
-                    }
-
-                    console.log('Request parameters:', params);
-
-                    tableLoading.value = true;
-                    loadingProgress.value = t('Querying data...');
-
-                    const startTime = Date.now();
-                    const res = await axios.get(`${API_BASE.value}/logs`, {
-                        headers: {
-                            'X-Secret': secret.value,
-                            'X-Lang': currentLanguage.value
-                        },
-                        params: params,
-                        timeout: 30000
-                    });
-
-                    const endTime = Date.now();
-                    const duration = endTime - startTime;
-
-                    if (res.data && res.data.data) {
-                        console.log('Data returned:', res.data.data.length);
-
-                        // 创建全新的数组
-                        const processedData = [];
-
-                        for (const record of res.data.data) {
-                            const newRecord = {
-                                time: record.time || 0,
-                                id: record.id || '',
-                                name: record.name || '',
-                                type: record.type || '',
-                                obj_id: record.obj_id || '',
-                                obj_name: record.obj_name || '',
-                                pos_x: record.pos_x || 0,
-                                pos_y: record.pos_y || 0,
-                                pos_z: record.pos_z || 0,
-                                world: record.world || '',
-                                data: record.data || ''
-                            };
-
-                            if (params.center_x !== undefined &&
-                                params.center_y !== undefined &&
-                                params.center_z !== undefined) {
-                                const dx = newRecord.pos_x - params.center_x;
-                                const dy = newRecord.pos_y - params.center_y;
-                                const dz = newRecord.pos_z - params.center_z;
-                                newRecord.distance = Math.sqrt(dx*dx + dy*dy + dz*dz).toFixed(2);
-                            }
-
-                            processedData.push(newRecord);
-                        }
-
-                        // 验证数据是否符合查询条件
-                        if (queryForm.filterType && queryForm.filterValue) {
-                            const invalidRecords = processedData.filter(record => {
-                                const fieldValue = record[queryForm.filterType];
-                                return !fieldValue || !fieldValue.includes(queryForm.filterValue);
-                            });
-
-                            if (invalidRecords.length > 0) {
-                                console.error(`Found ${invalidRecords.length} records that do not match query conditions`);
-                                console.error('Query conditions:', queryForm.filterType, '=', queryForm.filterValue);
-                                console.error('Invalid record example:', invalidRecords[0]);
-                            }
-                        }
-
-                        // 更新数据
-                        logs.value = processedData;
-                        pagination.total = res.data.total || 0;
-                        pagination.total_pages = res.data.total_pages || 1;
-                        lastQueryTime.value = res.data.query_time_ms || Math.round(duration);
-
-                        // 增加表格版本号，强制重新渲染
-                        tableVersion.value++;
-
-                        if (logs.value.length > 0) {
-                            hasQueryResults.value = true;
-                            console.log(`Query successful, displaying ${logs.value.length} records`);
-                            ElementPlus.ElMessage.success(
-                                `${t('Query successful! Retrieved')} ${logs.value.length} ${t('records, query time')}: ${lastQueryTime.value}${t('ms')}`
-                            );
-                        } else {
-                            hasQueryResults.value = false;
-                            console.log('Query successful but no matching records found');
-                            ElementPlus.ElMessage.info(t('No matching records found'));
-                        }
-                    } else {
-                        console.error('Return data format error');
-                        ElementPlus.ElMessage.error(t('Return data format error'));
-                        logs.value = [];
-                        hasQueryResults.value = false;
-                    }
-                } catch (e) {
-                    console.error('Query error:', e);
-                    if (e.code === 'ECONNABORTED') {
-                        ElementPlus.ElMessage.error(t('Query timeout, please reduce query size or optimize conditions'));
-                    } else {
-                        ElementPlus.ElMessage.error(t('Query error') + ': ' + (e.response?.data?.detail || e.message));
-                    }
-                    logs.value = [];
-                    hasQueryResults.value = false;
-                } finally {
-                    tableLoading.value = false;
-                    loading.value = false;
-                    isQuerying.value = false;
-                }
-            };
-
-            // 统一的row-key生成方法
-            const getRowKey = (row) => {
-                return `${row.time}-${row.id}-${row.type}-${row.pos_x}-${row.pos_y}-${row.pos_z}`;
-            };
-
-            const applyCoordQuery = () => {
-                // 验证坐标输入
-                if (!tempCoord.center_x || !tempCoord.center_y || !tempCoord.center_z) {
-                    ElementPlus.ElMessage.warning(t('Invalid coordinate parameters'));
-                    return;
-                }
-                if (!tempCoord.radius || tempCoord.radius <= 0) {
-                    ElementPlus.ElMessage.warning(t('Please enter valid radius'));
-                    return;
-                }
-
-                // 将临时坐标应用到查询表单
-                queryForm.center_x = parseFloat(tempCoord.center_x);
-                queryForm.center_y = parseFloat(tempCoord.center_y);
-                queryForm.center_z = parseFloat(tempCoord.center_z);
-                queryForm.radius = parseFloat(tempCoord.radius);
-
-                // 处理维度
-                if (tempCoord.dimension === 'custom' && tempCoord.customDimension) {
-                    queryForm.dimension = tempCoord.customDimension;
-                } else if (tempCoord.dimension === 'all') {
-                    queryForm.dimension = null; // 全部维度
-                } else {
-                    queryForm.dimension = tempCoord.dimension;
-                }
-
-                ElementPlus.ElMessage.success(t('Coordinate query conditions applied'));
-                fetchLogs(1);
-            };
-
-            const clearCoordQuery = () => {
-                queryForm.center_x = null;
-                queryForm.center_y = null;
-                queryForm.center_z = null;
-                queryForm.radius = null;
-                queryForm.dimension = null;
-
-                // 清空临时坐标
-                tempCoord.center_x = '';
-                tempCoord.center_y = '';
-                tempCoord.center_z = '';
-                tempCoord.radius = 10;
-                tempCoord.dimension = 'all';
-                tempCoord.customDimension = '';
-
-                ElementPlus.ElMessage.info(t('Coordinate query conditions cleared'));
-                fetchLogs(1);
-            };
-
-            const resetSearch = () => {
-                queryForm.timeRange = [Date.now() - 7200000, Date.now()];
-                queryForm.filterType = '';
-                queryForm.filterValue = '';
-                queryForm.center_x = null;
-                queryForm.center_y = null;
-                queryForm.center_z = null;
-                queryForm.radius = null;
-                queryForm.dimension = null;
-
-                tempCoord.center_x = '';
-                tempCoord.center_y = '';
-                tempCoord.center_z = '';
-                tempCoord.radius = 10;
-                tempCoord.dimension = 'all';
-                tempCoord.customDimension = '';
-
-                pagination.page = 1;
-                pagination.total = 0;
-                pagination.total_pages = 1;
-
-                // 强制清空数据
-                logs.value = [];
-                hasQueryResults.value = false;
-                lastQueryTime.value = 0;
-                showDistanceColumn.value = false;
-
-                // 增加表格版本号
-                tableVersion.value++;
-
-                // 强制DOM更新
-                nextTick(() => {
-                    console.log('Reset query conditions completed, data cleared');
-                });
-
-                ElementPlus.ElMessage.info(t('All search conditions reset'));
-            };
-
-            const handlePageChange = (page) => {
-                fetchLogs(page);
-            };
-
-            const handlePageSizeChange = (size) => {
-                pagination.page_size = size;
-                pagination.page = 1;
-                fetchLogs(1);
-            };
-
-            const showExportDialog = () => {
-                if (!hasQueryResults.value || pagination.total_pages === 0) {
-                    ElementPlus.ElMessage.warning(t('No data to export'));
-                    return;
-                }
-
-                exportStartPage.value = 1;
-                exportEndPage.value = Math.min(pagination.total_pages, Math.floor(50000/pagination.page_size));
-                exportOption.value = 'current';
-                exportDialogVisible.value = true;
-            };
-
-            const handleExportConfirm = () => {
-                if (exportOption.value === 'current') {
-                    exportCurrentPage();
-                } else if (exportOption.value === 'range') {
-                    if (exportStartPage.value > exportEndPage.value) {
-                        ElementPlus.ElMessage.error(t('Start page cannot be greater than end page'));
-                        return;
-                    }
-
-                    const totalExportPages = exportEndPage.value - exportStartPage.value + 1;
-                    const estimatedRecords = totalExportPages * pagination.page_size;
-
-                    if (estimatedRecords > 50000) {
-                        ElementPlus.ElMessage.error(t('Export data too large, max 50000 records, currently about') + ` ${estimatedRecords} ` + t('records'));
-                        return;
-                    }
-
-                    ElementPlus.ElMessageBox.confirm(
-                        `${t('Confirm export from page')} ${exportStartPage.value} ${t('to page')} ${exportEndPage.value}?` +
-                        `\n${t('Total')} ${totalExportPages} ${t('pages')}, ${t('approximately')} ${estimatedRecords} ${t('records')}.`,
-                        t('Confirm export'),
-                        {
-                            confirmButtonText: t('Confirm'),
-                            cancelButtonText: t('Cancel'),
-                            type: 'warning'
-                        }
-                    ).then(() => {
-                        exportPages(exportStartPage.value, exportEndPage.value);
-                    }).catch(() => {
-                        // 用户取消
-                    });
-                }
-
-                exportDialogVisible.value = false;
-            };
-
-            const exportCurrentPage = () => {
-                try {
-                    exporting.value = true;
-
-                    // 创建CSV内容
-                    const headers = [
-                        t('Time'),
-                        t('Source ID'),
-                        t('Source Name'),
-                        t('Action Type'),
-                        t('Target ID'),
-                        t('Target Name'),
-                        t('Coordinate X'),
-                        t('Coordinate Y'),
-                        t('Coordinate Z'),
-                        t('World/Dimension')
-                    ];
-                    if (showDistanceColumn.value) {
-                        headers.push(t('Distance'));
-                    }
-                    headers.push(t('Detailed Data'));
-
-                    const csvRows = [];
-
-                    // 添加表头
-                    csvRows.push(headers.join(','));
-
-                    // 添加数据行
-                    logs.value.forEach(row => {
-                        const csvRow = [
-                            new Date(row.time * 1000).toLocaleString(),
-                            `"${row.id || ''}"`,
-                            `"${row.name || ''}"`,
-                            `"${row.type || ''}"`,
-                            `"${row.obj_id || ''}"`,
-                            `"${row.obj_name || ''}"`,
-                            row.pos_x,
-                            row.pos_y,
-                            row.pos_z,
-                            `"${row.world || ''}"`
-                        ];
-
-                        if (showDistanceColumn.value && row.distance !== undefined) {
-                            csvRow.push(row.distance || '');
-                        }
-
-                        csvRow.push(`"${(row.data || '').replace(/"/g, '""')}"`); // 处理引号转义
-                        csvRows.push(csvRow.join(','));
-                    });
-
-                    const csvContent = csvRows.join('\n');
-                    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `tianyan_${pagination.page}_${new Date().toISOString().slice(0, 10)}.csv`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(url);
-
-                    ElementPlus.ElMessage.success(`${t('Exported')} ${logs.value.length} ${t('records')}`);
-                } catch (error) {
-                    ElementPlus.ElMessage.error(t('Export failed') + ': ' + error.message);
-                } finally {
-                    exporting.value = false;
-                }
-            };
-
-            const exportPages = async (startPage, endPage) => {
-                try {
-                    exporting.value = true;
-                    loading.value = true;
-                    loadingProgress.value = `${t('Preparing to export from page')} ${startPage} ${t('to')} ${endPage}...`;
-
-                    // 构建导出参数
-                    const params = {
-                        start_page: startPage,
-                        end_page: endPage,
-                        page_size: pagination.page_size,
-                        start_time: queryForm.timeRange ? Math.floor(queryForm.timeRange[0] / 1000) : null,
-                        end_time: queryForm.timeRange ? Math.floor(queryForm.timeRange[1] / 1000) : null,
-                        filter_type: queryForm.filterType,
-                        filter_value: queryForm.filterValue
-                    };
-
-                    // 如果有坐标查询条件
-                    if (queryForm.center_x !== null && queryForm.center_y !== null &&
-                        queryForm.center_z !== null && queryForm.radius !== null) {
-                        params.center_x = queryForm.center_x;
-                        params.center_y = queryForm.center_y;
-                        params.center_z = queryForm.center_z;
-                        params.radius = queryForm.radius;
-                    }
-
-                    // 如果有维度条件
-                    if (queryForm.dimension !== null && queryForm.dimension !== 'all' && queryForm.dimension !== '') {
-                        params.dimension = queryForm.dimension;
-                    }
-
-                    loadingProgress.value = t('Getting data from server...');
-
-                    const res = await axios.get(`${API_BASE.value}/export`, {
-                        headers: {
-                            'X-Secret': secret.value,
-                            'X-Lang': currentLanguage.value
-                        },
-                        params: params,
-                        timeout: 120000 // 120秒超时
-                    });
-
-                    if (res.data && res.data.data) {
-                        const exportData = res.data.data;
-
-                        loadingProgress.value = t('Generating CSV file...');
-
-                        // 创建CSV内容
-                        const headers = [
-                            t('Time'),
-                            t('Source ID'),
-                            t('Source Name'),
-                            t('Action Type'),
-                            t('Target ID'),
-                            t('Target Name'),
-                            t('Coordinate X'),
-                            t('Coordinate Y'),
-                            t('Coordinate Z'),
-                            t('World/Dimension')
-                        ];
-                        if (showDistanceColumn.value) {
-                            headers.push(t('Distance'));
-                        }
-                        headers.push(t('Detailed Data'));
-
-                        const csvRows = [];
-
-                        // 添加表头
-                        csvRows.push(headers.join(','));
-
-                        // 添加数据行
-                        exportData.forEach(row => {
-                            const csvRow = [
-                                new Date(row.time * 1000).toLocaleString(),
-                                `"${row.id || ''}"`,
-                                `"${row.name || ''}"`,
-                                `"${row.type || ''}"`,
-                                `"${row.obj_id || ''}"`,
-                                `"${row.obj_name || ''}"`,
-                                row.pos_x,
-                                row.pos_y,
-                                row.pos_z,
-                                `"${row.world || ''}"`
-                            ];
-
-                            if (showDistanceColumn.value && row.distance !== undefined) {
-                                csvRow.push(row.distance || '');
-                            }
-
-                            csvRow.push(`"${(row.data || '').replace(/"/g, '""')}"`); // 处理引号转义
-                            csvRows.push(csvRow.join(','));
-                        });
-
-                        const csvContent = csvRows.join('\n');
-                        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = `tianyan_${startPage}_${endPage}_${new Date().toISOString().slice(0, 10)}.csv`;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-
-                        ElementPlus.ElMessage.success(
-                            `${t('Export successful! Total exported')} ${exportData.length} ${t('records, from page')} ${startPage} ${t('to page')} ${endPage}`
-                        );
-                    } else {
-                        ElementPlus.ElMessage.error(t('Export failed: server returned incorrect data format'));
-                    }
-                } catch (e) {
-                    if (e.code === 'ECONNABORTED') {
-                        ElementPlus.ElMessage.error(t('Export timeout, please reduce page range'));
-                    } else {
-                        ElementPlus.ElMessage.error(t('Export error') + ': ' + (e.response?.data?.detail || e.message));
-                    }
-                } finally {
-                    exporting.value = false;
-                    loading.value = false;
-                }
-            };
-
-            const showDbInfo = async () => {
-                try {
-                    loading.value = true;
-                    loadingProgress.value = t('Getting database information...');
-                    const res = await axios.get(`${API_BASE.value}/db_info`, {
-                        headers: {
-                            'X-Secret': secret.value,
-                            'X-Lang': currentLanguage.value
-                        }
-                    });
-
-                    let message = `${t('Database Information')}：\n`;
-                    message += `- ${t('Total rows')}: ${res.data.total_rows}\n`;
-                    message += `- ${t('Number of indexes')}: ${res.data.indexes.length}\n`;
-                    message += `- ${t('Number of fields')}: ${res.data.columns.length}\n\n`;
-
-                    ElementPlus.ElMessageBox.alert(message, t('Database Information'), {
-                        confirmButtonText: t('OK'),
-                        customClass: 'db-info-alert',
-                        showClose: false
-                    });
-                } catch (e) {
-                    ElementPlus.ElMessage.error(t('Failed to get database information') + ': ' + (e.response?.data?.detail || e.message));
-                } finally {
-                    loading.value = false;
-                }
-            };
-
-            // 调试：检查当前显示的数据
-            const debugCheckData = () => {
-                console.group(t('Debug data'));
-                console.log(t('Logs array length') + ':', logs.value.length);
-                console.log('hasQueryResults:', hasQueryResults.value);
-                console.log('showDistanceColumn:', showDistanceColumn.value);
-                console.log('tableVersion:', tableVersion.value);
-                console.log(t('Current query conditions') + ':', {
-                    filterType: queryForm.filterType,
-                    filterValue: queryForm.filterValue,
-                    center_x: queryForm.center_x,
-                    center_y: queryForm.center_y,
-                    center_z: queryForm.center_z,
-                    radius: queryForm.radius,
-                    dimension: queryForm.dimension
-                });
-
-                if (logs.value.length > 0) {
-                    // 统计不同类型的数据
-                    const typeCount = {};
-                    const idCount = {};
-
-                    logs.value.forEach(record => {
-                        const type = record.type || t('Unknown');
-                        const id = record.id || t('Unknown');
-
-                        typeCount[type] = (typeCount[type] || 0) + 1;
-                        idCount[id] = (idCount[id] || 0) + 1;
-                    });
-
-                    console.log(t('Record type distribution') + ':', typeCount);
-                    console.log(t('ID distribution') + ':', idCount);
-
-                    // 检查是否有不符合当前查询条件的记录
-                    if (queryForm.filterType && queryForm.filterValue) {
-                        const invalidRecords = logs.value.filter(record => {
-                            const fieldValue = record[queryForm.filterType];
-                            return !fieldValue || !fieldValue.includes(queryForm.filterValue);
-                        });
-
-                        if (invalidRecords.length > 0) {
-                            console.warn(`Found ${invalidRecords.length} records that do not match query conditions`);
-                            console.warn('Invalid record example:', invalidRecords[0]);
-                        } else {
-                            console.log('All records match current query conditions');
-                        }
-                    }
-                } else {
-                    console.log(t('No data currently displayed'));
-                }
-                console.groupEnd();
-            };
-
-            onMounted(async () => {
-                // 首先加载可用语言
-                await loadAvailableLanguages();
-
-                // 优化：只在有密码时才尝试登录，避免不必要的请求
-                if (secret.value && secret.value.trim()) {
-                    await login();
-                    await fetchStats();
-                } else {
-                    // 如果没有密码，也重置查询条件
-                    resetSearch();
-                }
-
-                // 添加调试按钮（仅开发环境）
-                if (isDebugMode.value) {
-                    setTimeout(() => {
-                        const debugBtn = document.createElement('button');
-                        debugBtn.id = 'debug-btn';
-                        debugBtn.textContent = t('Debug data');
-                        debugBtn.addEventListener('click', debugCheckData);
-                        document.body.appendChild(debugBtn);
-                    }, 1000);
-                }
-            });
-
-            return {
-                isLoggedIn, secret, apiBase, stats, logs, queryForm, tempCoord, pagination,
-                loading, tableLoading, loadingProgress, lastQueryTime, hasQueryResults,
-                exportDialogVisible, exportOption, exportStartPage, exportEndPage, exporting,
-                hasActiveCoordQuery, showDistanceColumn, isDebugMode,
-                currentLanguage, availableLanguages, translations,
-                t, // 导出翻译函数
-                login, logout, fetchStats, fetchLogs, applyCoordQuery, clearCoordQuery,
-                resetSearch, handlePageChange, handlePageSizeChange,
-                showExportDialog, handleExportConfirm, showDbInfo, debugCheckData,
-                getRowKey, tableKey, changeLanguage
-            };
-        }
-    }).use(ElementPlus).mount("#app");
-</script>
+    <script src="script.js" defer></script>
 </body>
 </html>
