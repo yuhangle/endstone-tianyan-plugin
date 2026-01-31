@@ -32,7 +32,7 @@ public:
 
     bool onCommand(endstone::CommandSender &sender, const endstone::Command &command, const std::vector<std::string> &args) override;
 
-    //缓存写入机制
+        //缓存写入机制
     static void logsCacheWrite();
 
     //检查异步的数据库清理状态
@@ -43,9 +43,6 @@ public:
 
     // 批量更新回溯状态
     static void updateRevertStatus();
-
-    // 安全获取实体数据
-    static TianyanCore::SafeActorData getSafeActorData(const endstone::Actor& actor);
 
 private:
     std::unique_ptr<TianyanProtect> protect_;
