@@ -326,22 +326,22 @@ void TianyanPlugin::onEnable()
     menu_ = std::make_unique<Menu>(*this);
     protect_->deviceIDBlacklistInit();
     //注册事件
-    registerEvent<endstone::BlockBreakEvent>(EventListener::onBlockBreak);
-    registerEvent<endstone::BlockPlaceEvent>(EventListener::onBlockPlace);
-    registerEvent<endstone::ActorDamageEvent>(EventListener::onActorDamage);
-    registerEvent<endstone::PlayerInteractEvent>(EventListener::onPlayerRightClickBlock);
-    registerEvent<endstone::PlayerInteractActorEvent>(EventListener::onPlayerRightClickActor);
-    registerEvent<endstone::ActorExplodeEvent>(EventListener::onActorBomb);
-    registerEvent<endstone::BlockPistonExtendEvent>(EventListener::onPistonExtend);
-    registerEvent<endstone::BlockPistonRetractEvent>(EventListener::onPistonRetract);
-    registerEvent<endstone::ActorDeathEvent>(EventListener::onActorDie);
-    registerEvent<endstone::PlayerPickupItemEvent>(EventListener::onPlayPickup);
-    registerEvent<endstone::PlayerDeathEvent>(EventListener::onPlayerDie);
-    registerEvent<endstone::PlayerDropItemEvent>(EventListener::onPlayerDropItem);
-    registerEvent(&EventListener::onPlayerJoin, *eventListener_);
-    registerEvent(&EventListener::onPlayerSendMSG, *eventListener_);
-    registerEvent(&EventListener::onPlayerSendCMD, *eventListener_);
-    registerEvent(&EventListener::onPlayerTryJoin, *eventListener_);
+    registerEvent<endstone::BlockBreakEvent>(EventListener::onBlockBreak, endstone::EventPriority::Monitor);
+    registerEvent<endstone::BlockPlaceEvent>(EventListener::onBlockPlace, endstone::EventPriority::Monitor);
+    registerEvent<endstone::ActorDamageEvent>(EventListener::onActorDamage, endstone::EventPriority::Monitor);
+    registerEvent<endstone::PlayerInteractEvent>(EventListener::onPlayerRightClickBlock, endstone::EventPriority::Monitor);
+    registerEvent<endstone::PlayerInteractActorEvent>(EventListener::onPlayerRightClickActor, endstone::EventPriority::Monitor);
+    registerEvent<endstone::ActorExplodeEvent>(EventListener::onActorBomb, endstone::EventPriority::Monitor);
+    registerEvent<endstone::BlockPistonExtendEvent>(EventListener::onPistonExtend, endstone::EventPriority::Monitor);
+    registerEvent<endstone::BlockPistonRetractEvent>(EventListener::onPistonRetract, endstone::EventPriority::Monitor);
+    registerEvent<endstone::ActorDeathEvent>(EventListener::onActorDie, endstone::EventPriority::Monitor);
+    registerEvent<endstone::PlayerPickupItemEvent>(EventListener::onPlayerPickup, endstone::EventPriority::Monitor);
+    registerEvent<endstone::PlayerDeathEvent>(EventListener::onPlayerDie, endstone::EventPriority::Monitor);
+    registerEvent<endstone::PlayerDropItemEvent>(EventListener::onPlayerDropItem, endstone::EventPriority::Monitor);
+    registerEvent(&EventListener::onPlayerJoin, *eventListener_, endstone::EventPriority::Monitor);
+    registerEvent(&EventListener::onPlayerSendMSG, *eventListener_, endstone::EventPriority::Monitor);
+    registerEvent(&EventListener::onPlayerSendCMD, *eventListener_, endstone::EventPriority::Monitor);
+    registerEvent(&EventListener::onPlayerTryJoin, *eventListener_, endstone::EventPriority::Monitor);
     const string LOGO = R"(
 _____   _
 |_   _| (_)  __ _   _ _    _  _   __ _   _ _

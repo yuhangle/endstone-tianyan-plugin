@@ -359,15 +359,21 @@ void EventListener::onPlayerDie(const endstone::PlayerDeathEvent&event) {
     }
 }
 
-void EventListener::onPlayPickup(const endstone::PlayerPickupItemEvent&event) {
+void EventListener::onPlayerPickup(const endstone::PlayerPickupItemEvent&event) {
     TianyanCore::LogData logData;
-    logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
-    logData.id = event.getPlayer().getType();
-    logData.name = event.getPlayer().getName();
-    logData.pos_x = event.getPlayer().getLocation().getX();
-    logData.pos_y = event.getPlayer().getLocation().getY();
-    logData.pos_z = event.getPlayer().getLocation().getZ();
-    logData.world = event.getPlayer().getLocation().getDimension()->getName();
+    const endstone::Player& player = event.getPlayer();
+    auto online_players = player.getServer().getOnlinePlayers();
+    if (const auto it = ranges::find(online_players,&player); it != online_players.end())
+    {
+        return;
+    }
+    logData.uuid = yuhangle::Database::generate_uuid_v4();
+    logData.id = player.getType();
+    logData.name = player.getName();
+    logData.pos_x = player.getLocation().getX();
+    logData.pos_y = player.getLocation().getY();
+    logData.pos_z = player.getLocation().getZ();
+    logData.world = player.getLocation().getDimension()->getName();
     logData.obj_id = event.getItem().getItemStack()->getType().getId();
     logData.obj_name = event.getItem().getName();
     logData.time = std::time(nullptr);
@@ -385,7 +391,11 @@ void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event)
     TianyanCore::LogData logData;
 
     const endstone::Player& player = event.getPlayer();
-
+    auto online_players = player.getServer().getOnlinePlayers();
+    if (const auto it = ranges::find(online_players,&player); it != online_players.end())
+    {
+        return;
+    }
     logData.uuid = yuhangle::Database::generate_uuid_v4();
     logData.id = player.getType();
     logData.name = player.getName();
