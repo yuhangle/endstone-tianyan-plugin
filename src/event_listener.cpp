@@ -114,6 +114,12 @@ void EventListener::onPlayerRightClickBlock(const endstone::PlayerInteractEvent&
     if (!event.getBlock()) {
         return;
     }
+
+    // 配置屏蔽的方块不记录（例如铁活板门）
+    if (ranges::find(no_log_blocks, event.getBlock()->getType()) != no_log_blocks.end()) {
+        return;
+    }
+
     //对特定物品的交互进行记录
     bool danger_item = false;
     if (event.hasItem())

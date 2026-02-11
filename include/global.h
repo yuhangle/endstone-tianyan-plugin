@@ -17,7 +17,7 @@ inline vector<TianyanCore::BanIDPlayer> BanIDPlayers;
 //语言
 inline translate Tran;
 //初始化其它实例
-inline yuhangle::Database Database(dbPath);
+inline yuhangle::Database Database(database_config);
 inline TianyanCore tyCore(Database);
 //缓存锁
 inline std::mutex cacheMutex;

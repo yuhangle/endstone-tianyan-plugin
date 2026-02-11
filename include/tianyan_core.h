@@ -12,13 +12,20 @@ using TimePoint = std::chrono::steady_clock::time_point;
 //文件目录
 inline string dataPath = "plugins/tianyan_data";
 inline string language_path = "plugins/tianyan_data/language/";
-inline string dbPath = "plugins/tianyan_data/ty_data.db";
 inline string config_path = "plugins/tianyan_data/config.json";
 inline string ban_id_path = "plugins/tianyan_data/ban-id.json";
+// MySQL 配置
+inline yuhangle::DatabaseConfig database_config{};
+inline string mysql_host = "127.0.0.1";
+inline int mysql_db_port = 3306;
+inline string mysql_user = "root";
+inline string mysql_password = "root";
+inline string mysql_database = "tianyan";
 //配置变量
 inline int max_message_in_10s;
 inline int max_command_in_10s;
 inline vector<string> no_log_mobs;
+inline vector<string> no_log_blocks;
 inline bool enable_web_ui = false;
 // 存储每个玩家的上次触发时间
 inline std::unordered_map<string, TimePoint> lastTriggerTime;

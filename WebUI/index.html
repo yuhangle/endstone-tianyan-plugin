@@ -88,27 +88,8 @@
         </div>
     </div>
 
-    <div v-if="!isLoggedIn" class="login-container">
-        <el-card style="width: 400px">
-            <template #header>
-                <h3>{{ t('Tianyan Plugin - Authentication') }}</h3>
-                <div class="language-selector">
-                    <el-select v-model="currentLanguage" @change="changeLanguage" style="width: 100%">
-                        <el-option v-for="lang in availableLanguages" :key="lang.code" :value="lang.code">
-                            <span class="lang-flag">{{ lang.flag }}</span>
-                            {{ lang.name }}
-                        </el-option>
-                    </el-select>
-                </div>
-            </template>
-            <el-input v-model="apiBase" :placeholder="t('Please enter backend IP and port')" style="margin-bottom: 15px;" @keyup.enter="login"></el-input>
-            <el-input v-model="secret" :placeholder="t('Please enter WebUI Secret')" show-password @keyup.enter="login"></el-input>
-            <el-button type="primary" style="width: 100%; margin-top: 20px" @click="login">{{ t('Enter Console') }}</el-button>
-        </el-card>
-    </div>
-
-    <div v-else class="dashboard">
-        <el-page-header @back="logout" :content="t('Tianyan Record Monitor Panel')">
+    <div class="dashboard">
+        <el-page-header :content="t('Tianyan Record Monitor Panel')">
             <template #content>
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                     <span>{{ t('Tianyan Record Monitor Panel') }}</span>
@@ -354,9 +335,7 @@
 
     createApp({
         setup() {
-            const isLoggedIn = ref(false);
-            const secret = ref(localStorage.getItem('ty_secret') || '');
-            const apiBase = ref(localStorage.getItem('ty_api_base') || 'http://127.0.0.1:8098');
+            const apiBase = ref(window.location.origin);
             const stats = reactive({ total_logs: 0, db_size: '0 MB' });
             const logs = ref([]);
             const loading = ref(false);
@@ -505,51 +484,10 @@
                 exportEndPage.value = Math.min(newVal, Math.floor(50000/pagination.page_size));
             });
 
-            const login = async () => {
-                try {
-                    loading.value = true;
-                    loadingProgress.value = t('Verifying...');
-                    const res = await axios.get(`${API_BASE.value}/stats`, {
-                        headers: {
-                            'X-Secret': secret.value,
-                            'X-Lang': currentLanguage.value
-                        }
-                    });
-                    isLoggedIn.value = true;
-                    localStorage.setItem('ty_secret', secret.value);
-                    localStorage.setItem('ty_api_base', apiBase.value);
-                    Object.assign(stats, res.data);
-                    ElementPlus.ElMessage.success(t('Login successful'));
-
-                    // 重新加载语言列表以确保新后端地址的语言支持得到更新
-                    await loadAvailableLanguages();
-                    
-                    // 关键：登录成功后完全重置查询条件
-                    resetSearch();
-
-                    console.log('Login successful, query conditions reset');
-                } catch (e) {
-                    ElementPlus.ElMessage.error(t('Authentication failed, please check Secret'));
-                } finally {
-                    loading.value = false;
-                }
-            };
-
-            const logout = () => {
-                isLoggedIn.value = false;
-                localStorage.removeItem('ty_secret');
-                ElementPlus.ElMessage.success(t('Logged out'));
-            };
-
             const fetchStats = async () => {
                 statsLoading.value = true;
                 try {
-                    const res = await axios.get(`${API_BASE.value}/stats`, {
-                        headers: {
-                            'X-Secret': secret.value,
-                            'X-Lang': currentLanguage.value
-                        }
-                    });
+                    const res = await axios.get(`${API_BASE.value}/stats`);
                     Object.assign(stats, res.data);
                     ElementPlus.ElMessage.success(t('Status refreshed successfully'));
                 } catch (e) {
@@ -614,10 +552,6 @@
 
                     const startTime = Date.now();
                     const res = await axios.get(`${API_BASE.value}/logs`, {
-                        headers: {
-                            'X-Secret': secret.value,
-                            'X-Lang': currentLanguage.value
-                        },
                         params: params,
                         timeout: 30000
                     });
@@ -967,10 +901,6 @@
                     loadingProgress.value = t('Getting data from server...');
 
                     const res = await axios.get(`${API_BASE.value}/export`, {
-                        headers: {
-                            'X-Secret': secret.value,
-                            'X-Lang': currentLanguage.value
-                        },
                         params: params,
                         timeout: 120000 // 120秒超时
                     });
@@ -1059,12 +989,7 @@
                 try {
                     loading.value = true;
                     loadingProgress.value = t('Getting database information...');
-                    const res = await axios.get(`${API_BASE.value}/db_info`, {
-                        headers: {
-                            'X-Secret': secret.value,
-                            'X-Lang': currentLanguage.value
-                        }
-                    });
+                    const res = await axios.get(`${API_BASE.value}/db_info`);
 
                     let message = `${t('Database Information')}：\n`;
                     message += `- ${t('Total rows')}: ${res.data.total_rows}\n`;
@@ -1139,15 +1064,8 @@
             onMounted(async () => {
                 // 首先加载可用语言
                 await loadAvailableLanguages();
-
-                // 优化：只在有密码时才尝试登录，避免不必要的请求
-                if (secret.value && secret.value.trim()) {
-                    await login();
-                    await fetchStats();
-                } else {
-                    // 如果没有密码，也重置查询条件
-                    resetSearch();
-                }
+                await fetchStats();
+                resetSearch();
 
                 // 添加调试按钮（仅开发环境）
                 if (isDebugMode.value) {
@@ -1162,13 +1080,13 @@
             });
 
             return {
-                isLoggedIn, secret, apiBase, stats, logs, queryForm, tempCoord, pagination,
+                apiBase, stats, logs, queryForm, tempCoord, pagination,
                 loading, tableLoading, loadingProgress, lastQueryTime, hasQueryResults,
                 exportDialogVisible, exportOption, exportStartPage, exportEndPage, exporting,
                 hasActiveCoordQuery, showDistanceColumn, isDebugMode,
                 currentLanguage, availableLanguages, translations,
                 t, // 导出翻译函数
-                login, logout, fetchStats, fetchLogs, applyCoordQuery, clearCoordQuery,
+                fetchStats, fetchLogs, applyCoordQuery, clearCoordQuery,
                 resetSearch, handlePageChange, handlePageSizeChange,
                 showExportDialog, handleExportConfirm, showDbInfo, debugCheckData,
                 getRowKey, tableKey, changeLanguage

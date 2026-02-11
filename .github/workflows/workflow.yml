@@ -44,7 +44,7 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 19
-          sudo apt-get install -y libc++-19-dev libc++abi-19-dev cmake libsqlite3-dev ninja-build
+          sudo apt-get install -y libc++-19-dev libc++abi-19-dev cmake default-libmysqlclient-dev pkg-config ninja-build
       - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -76,7 +76,7 @@ jobs:
         run: |
           git clone https://github.com/microsoft/vcpkg.git
           .\vcpkg\bootstrap-vcpkg.bat
-          .\vcpkg\vcpkg.exe install sqlite3:x64-windows-static
+          .\vcpkg\vcpkg.exe install libmysql:x64-windows-static
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         shell: pwsh

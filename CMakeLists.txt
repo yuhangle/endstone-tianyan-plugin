@@ -27,8 +27,33 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
-# SQLite3
-find_package(SQLite3 REQUIRED)
+# MySQL client
+if(WIN32)
+    find_package(unofficial-libmysql CONFIG REQUIRED)
+else()
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(MYSQL QUIET IMPORTED_TARGET mysqlclient)
+        if(NOT MYSQL_FOUND)
+            pkg_check_modules(MYSQL QUIET IMPORTED_TARGET libmysqlclient)
+        endif()
+        if(NOT MYSQL_FOUND)
+            pkg_check_modules(MYSQL QUIET IMPORTED_TARGET mariadb)
+        endif()
+    endif()
+
+    if(NOT MYSQL_FOUND)
+        find_path(MYSQL_INCLUDE_DIR
+                NAMES mysql/mysql.h mariadb/mysql.h mysql.h
+        )
+        find_library(MYSQL_LIBRARY
+                NAMES mysqlclient mariadb
+        )
+        if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIBRARY)
+            message(FATAL_ERROR "MySQL client library not found. Please install libmysqlclient-dev/default-libmysqlclient-dev (Linux) or MariaDB Connector C.")
+        endif()
+    endif()
+endif()
 
 # fmt (header-only or static)
 FetchContent_Declare(
@@ -51,9 +76,19 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
         nlohmann_json::nlohmann_json
-        SQLite::SQLite3
         fmt::fmt-header-only
 )
+
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::libmysql::libmysql)
+else()
+    if(MYSQL_FOUND)
+        target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::MYSQL)
+    else()
+        target_include_directories(${PROJECT_NAME} PRIVATE ${MYSQL_INCLUDE_DIR})
+        target_link_libraries(${PROJECT_NAME} PRIVATE ${MYSQL_LIBRARY})
+    endif()
+endif()
 
 find_package(Git QUIET)
 if(GIT_FOUND)

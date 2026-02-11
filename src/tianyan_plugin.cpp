@@ -6,14 +6,92 @@
 #include "version.h"
 #include <thread>
 
-    //数据目录和配置文件检查
+namespace {
+const std::vector<std::string> kDefaultNoLogMobs = {
+    // 主动刷新的常见怪物（按实体ID）
+    "minecraft:zombie",
+    "minecraft:zombie_villager",
+    "minecraft:husk",
+    "minecraft:drowned",
+    "minecraft:skeleton",
+    "minecraft:stray",
+    "minecraft:bogged",
+    "minecraft:wither_skeleton",
+    "minecraft:spider",
+    "minecraft:cave_spider",
+    "minecraft:creeper",
+    "minecraft:slime",
+    "minecraft:magma_cube",
+    "minecraft:enderman",
+    "minecraft:witch",
+    "minecraft:phantom",
+    "minecraft:vindicator",
+    "minecraft:evocation_illager",
+    "minecraft:pillager",
+    "minecraft:ravager",
+    "minecraft:vex",
+    "minecraft:zombie_pigman",
+    "minecraft:zombified_piglin",
+    "minecraft:ghast",
+    "minecraft:blaze",
+    "minecraft:hoglin",
+    "minecraft:zoglin",
+    "minecraft:piglin",
+    "minecraft:piglin_brute",
+    "minecraft:warden",
+    "minecraft:silverfish",
+    "minecraft:endermite",
+    "minecraft:shulker",
+    "minecraft:guardian",
+    "minecraft:elder_guardian",
+    "minecraft:bee",
+    "minecraft:polar_bear",
+    "minecraft:goat",
+    "minecraft:fox",
+    "minecraft:wolf",
+    "minecraft:llama",
+    "minecraft:panda",
+    "minecraft:cat",
+    "minecraft:ocelot",
+    "minecraft:parrot",
+    "minecraft:bat",
+    "minecraft:frog",
+    "minecraft:turtle",
+    "minecraft:dolphin",
+    "minecraft:cod",
+    "minecraft:salmon",
+    "minecraft:pufferfish",
+    "minecraft:tropicalfish",
+    "minecraft:axolotl",
+    "minecraft:squid",
+    "minecraft:glow_squid",
+    "minecraft:camel",
+    "minecraft:sniffer",
+    // 额外要求：铁傀儡默认不记录
+    "minecraft:iron_golem"
+};
+
+const std::vector<std::string> kDefaultNoLogBlocks = {
+    // 额外要求：屏蔽玩家右键铁活板门
+    "minecraft:iron_trapdoor"
+};
+}  // namespace
+
+//数据目录和配置文件检查
 void TianyanPlugin::datafile_check() const {
     json df_config = {
         {"language","zh_CN"},
         {"enable_web_ui",false},
+        {"web_backend_port", 8098},
         {"10s_message_max", 6},
         {"10s_command_max", 12},
-        {"no_log_mobs", {"minecraft:zombie_pigman","minecraft:zombie","minecraft:skeleton","minecraft:bogged","minecraft:slime"}}
+        {"mysql_host", "127.0.0.1"},
+        {"mysql_port", 3306},
+        {"mysql_user", "root"},
+        {"mysql_password", "root"},
+        {"mysql_database", "tianyan"},
+        {"no_log_mobs", kDefaultNoLogMobs},
+        {"no_log_blocks", kDefaultNoLogBlocks}
     };
 
     if (!(std::filesystem::exists(dataPath))) {
@@ -158,7 +236,7 @@ void TianyanPlugin::migrateOldBanData()
 namespace fs = std::filesystem;
 
 void start_web_server(const std::string& pluginDir) {
-    const fs::path base_path = fs::absolute(pluginDir).parent_path();
+    const fs::path base_path = fs::absolute(pluginDir);
     const fs::path py_script = base_path / "WebUI" / "server.py";
 
     // 构造命令
@@ -255,62 +333,64 @@ void TianyanPlugin::onLoad()
     //加载语言
     const auto [fst, snd] = Tran.loadLanguage();
     getLogger().info(snd);
-#ifdef __linux__
-    namespace fs = std::filesystem;
-    try {
-        // 获取当前路径
-        const fs::path currentPath = fs::current_path();
-
-        // 子目录路径
-        const fs::path subdir = dbPath;
-
-        // 拼接路径
-        const fs::path fullPath = currentPath / subdir;
-
-        // 如果需要将最终路径转换为 string 类型
-        const std::string finalPathStr = fullPath.string();
-
-        // 使用完整路径重新初始化Database
-        Database = yuhangle::Database(finalPathStr);
-        tyCore = TianyanCore(Database);
-    }
-    catch (const fs::filesystem_error& e) {
-        std::cerr << "Filesystem error: " << e.what() << std::endl;
-    }
-    catch (const std::exception& e) {
-        std::cerr << "General error: " << e.what() << std::endl;
-    }
-#endif
 }
 
 void TianyanPlugin::onEnable()
 {
     getLogger().info("onEnable is called");
-    (void)Database.init_database();
     datafile_check();
     //进行一个配置文件的读取
     json json_msg = read_config();
+    max_message_in_10s = 6;
+    max_command_in_10s = 12;
+    no_log_mobs = kDefaultNoLogMobs;
+    no_log_blocks = kDefaultNoLogBlocks;
+    enable_web_ui = false;
+    mysql_host = "127.0.0.1";
+    mysql_db_port = 3306;
+    mysql_user = "root";
+    mysql_password = "root";
+    mysql_database = "tianyan";
+    string lang = "en_US";
+
     try {
-        string lang = "en_US";
         if (!json_msg.contains("error")) {
-            max_message_in_10s = json_msg["10s_message_max"];
-            max_command_in_10s = json_msg["10s_command_max"];
-            no_log_mobs = json_msg["no_log_mobs"];
-            lang = json_msg["language"];
-            language_file = language_path +lang+".json";
-            enable_web_ui = json_msg["enable_web_ui"];
+            if (json_msg.contains("10s_message_max")) max_message_in_10s = json_msg["10s_message_max"];
+            if (json_msg.contains("10s_command_max")) max_command_in_10s = json_msg["10s_command_max"];
+            if (json_msg.contains("no_log_mobs") && json_msg["no_log_mobs"].is_array()) {
+                no_log_mobs = json_msg["no_log_mobs"].get<std::vector<std::string>>();
+            }
+            if (json_msg.contains("no_log_blocks") && json_msg["no_log_blocks"].is_array()) {
+                no_log_blocks = json_msg["no_log_blocks"].get<std::vector<std::string>>();
+            }
+            if (json_msg.contains("language")) lang = json_msg["language"];
+            if (json_msg.contains("enable_web_ui")) enable_web_ui = json_msg["enable_web_ui"];
+            if (json_msg.contains("mysql_host")) mysql_host = json_msg["mysql_host"];
+            if (json_msg.contains("mysql_port")) mysql_db_port = json_msg["mysql_port"];
+            if (json_msg.contains("mysql_user")) mysql_user = json_msg["mysql_user"];
+            if (json_msg.contains("mysql_password")) mysql_password = json_msg["mysql_password"];
+            if (json_msg.contains("mysql_database")) mysql_database = json_msg["mysql_database"];
         } else {
             getLogger().error(Tran.getLocal("Config file error!Use default config"));
-            max_message_in_10s = 6;
-            max_command_in_10s = 12;
-            no_log_mobs = {"minecraft:zombie_pigman","minecraft:zombie","minecraft:skeleton","minecraft:bogged","minecraft:slime"};
         }
     } catch (const std::exception& e) {
-        max_message_in_10s = 6;
-        max_command_in_10s = 12;
-        no_log_mobs = {"minecraft:zombie_pigman","minecraft:zombie","minecraft:skeleton","minecraft:bogged","minecraft:slime"};
         getLogger().error(Tran.getLocal("Config file error!Use default config")+","+e.what());
     }
+    language_file = language_path + lang + ".json";
+
+    database_config.host = mysql_host;
+    database_config.port = static_cast<unsigned int>(mysql_db_port);
+    database_config.user = mysql_user;
+    database_config.password = mysql_password;
+    database_config.database = mysql_database;
+
+    Database = yuhangle::Database(database_config);
+    tyCore = TianyanCore(Database);
+
+    if (Database.init_database() != yuhangle::DB_OK) {
+        getLogger().error("MySQL init failed, please check mysql_* in config.json");
+    }
+
     Tran = translate(language_file);
     Tran.loadLanguage();
     translate::checkLanguageCommon(language_file,dataPath+"/language/lang.json");
@@ -355,7 +435,7 @@ _____   _
     getLogger().info("You can change the plugin’s language by editing the config file. Choose a language from the language folder.");
     if (enable_web_ui)
     {
-        start_web_server(dbPath);
+        start_web_server(dataPath);
 #ifdef _WIN32
         windows_print_webui_log = getServer().getScheduler().runTaskTimer(*this, [&]() {dump_webui_log_once();},0,20);
 #endif

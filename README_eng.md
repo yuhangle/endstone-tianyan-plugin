@@ -54,22 +54,23 @@ The Tianyan plugin supports viewing item information in online players' inventor
 
 The Tianyan plugin provides a WebUI panel that can be accessed through a browser to view behavior records. To enable the WebUI feature, set "enable_web_ui" to true in the configuration file.
 
-After the WebUI is started, a WebUI configuration file web_config.json will be generated in the plugin data directory:
+WebUI now reads from the main plugin config `config.json` (no separate Web password):
 ```json
 {
-"secret": "your_secret",
-"backend_port": 8098
+    "web_backend_port": 8098,
+    "mysql_host": "127.0.0.1",
+    "mysql_port": 3306,
+    "mysql_user": "root",
+    "mysql_password": "root",
+    "mysql_database": "tianyan"
 }
 ```
-- `secret`: Access key for the WebUI, used for authentication
+- `web_backend_port`: WebUI port
+- `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: MySQL settings shared by plugin and WebUI
 
-- `backend_port`: WebUI port
-
-Running the WebUI requires the following pip packages: `fastapi`, `uvicorn`. These packages will be automatically installed when the WebUI runs.
+Running the WebUI requires the following pip packages: `fastapi`, `uvicorn`, `pymysql`. These packages will be automatically installed when the WebUI runs.
 
 You can access the WebUI panel via `server_IP:WebUI_port`. For example, with the default port 8098, the access URL is `http://127.0.0.1:8098`.
-
-You can also specify the backend IP and port within the WebUI after connecting.
 
 ## 🚀 Installation, Configuration & Usage
 
@@ -93,13 +94,21 @@ Default configuration:
     "10s_command_max": 12,
     "10s_message_max": 6,
     "enable_web_ui": false,
+    "web_backend_port": 8098,
     "language": "zh_CN",
+    "mysql_host": "127.0.0.1",
+    "mysql_port": 3306,
+    "mysql_user": "root",
+    "mysql_password": "root",
+    "mysql_database": "tianyan",
     "no_log_mobs": [
-        "minecraft:zombie_pigman",
         "minecraft:zombie",
         "minecraft:skeleton",
         "minecraft:bogged",
-        "minecraft:slime"
+        "minecraft:iron_golem"
+    ],
+    "no_log_blocks": [
+        "minecraft:iron_trapdoor"
     ]
 }
 ```
@@ -108,8 +117,11 @@ Configuration item descriptions:
 - `10s_command_max`: Maximum number of commands players can use within 10 seconds
 - `10s_message_max`: Maximum number of messages players can send within 10 seconds
 - `enable_web_ui`: Enable WebUI
+- `web_backend_port`: WebUI port
 - `language`: Plugin language
+- `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: MySQL connection settings
 - `no_log_mobs`: List of entities not to be logged
+- `no_log_blocks`: Block interaction list not to be logged (applies to `player_right_click_block`)
 
 > In entity-related events, entities in `no_log_mobs` will not be recorded unless named tags are used.
 
@@ -220,8 +232,8 @@ Without parameters, a quick menu will pop up where players can query. The maximu
 
 Configure the development environment according to Endstone documentation:
 
-- Linux needs to install sqlite3 development library
-- Windows needs to use vcpkg or other package managers to install sqlite3 static development library
+- Linux needs to install MySQL client development library (for example `default-libmysqlclient-dev`)
+- Windows needs to use vcpkg or other package managers to install static `libmysql`
 
 Clone the project code:
 ```shell

@@ -52,21 +52,23 @@
 
 ### 🌐 WebUI面板
 天眼插件提供了 WebUI 面板，可以在浏览器中访问面板，查看行为记录。 启用WebUI功能需要在配置文件中修改"enable_web_ui"为true。
-WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config.json:
+WebUI使用插件主配置文件 `config.json` 中的配置启动（无需单独Web密码）：
 ```json
 {
-    "secret": "your_secret",
-    "backend_port": 8098
+    "web_backend_port": 8098,
+    "mysql_host": "127.0.0.1",
+    "mysql_port": 3306,
+    "mysql_user": "root",
+    "mysql_password": "root",
+    "mysql_database": "tianyan"
 }
 ```
-- `secret`: WebUI 访问密钥，用于验证身份
-- `backend_port`: WebUI 端口
+- `web_backend_port`: WebUI 端口
+- `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: WebUI与插件共用的 MySQL 连接配置
 
-运行WebUI需要以下pip包：`fastapi` `uvicorn`,WebUI在运行时会自动安装pip包。
+运行WebUI需要以下pip包：`fastapi` `uvicorn` `pymysql`, WebUI在运行时会自动安装pip包。
 
 你可以通过`服务器IP:WebUI端口`访问WebUI面板,例如，默认端口为8098，访问地址为`http://127.0.0.1:8098`。
-
-你也可以在WebUI指定连接后端IP和端口。
 
 ## 🚀 安装 & 配置 & 使用方法
 
@@ -90,13 +92,21 @@ WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config
     "10s_command_max": 12,
     "10s_message_max": 6,
     "enable_web_ui": false,
+    "web_backend_port": 8098,
     "language": "zh_CN",
+    "mysql_host": "127.0.0.1",
+    "mysql_port": 3306,
+    "mysql_user": "root",
+    "mysql_password": "root",
+    "mysql_database": "tianyan",
     "no_log_mobs": [
-        "minecraft:zombie_pigman",
         "minecraft:zombie",
         "minecraft:skeleton",
         "minecraft:bogged",
-        "minecraft:slime"
+        "minecraft:iron_golem"
+    ],
+    "no_log_blocks": [
+        "minecraft:iron_trapdoor"
     ]
 }
 ```
@@ -105,8 +115,11 @@ WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config
 - `10s_command_max`: 10秒内玩家可使用命令的最大次数
 - `10s_message_max`: 10秒内玩家可发送消息的最大次数
 - `enable_web_ui`: 是否启用 WebUI
+- `web_backend_port`: WebUI 端口
 - `language`: 插件语言
+- `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: MySQL数据库连接配置
 - `no_log_mobs`: 不被记录的实体列表
+- `no_log_blocks`: 不被记录的方块交互列表（作用于 `player_right_click_block`）
 
 > 在涉及实体事件中，除非使用命名牌，否则不会记录 `no_log_mobs` 中的实体。
 
@@ -217,8 +230,8 @@ WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config
 
 按照 Endstone 文档配置好开发环境：
 
-- Linux 需要安装 sqlite3 开发库
-- Windows 需要使用 vcpkg 或其它包管理工具 安装 sqlite3 静态开发库
+- Linux 需要安装 MySQL 客户端开发库（如 `default-libmysqlclient-dev`）
+- Windows 需要使用 vcpkg 或其它包管理工具 安装 `libmysql` 静态开发库
 
 克隆项目代码：
 ```shell
