@@ -31,27 +31,57 @@ FetchContent_MakeAvailable(nlohmann_json)
 if(WIN32)
     find_package(unofficial-libmysql CONFIG REQUIRED)
 else()
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(MYSQL QUIET IMPORTED_TARGET mysqlclient)
-        if(NOT MYSQL_FOUND)
-            pkg_check_modules(MYSQL QUIET IMPORTED_TARGET libmysqlclient)
+    if(APPLE)
+        set(_TIANYAN_PREFER_STATIC_MYSQL_DEFAULT OFF)
+    else()
+        set(_TIANYAN_PREFER_STATIC_MYSQL_DEFAULT ON)
+    endif()
+    option(TIANYAN_PREFER_STATIC_MYSQL "Prefer static MySQL client link on non-Windows platforms." ${_TIANYAN_PREFER_STATIC_MYSQL_DEFAULT})
+
+    # Allow explicit override from command line/cache.
+    set(MYSQL_LINK_MODE "manual")
+    if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIBRARY)
+        set(MYSQL_LINK_MODE "dynamic")
+        find_package(PkgConfig QUIET)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(MYSQL QUIET mysqlclient)
+            if(NOT MYSQL_FOUND)
+                pkg_check_modules(MYSQL QUIET libmysqlclient)
+            endif()
+            if(NOT MYSQL_FOUND)
+                pkg_check_modules(MYSQL QUIET mariadb)
+            endif()
         endif()
-        if(NOT MYSQL_FOUND)
-            pkg_check_modules(MYSQL QUIET IMPORTED_TARGET mariadb)
+
+        find_path(MYSQL_INCLUDE_DIR
+                NAMES mysql/mysql.h mariadb/mysql.h mysql.h
+                HINTS ${MYSQL_INCLUDE_DIRS}
+        )
+
+        if(TIANYAN_PREFER_STATIC_MYSQL AND MYSQL_FOUND)
+            set(_MYSQL_SAVED_SUFFIXES "${CMAKE_FIND_LIBRARY_SUFFIXES}")
+            set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+            find_library(MYSQL_LIBRARY_STATIC
+                    NAMES mysqlclient mariadb mariadbclient
+                    HINTS ${MYSQL_STATIC_LIBRARY_DIRS} ${MYSQL_LIBRARY_DIRS}
+            )
+            set(CMAKE_FIND_LIBRARY_SUFFIXES "${_MYSQL_SAVED_SUFFIXES}")
+            if(MYSQL_LIBRARY_STATIC)
+                set(MYSQL_LIBRARY "${MYSQL_LIBRARY_STATIC}")
+                set(MYSQL_LINK_MODE "static")
+            endif()
+        endif()
+
+        if(NOT MYSQL_LIBRARY)
+            find_library(MYSQL_LIBRARY
+                    NAMES mysqlclient mariadb mariadbclient
+                    HINTS ${MYSQL_LIBRARY_DIRS}
+            )
         endif()
     endif()
 
-    if(NOT MYSQL_FOUND)
-        find_path(MYSQL_INCLUDE_DIR
-                NAMES mysql/mysql.h mariadb/mysql.h mysql.h
-        )
-        find_library(MYSQL_LIBRARY
-                NAMES mysqlclient mariadb
-        )
-        if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIBRARY)
-            message(FATAL_ERROR "MySQL client library not found. Please install libmysqlclient-dev/default-libmysqlclient-dev (Linux) or MariaDB Connector C.")
-        endif()
+    if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIBRARY)
+        message(FATAL_ERROR "MySQL client library not found. Please install libmysqlclient-dev/default-libmysqlclient-dev (Linux) or MariaDB Connector C.")
     endif()
 endif()
 
@@ -82,11 +112,33 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::libmysql::libmysql)
 else()
-    if(MYSQL_FOUND)
-        target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::MYSQL)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${MYSQL_INCLUDE_DIR})
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${MYSQL_LIBRARY})
+    if(MYSQL_LINK_MODE STREQUAL "static")
+        message(STATUS "Using static MySQL client library: ${MYSQL_LIBRARY}")
+        if(MYSQL_STATIC_LIBRARY_DIRS)
+            target_link_directories(${PROJECT_NAME} PRIVATE ${MYSQL_STATIC_LIBRARY_DIRS})
+        endif()
+        if(MYSQL_STATIC_LIBRARIES)
+            foreach(MYSQL_DEP IN LISTS MYSQL_STATIC_LIBRARIES)
+                if(NOT MYSQL_DEP STREQUAL "mysqlclient" AND NOT MYSQL_DEP STREQUAL "mariadb" AND NOT MYSQL_DEP STREQUAL "mariadbclient")
+                    target_link_libraries(${PROJECT_NAME} PRIVATE ${MYSQL_DEP})
+                endif()
+            endforeach()
+        endif()
+        if(MYSQL_STATIC_LDFLAGS_OTHER)
+            target_link_options(${PROJECT_NAME} PRIVATE ${MYSQL_STATIC_LDFLAGS_OTHER})
+        endif()
+    elseif(MYSQL_LINK_MODE STREQUAL "dynamic")
+        message(STATUS "Using dynamic MySQL client library: ${MYSQL_LIBRARY}")
+        if(MYSQL_LIBRARY_DIRS)
+            target_link_directories(${PROJECT_NAME} PRIVATE ${MYSQL_LIBRARY_DIRS})
+        endif()
+        if(MYSQL_LDFLAGS_OTHER)
+            target_link_options(${PROJECT_NAME} PRIVATE ${MYSQL_LDFLAGS_OTHER})
+        endif()
     else()
-        target_include_directories(${PROJECT_NAME} PRIVATE ${MYSQL_INCLUDE_DIR})
-        target_link_libraries(${PROJECT_NAME} PRIVATE ${MYSQL_LIBRARY})
+        message(STATUS "Using manually configured MySQL client library: ${MYSQL_LIBRARY}")
     endif()
 endif()
 

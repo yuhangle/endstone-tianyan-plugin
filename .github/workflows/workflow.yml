@@ -44,7 +44,7 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 19
-          sudo apt-get install -y libc++-19-dev libc++abi-19-dev cmake default-libmysqlclient-dev pkg-config ninja-build
+          sudo apt-get install -y libc++-19-dev libc++abi-19-dev cmake default-libmysqlclient-dev pkg-config ninja-build libssl-dev zlib1g-dev libzstd-dev
       - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -93,6 +93,23 @@ jobs:
       # ===== Build =====
       - name: Build
         run: cmake --build build --config Release
+
+      # ===== Verify runtime deps (Linux) =====
+      - name: Verify plugin runtime deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          SO_FILE=$(find build -name "*.so" | head -n 1)
+          if [ -z "$SO_FILE" ]; then
+            echo "No .so file found!"
+            exit 1
+          fi
+          echo "Checking shared dependencies for: $SO_FILE"
+          ldd "$SO_FILE" | tee /tmp/tianyan_ldd.txt
+          if grep -Eq 'libmysqlclient\.so|libmariadb\.so' /tmp/tianyan_ldd.txt; then
+            echo "MySQL/MariaDB client shared library dependency detected."
+            echo "The plugin should not depend on libmysqlclient.so/libmariadb.so at runtime."
+            exit 1
+          fi
 
       # ===== Prepare plugin artifact (Linux) =====
       - name: Prepare plugin artifact (Linux)
