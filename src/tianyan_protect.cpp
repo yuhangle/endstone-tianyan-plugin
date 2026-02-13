@@ -282,7 +282,7 @@ TianyanCore::DensityResult TianyanProtect::calculateEntityDensity(endstone::Serv
             info.x = actor->getLocation().getX();
             info.y = actor->getLocation().getY();
             info.z = actor->getLocation().getZ();
-            info.dim = actor->getLocation().getDimension()->getName();
+            info.dim = actor->getLocation().getDimension().getName();
             actor_info.push_back(info);
         }
         

@@ -483,7 +483,7 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 }
                 const string search_key_type = args.size() > 2 ? args[2] : "";
                 const string search_key = args.size() > 3 ? args[3] : "";
-                const string world = sender.asPlayer()->getLocation().getDimension()->getName();
+                const string world = sender.asPlayer()->getLocation().getDimension().getName();
                 const double x = sender.asPlayer()->getLocation().getX();
                 const double y = sender.asPlayer()->getLocation().getY();
                 const double z = sender.asPlayer()->getLocation().getZ();
@@ -579,7 +579,7 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double time = stod(args[1]);
                 const string source_key_type = args.size() > 2 ? args[2] : "";
                 const string source_key = args.size() > 3 ? args[3] : "";
-                const string world = sender.asPlayer()->getLocation().getDimension()->getName();
+                const string world = sender.asPlayer()->getLocation().getDimension().getName();
                 const double x = sender.asPlayer()->getLocation().getX();
                 const double y = sender.asPlayer()->getLocation().getY();
                 const double z = sender.asPlayer()->getLocation().getZ();
@@ -760,7 +760,7 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double time = stod(args[0]);
                 const string search_key_type = args.size() > 1 ? args[1] : "";
                 const string search_key = args.size() > 2 ? args[2] : "";
-                const string world = sender.asPlayer()->getLocation().getDimension()->getName();
+                const string world = sender.asPlayer()->getLocation().getDimension().getName();
                 if (const auto searchData = tyCore.searchLog({"",time}); searchData.empty()) {
                     sender.sendErrorMessage(Tran.getLocal("No log found"));
                 } else {
