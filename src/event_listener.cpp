@@ -32,7 +32,7 @@ void EventListener::onBlockBreak(const endstone::BlockBreakEvent& event){
     logData.pos_x = event.getBlock().getX();
     logData.pos_y = event.getBlock().getY();
     logData.pos_z = event.getBlock().getZ();
-    logData.world = event.getBlock().getLocation().getDimension()->getName();
+    logData.world = event.getBlock().getLocation().getDimension().getName();
     logData.obj_id = event.getBlock().getType();
     logData.time = std::time(nullptr);
     logData.type = "block_break";
@@ -56,7 +56,7 @@ void EventListener::onBlockPlace(const endstone::BlockPlaceEvent& event){
     logData.pos_x = event.getBlockPlacedState().getX();
     logData.pos_y = event.getBlockPlacedState().getY();
     logData.pos_z = event.getBlockPlacedState().getZ();
-    logData.world = event.getBlockPlacedState().getLocation().getDimension()->getName();
+    logData.world = event.getBlockPlacedState().getLocation().getDimension().getName();
     logData.obj_id = event.getBlockPlacedState().getType();
     logData.time = std::time(nullptr);
     logData.type = "block_place";
@@ -94,7 +94,7 @@ void EventListener::onActorDamage(const endstone::ActorDamageEvent& event){
     logData.pos_x = event.getActor().getLocation().getX();
     logData.pos_y = event.getActor().getLocation().getY();
     logData.pos_z = event.getActor().getLocation().getZ();
-    logData.world = event.getActor().getLocation().getDimension()->getName();
+    logData.world = event.getActor().getLocation().getDimension().getName();
     logData.obj_id = event.getActor().getType();
     logData.obj_name = event.getActor().getName();
     logData.time = std::time(nullptr);
@@ -121,7 +121,7 @@ void EventListener::onPlayerRightClickBlock(const endstone::PlayerInteractEvent&
         static const std::vector<std::string> dangerKeywords = {
             "end_crystal", "flint_and_steel", "fire_charge"
         };
-        const auto item_id = event.getItem()->getType().getId();
+        const auto item_id = event.getItem()->getType().getId().getKey();
         auto containsKeyword = [&item_id](const std::string& kw) {
             return item_id.find(kw) != std::string::npos;
         };
@@ -144,7 +144,7 @@ void EventListener::onPlayerRightClickBlock(const endstone::PlayerInteractEvent&
     logData.pos_x = event.getBlock()->getX();
     logData.pos_y = event.getBlock()->getY();
     logData.pos_z = event.getBlock()->getZ();
-    logData.world = event.getPlayer().getLocation().getDimension()->getName();
+    logData.world = event.getPlayer().getLocation().getDimension().getName();
     logData.obj_id = event.getBlock()->getType();
     logData.time = std::time(nullptr);
     logData.type = "player_right_click_block";
@@ -178,7 +178,7 @@ void EventListener::onPlayerRightClickActor(const endstone::PlayerInteractActorE
     logData.pos_x = event.getActor().getLocation().getX();
     logData.pos_y = event.getActor().getLocation().getY();
     logData.pos_z = event.getActor().getLocation().getZ();
-    logData.world = event.getActor().getLocation().getDimension()->getName();
+    logData.world = event.getActor().getLocation().getDimension().getName();
     logData.obj_id = event.getActor().getType();
     logData.obj_name = event.getActor().getName();
     logData.time = std::time(nullptr);
@@ -207,7 +207,7 @@ void EventListener::onActorBomb(const endstone::ActorExplodeEvent& event) {
     logData.pos_x = event.getLocation().getX();
     logData.pos_y = event.getLocation().getY();
     logData.pos_z = event.getLocation().getZ();
-    logData.world = event.getLocation().getDimension()->getName();
+    logData.world = event.getLocation().getDimension().getName();
     if (!event.getBlockList().empty()) {
         logData.obj_name = "Block";
     }
@@ -235,7 +235,7 @@ void EventListener::onActorBomb(const endstone::ActorExplodeEvent& event) {
             bomb_data.pos_x = block->getX();
             bomb_data.pos_y = block->getY();
             bomb_data.pos_z = block->getZ();
-            bomb_data.world = block->getLocation().getDimension()->getName();
+            bomb_data.world = block->getLocation().getDimension().getName();
             bomb_data.obj_id = block->getType();
             bomb_data.time = std::time(nullptr);
             bomb_data.type = "block_break_bomb";
@@ -255,7 +255,7 @@ void EventListener::onPistonExtend(const endstone::BlockPistonExtendEvent&event)
     logData.pos_x = event.getBlock().getX();
     logData.pos_y = event.getBlock().getY();
     logData.pos_z = event.getBlock().getZ();
-    logData.world = event.getBlock().getLocation().getDimension()->getName();
+    logData.world = event.getBlock().getLocation().getDimension().getName();
     logData.time = std::time(nullptr);
     logData.type = "piston_extend";
     const auto Face = event.getDirection();
@@ -292,7 +292,7 @@ void EventListener::onPistonRetract(const endstone::BlockPistonRetractEvent&even
     logData.pos_x = event.getBlock().getX();
     logData.pos_y = event.getBlock().getY();
     logData.pos_z = event.getBlock().getZ();
-    logData.world = event.getBlock().getLocation().getDimension()->getName();
+    logData.world = event.getBlock().getLocation().getDimension().getName();
     logData.time = std::time(nullptr);
     logData.type = "piston_retract";
     const auto Face = event.getDirection();
@@ -331,7 +331,7 @@ void EventListener::onActorDie(const endstone::ActorDeathEvent&event) {
     logData.pos_x = event.getActor().getLocation().getX();
     logData.pos_y = event.getActor().getLocation().getY();
     logData.pos_z = event.getActor().getLocation().getZ();
-    logData.world = event.getActor().getLocation().getDimension()->getName();
+    logData.world = event.getActor().getLocation().getDimension().getName();
     logData.obj_id = event.getActor().getType();
     logData.obj_name = event.getActor().getName();
     logData.time = std::time(nullptr);
@@ -348,7 +348,7 @@ void EventListener::onPlayerDie(const endstone::PlayerDeathEvent&event) {
     logData.pos_x = event.getActor().getLocation().getX();
     logData.pos_y = event.getActor().getLocation().getY();
     logData.pos_z = event.getActor().getLocation().getZ();
-    logData.world = event.getActor().getLocation().getDimension()->getName();
+    logData.world = event.getActor().getLocation().getDimension().getName();
     logData.obj_id = event.getActor().getType();
     logData.obj_name = event.getActor().getName();
     logData.time = std::time(nullptr);
@@ -373,8 +373,8 @@ void EventListener::onPlayerPickup(const endstone::PlayerPickupItemEvent&event) 
     logData.pos_x = player.getLocation().getX();
     logData.pos_y = player.getLocation().getY();
     logData.pos_z = player.getLocation().getZ();
-    logData.world = player.getLocation().getDimension()->getName();
-    logData.obj_id = event.getItem().getItemStack()->getType().getId();
+    logData.world = player.getLocation().getDimension().getName();
+    logData.obj_id = event.getItem().getItemStack().getType().getId();
     logData.obj_name = event.getItem().getName();
     logData.time = std::time(nullptr);
     logData.type = "player_pickup_item";
@@ -402,7 +402,7 @@ void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event)
     logData.pos_x = player.getLocation().getX();
     logData.pos_y = player.getLocation().getY();
     logData.pos_z = player.getLocation().getZ();
-    logData.world = player.getLocation().getDimension()->getName();
+    logData.world = player.getLocation().getDimension().getName();
     logData.obj_id = event.getItem().getType().getId();
     logData.time = std::time(nullptr);
     logData.type = "player_drop_item";

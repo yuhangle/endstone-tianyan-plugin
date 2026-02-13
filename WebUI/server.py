@@ -818,6 +818,15 @@ async def debug_query(
 async def get_index():
     return FileResponse(os.path.join(BASE_DIR, "index.html"))
 
+# ✅ 添加 JS 和 CSS 的路由
+@app.get("/script.js")
+async def get_script():
+    return FileResponse(os.path.join(BASE_DIR, "script.js"))
+
+@app.get("/style.css")
+async def get_style():
+    return FileResponse(os.path.join(BASE_DIR, "style.css"))
+
 
 if __name__ == "__main__":
     # 检查是否以调试模式启动

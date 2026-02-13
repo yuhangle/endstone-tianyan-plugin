@@ -260,13 +260,13 @@ void Menu::showOnlinePlayerBag(const endstone::CommandSender &sender, const ends
                 item_info["item"] = item->getType().getId();
                 item_info["amount"] = std::to_string(item->getAmount());
                 if (const auto meta = item->getItemMeta()) {
-                    if (auto display_name = meta->getDisplayName();display_name.has_value()) {
-                        item_info["name"] = display_name.value();
+                    if (auto display_name = meta->getDisplayName();!display_name.empty()) {
+                        item_info["name"] = display_name;
                     }
                     if (auto enhance = meta->getEnchants();!enhance.empty()) {
                         string enhances;
                         for (const auto &[fst, snd] : enhance) {
-                            enhances += fst + ":"+to_string(snd)+"\n";
+                            enhances += string(fst->getId().getKey()) + ":"+to_string(snd)+"\n";
                         }
                         item_info["enhance"] = enhances;
                     }
@@ -286,13 +286,13 @@ void Menu::showOnlinePlayerBag(const endstone::CommandSender &sender, const ends
             item_info["item"] = helmet->getType().getId();
             item_info["amount"] = std::to_string(helmet->getAmount());
             if (const auto meta = helmet->getItemMeta()) {
-                if (auto display_name = meta->getDisplayName();display_name.has_value()) {
-                    item_info["name"] = display_name.value();
+                if (auto display_name = meta->getDisplayName();!display_name.empty()) {
+                    item_info["name"] = display_name;
                 }
                 if (auto enhance = meta->getEnchants();!enhance.empty()) {
                     string enhances;
                     for (const auto &[fst, snd] : enhance) {
-                        enhances += fst + ":"+to_string(snd)+"\n";
+                        enhances += string(fst->getId()) + ":"+to_string(snd)+"\n";
                     }
                     item_info["enhance"] = enhances;
                 }
@@ -306,13 +306,13 @@ void Menu::showOnlinePlayerBag(const endstone::CommandSender &sender, const ends
             item_info["item"] = chestplate->getType().getId();
             item_info["amount"] = std::to_string(chestplate->getAmount());
             if (const auto meta = chestplate->getItemMeta()) {
-                if (auto display_name = meta->getDisplayName();display_name.has_value()) {
-                    item_info["name"] = display_name.value();
+                if (auto display_name = meta->getDisplayName();!display_name.empty()) {
+                    item_info["name"] = display_name;
                 }
                 if (auto enhance = meta->getEnchants();!enhance.empty()) {
                     string enhances;
                     for (const auto &[fst, snd] : enhance) {
-                        enhances += fst + ":"+to_string(snd)+"\n";
+                        enhances += string(fst->getId()) + ":"+to_string(snd)+"\n";
                     }
                     item_info["enhance"] = enhances;
                 }
@@ -326,13 +326,13 @@ void Menu::showOnlinePlayerBag(const endstone::CommandSender &sender, const ends
             item_info["item"] = leggings->getType().getId();
             item_info["amount"] = std::to_string(leggings->getAmount());
             if (const auto meta = leggings->getItemMeta()) {
-                if (auto display_name = meta->getDisplayName();display_name.has_value()) {
-                    item_info["name"] = display_name.value();
+                if (auto display_name = meta->getDisplayName();!display_name.empty()) {
+                    item_info["name"] = display_name;
                 }
                 if (auto enhance = meta->getEnchants();!enhance.empty()) {
                     string enhances;
                     for (const auto &[fst, snd] : enhance) {
-                        enhances += fst + ":"+to_string(snd)+"\n";
+                        enhances += string(fst->getId()) + ":"+to_string(snd)+"\n";
                     }
                     item_info["enhance"] = enhances;
                 }
@@ -346,13 +346,13 @@ void Menu::showOnlinePlayerBag(const endstone::CommandSender &sender, const ends
             item_info["item"] = boots->getType().getId();
             item_info["amount"] = std::to_string(boots->getAmount());
             if (const auto meta = boots->getItemMeta()) {
-                if (auto display_name = meta->getDisplayName();display_name.has_value()) {
-                    item_info["name"] = display_name.value();
+                if (auto display_name = meta->getDisplayName();!display_name.empty()) {
+                    item_info["name"] = display_name;
                 }
                 if (auto enhance = meta->getEnchants();!enhance.empty()) {
                     string enhances;
                     for (const auto &[fst, snd] : enhance) {
-                        enhances += fst + ":"+to_string(snd)+"\n";
+                        enhances += string(fst->getId()) + ":"+to_string(snd)+"\n";
                     }
                     item_info["enhance"] = enhances;
                 }
@@ -366,13 +366,13 @@ void Menu::showOnlinePlayerBag(const endstone::CommandSender &sender, const ends
             item_info["item"] = offhand->getType().getId();
             item_info["amount"] = std::to_string(offhand->getAmount());
             if (const auto meta = offhand->getItemMeta()) {
-                if (auto display_name = meta->getDisplayName();display_name.has_value()) {
-                    item_info["name"] = display_name.value();
+                if (auto display_name = meta->getDisplayName();!display_name.empty()) {
+                    item_info["name"] = display_name;
                 }
                 if (auto enhance = meta->getEnchants();!enhance.empty()) {
                     string enhances;
                     for (const auto &[fst, snd] : enhance) {
-                        enhances += fst + ":"+to_string(snd)+"\n";
+                        enhances += string(fst->getId()) + ":"+to_string(snd)+"\n";
                     }
                     item_info["enhance"] = enhances;
                 }
@@ -446,7 +446,7 @@ void Menu::findHighDensityRegion(endstone::Player &player, const int size) const
             const std::string dim = result.dim.value();
             // 转换维度名称
             const auto dimension = plugin_.getServer().getLevel()->getDimension(dim);
-            const auto location = endstone::Location(dimension,static_cast<float>(result.entity_pos_x.value()),static_cast<float>(result.entity_pos_y.value()),static_cast<float>(result.entity_pos_z.value()));
+            const auto location = endstone::Location(*dimension,static_cast<float>(result.entity_pos_x.value()),static_cast<float>(result.entity_pos_y.value()),static_cast<float>(result.entity_pos_z.value()));
             p->asPlayer()->teleport(location);
 
         });
