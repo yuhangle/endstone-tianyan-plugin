@@ -70,14 +70,30 @@ namespace yuhangle {
             if (db_ != nullptr) {
                 return true;
             }
+            return connectInternal();
+        }
 
+        bool ensureAlive() {
+            if (db_ == nullptr) {
+                return connectInternal();
+            }
+            if (mysql_ping(db_) == 0) {
+                return true;
+            }
+
+            mysql_close(db_);
+            db_ = nullptr;
+            return connectInternal();
+        }
+
+        [[nodiscard]] MYSQL* get() const { return db_; }
+
+    private:
+        bool connectInternal() {
             db_ = mysql_init(nullptr);
             if (db_ == nullptr) {
                 return false;
             }
-
-            bool reconnect = true;
-            mysql_options(db_, MYSQL_OPT_RECONNECT, &reconnect);
 
             if (mysql_real_connect(
                 db_,
@@ -102,9 +118,6 @@ namespace yuhangle {
             return true;
         }
 
-        [[nodiscard]] MYSQL* get() const { return db_; }
-
-    private:
         DatabaseConfig config_;
         MYSQL* db_;
     };
@@ -138,6 +151,12 @@ namespace yuhangle {
                 if (!connections_.empty()) {
                     auto conn = connections_.front();
                     connections_.pop();
+                    if (!conn->ensureAlive()) {
+                        if (current_size_ > 0) {
+                            --current_size_;
+                        }
+                        continue;
+                    }
                     return conn;
                 }
 
@@ -238,7 +257,7 @@ namespace yuhangle {
             createIndexIfNeeded(db, "idx_logdata_time", "time");
             createIndexIfNeeded(db, "idx_logdata_world", "world");
             createIndexIfNeeded(db, "idx_logdata_type", "type");
-            createIndexIfNeeded(db, "idx_logdata_name", "name");
+            createIndexIfNeeded(db, "idx_logdata_name", "name", 191);
 
             pool.returnConnection(conn);
             return DB_OK;
@@ -989,8 +1008,17 @@ namespace yuhangle {
             return true;
         }
 
-        static void createIndexIfNeeded(MYSQL* db, const std::string& index_name, const std::string& column_name) {
-            const std::string sql = "CREATE INDEX " + index_name + " ON LOGDATA(" + column_name + ");";
+        static void createIndexIfNeeded(
+            MYSQL* db,
+            const std::string& index_name,
+            const std::string& column_name,
+            const size_t prefix_length = 0
+        ) {
+            std::string sql = "CREATE INDEX " + index_name + " ON LOGDATA(" + column_name;
+            if (prefix_length > 0) {
+                sql += "(" + std::to_string(prefix_length) + ")";
+            }
+            sql += ");";
             if (mysql_query(db, sql.c_str()) != 0) {
                 // 1061: Duplicate key name
                 if (mysql_errno(db) != 1061) {
