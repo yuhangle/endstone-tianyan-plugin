@@ -135,7 +135,23 @@ else()
         # Link libstdc++ explicitly to provide those symbols at runtime.
         string(FIND "${CMAKE_CXX_FLAGS}" "-stdlib=libc++" _TIANYAN_USES_LIBCXX_FLAG)
         if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND _TIANYAN_USES_LIBCXX_FLAG GREATER -1)
-            find_library(TIANYAN_STDCXX_LIBRARY NAMES stdc++)
+            set(TIANYAN_STDCXX_LIBRARY "")
+            execute_process(
+                    COMMAND g++ -print-file-name=libstdc++.so
+                    OUTPUT_VARIABLE TIANYAN_STDCXX_CANDIDATE
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                    ERROR_QUIET
+                    RESULT_VARIABLE TIANYAN_STDCXX_GPP_RESULT
+            )
+            if(TIANYAN_STDCXX_GPP_RESULT EQUAL 0
+                    AND NOT TIANYAN_STDCXX_CANDIDATE STREQUAL "libstdc++.so"
+                    AND EXISTS "${TIANYAN_STDCXX_CANDIDATE}")
+                set(TIANYAN_STDCXX_LIBRARY "${TIANYAN_STDCXX_CANDIDATE}")
+            endif()
+
+            if(NOT TIANYAN_STDCXX_LIBRARY)
+                find_library(TIANYAN_STDCXX_LIBRARY NAMES stdc++)
+            endif()
             if(TIANYAN_STDCXX_LIBRARY)
                 target_link_libraries(${PROJECT_NAME} PRIVATE ${TIANYAN_STDCXX_LIBRARY})
                 message(STATUS "Linking extra runtime dependency for static mysqlclient: ${TIANYAN_STDCXX_LIBRARY}")
