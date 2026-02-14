@@ -129,6 +129,14 @@ else()
         if(MYSQL_STATIC_LDFLAGS_OTHER)
             target_link_options(${PROJECT_NAME} PRIVATE ${MYSQL_STATIC_LDFLAGS_OTHER})
         endif()
+
+        # When building with clang/libc++, static libmysqlclient may still require
+        # libstdc++ symbols from its internal C++ objects (e.g. iostream buffers).
+        # Explicitly link libstdc++ to avoid runtime undefined symbols.
+        string(FIND "${CMAKE_CXX_FLAGS}" "-stdlib=libc++" _TIANYAN_USES_LIBCXX_FLAG)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND _TIANYAN_USES_LIBCXX_FLAG GREATER -1)
+            target_link_libraries(${PROJECT_NAME} PRIVATE stdc++)
+        endif()
     elseif(MYSQL_LINK_MODE STREQUAL "dynamic")
         message(STATUS "Using dynamic MySQL client library: ${MYSQL_LIBRARY}")
         if(MYSQL_LIBRARY_DIRS)

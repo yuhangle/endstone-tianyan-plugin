@@ -110,6 +110,11 @@ jobs:
             echo "The plugin should not depend on libmysqlclient.so/libmariadb.so at runtime."
             exit 1
           fi
+          if ! grep -Eq 'libstdc\+\+\.so' /tmp/tianyan_ldd.txt; then
+            echo "libstdc++.so dependency not found in plugin runtime deps."
+            echo "Static libmysqlclient may leave unresolved C++ symbols at load time."
+            exit 1
+          fi
 
       # ===== Prepare plugin artifact (Linux) =====
       - name: Prepare plugin artifact (Linux)
