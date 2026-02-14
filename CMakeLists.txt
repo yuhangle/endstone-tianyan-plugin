@@ -132,15 +132,16 @@ else()
 
         # When building with clang/libc++, static libmysqlclient may still require
         # libstdc++ symbols from its internal C++ objects (e.g. iostream buffers).
-        # Force-keep libstdc++ as a runtime dependency to avoid load-time
-        # undefined symbols on some targets.
+        # Link libstdc++ explicitly to provide those symbols at runtime.
         string(FIND "${CMAKE_CXX_FLAGS}" "-stdlib=libc++" _TIANYAN_USES_LIBCXX_FLAG)
         if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND _TIANYAN_USES_LIBCXX_FLAG GREATER -1)
-            target_link_options(${PROJECT_NAME} PRIVATE
-                    "-Wl,--push-state,--no-as-needed"
-                    "-lstdc++"
-                    "-Wl,--pop-state"
-            )
+            find_library(TIANYAN_STDCXX_LIBRARY NAMES stdc++)
+            if(TIANYAN_STDCXX_LIBRARY)
+                target_link_libraries(${PROJECT_NAME} PRIVATE ${TIANYAN_STDCXX_LIBRARY})
+                message(STATUS "Linking extra runtime dependency for static mysqlclient: ${TIANYAN_STDCXX_LIBRARY}")
+            else()
+                message(WARNING "libstdc++ not found while using static mysqlclient with clang/libc++; plugin may fail to load at runtime.")
+            endif()
         endif()
     elseif(MYSQL_LINK_MODE STREQUAL "dynamic")
         message(STATUS "Using dynamic MySQL client library: ${MYSQL_LIBRARY}")

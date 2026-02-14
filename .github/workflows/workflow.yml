@@ -111,9 +111,11 @@ jobs:
             exit 1
           fi
           if nm -D --undefined-only "$SO_FILE" | grep -q '_ZTVSt15basic_streambufIcSt11char_traitsIcEE'; then
-            echo "Detected unresolved symbol: _ZTVSt15basic_streambufIcSt11char_traitsIcEE"
-            echo "This will cause plugin load failure on server."
-            exit 1
+            if ! grep -Eq 'libstdc\+\+\.so' /tmp/tianyan_ldd.txt; then
+              echo "Detected unresolved symbol without libstdc++ dependency: _ZTVSt15basic_streambufIcSt11char_traitsIcEE"
+              echo "This will cause plugin load failure on server."
+              exit 1
+            fi
           fi
 
       # ===== Prepare plugin artifact (Linux) =====
