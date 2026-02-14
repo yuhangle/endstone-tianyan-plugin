@@ -110,9 +110,9 @@ jobs:
             echo "The plugin should not depend on libmysqlclient.so/libmariadb.so at runtime."
             exit 1
           fi
-          if ! grep -Eq 'libstdc\+\+\.so' /tmp/tianyan_ldd.txt; then
-            echo "libstdc++.so dependency not found in plugin runtime deps."
-            echo "Static libmysqlclient may leave unresolved C++ symbols at load time."
+          if nm -D --undefined-only "$SO_FILE" | grep -q '_ZTVSt15basic_streambufIcSt11char_traitsIcEE'; then
+            echo "Detected unresolved symbol: _ZTVSt15basic_streambufIcSt11char_traitsIcEE"
+            echo "This will cause plugin load failure on server."
             exit 1
           fi
 
