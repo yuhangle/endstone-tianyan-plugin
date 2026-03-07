@@ -2,10 +2,9 @@
 <html lang="en_US">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
-    <script src="https://unpkg.com/vue@3"></script>
-    <script src="https://unpkg.com/element-plus"></script>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/assets/element-plus/index.css">
+    <script src="/assets/vendor.js"></script>
     <style>
         .login-container { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f7fa; }
         .dashboard { padding: 20px; }
@@ -333,7 +332,7 @@
         'ru_RU': { name: 'Русский', flag: '🇷🇺' }
     };
 
-    createApp({
+    const app = createApp({
         setup() {
             const apiBase = ref(window.location.origin);
             const stats = reactive({ total_logs: 0, db_size: '0 MB' });
@@ -1082,6 +1081,7 @@
             return {
                 apiBase, stats, logs, queryForm, tempCoord, pagination,
                 loading, tableLoading, loadingProgress, lastQueryTime, hasQueryResults,
+                statsLoading,
                 exportDialogVisible, exportOption, exportStartPage, exportEndPage, exporting,
                 hasActiveCoordQuery, showDistanceColumn, isDebugMode,
                 currentLanguage, availableLanguages, translations,
@@ -1092,7 +1092,17 @@
                 getRowKey, tableKey, changeLanguage
             };
         }
-    }).use(ElementPlus).mount("#app");
+    });
+
+    app.use(ElementPlus);
+
+    if (window.ElementPlusIconsVue) {
+        for (const [name, component] of Object.entries(window.ElementPlusIconsVue)) {
+            app.component(name, component);
+        }
+    }
+
+    app.mount("#app");
 </script>
 </body>
 </html>
