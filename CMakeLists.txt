@@ -110,6 +110,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 if(WIN32)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX)
+endif()
+
+if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::libmysql::libmysql)
 else()
     target_include_directories(${PROJECT_NAME} PRIVATE ${MYSQL_INCLUDE_DIR})
