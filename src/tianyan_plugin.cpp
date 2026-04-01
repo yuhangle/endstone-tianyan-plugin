@@ -4,6 +4,7 @@
 
 #include "tianyan_plugin.h"
 #include "version.h"
+#include <functional>
 #include <thread>
 
 namespace {
@@ -75,6 +76,30 @@ const std::vector<std::string> kDefaultNoLogBlocks = {
     // 额外要求：屏蔽玩家右键铁活板门
     "minecraft:iron_trapdoor"
 };
+
+bool matchesSearchFilter(const TianyanCore::LogData &log_data, const std::string &search_key_type,
+                         const std::string &search_key)
+{
+    if (search_key_type.empty() || search_key.empty()) {
+        return true;
+    }
+    if (search_key_type == "source_id") {
+        return log_data.id == search_key;
+    }
+    if (search_key_type == "source_name") {
+        return log_data.name == search_key;
+    }
+    if (search_key_type == "target_id") {
+        return log_data.obj_id == search_key;
+    }
+    if (search_key_type == "target_name") {
+        return log_data.obj_name == search_key;
+    }
+    if (search_key_type == "action") {
+        return log_data.type == search_key;
+    }
+    return false;
+}
 }  // namespace
 
 //数据目录和配置文件检查
@@ -400,6 +425,8 @@ void TianyanPlugin::onEnable()
     getServer().getScheduler().runTaskTimer(*this,[&](){checkDatabaseCleanStatus();},0,20);
     //tyback命令后台检查
     getServer().getScheduler().runTaskTimer(*this,[&](){checkTybackSearchThread();},0,20);
+    //异步日志查询结果投递
+    getServer().getScheduler().runTaskTimer(*this,[&](){flushPendingLogQueryResults();},0,1);
     //完成外部类初始化
     protect_ = std::make_unique<TianyanProtect>(*this);
     eventListener_ = std::make_unique<EventListener>(*this);
@@ -453,8 +480,65 @@ void TianyanPlugin::onDisable()
     getServer().getScheduler().cancelTasks(*this);
 }
 
+bool TianyanPlugin::beginPlayerLogQuery(const string &player_name)
+{
+    std::lock_guard lock(pending_log_query_mutex_);
+    return pending_log_queries_.insert(player_name).second;
+}
+
+void TianyanPlugin::finishPlayerLogQuery(const string &player_name)
+{
+    std::lock_guard lock(pending_log_query_mutex_);
+    pending_log_queries_.erase(player_name);
+}
+
 bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::Command &command, const std::vector<std::string> &args)
 {
+    const auto queue_async_log_query = [this, &sender](std::function<vector<TianyanCore::LogData>()> query_task,
+                                                       string search_key_type, string search_key) {
+        const auto player = sender.asPlayer();
+        if (player == nullptr) {
+            sender.sendErrorMessage(Tran.getLocal("Console not support this command"));
+            return false;
+        }
+        const string player_name = player->getName();
+        if (!beginPlayerLogQuery(player_name)) {
+            sender.sendErrorMessage(Tran.getLocal("A background operation is in progress. Please wait for it to complete"));
+            return false;
+        }
+        sender.sendMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Searching logs in the background. Please wait"));
+        getServer().getScheduler().runTaskAsync(*this, [this, player_name, query_task = std::move(query_task),
+                                                        search_key_type = std::move(search_key_type),
+                                                        search_key = std::move(search_key)]() mutable {
+            PendingLogQueryResult result;
+            result.player_name = player_name;
+            result.search_key = search_key;
+            result.has_keyword_filter = !search_key_type.empty() && !search_key.empty();
+
+            try {
+                result.search_data = query_task();
+                if (result.has_keyword_filter) {
+                    result.display_data.reserve(result.search_data.size());
+                    for (const auto &log_data : result.search_data) {
+                        if (matchesSearchFilter(log_data, search_key_type, search_key)) {
+                            result.display_data.push_back(log_data);
+                        }
+                    }
+                } else {
+                    result.display_data = result.search_data;
+                }
+            } catch (const std::exception &e) {
+                result.error_message = e.what();
+            } catch (...) {
+                result.error_message = "Unknown error";
+            }
+
+            std::lock_guard lock(completed_log_query_mutex_);
+            completed_log_query_results_.push_back(std::move(result));
+        });
+        return true;
+    };
+
     if (command.getName() == "ty")
     {
         // 菜单
@@ -487,62 +571,13 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double x = sender.asPlayer()->getLocation().getX();
                 const double y = sender.asPlayer()->getLocation().getY();
                 const double z = sender.asPlayer()->getLocation().getZ();
-                if (const auto searchData = tyCore.searchLog({"",time},x, y, z, r, world); searchData.empty()) {
-                    sender.sendErrorMessage(Tran.getLocal("No log found"));
-                } else {
-                    if (!search_key_type.empty() && !search_key.empty()) {
-                        vector<TianyanCore::LogData> key_logData;
-                        if (search_key_type == "source_id") {
-                            for (auto &logData : searchData) {
-                                if (logData.id == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "source_name") {
-                            for (auto &logData : searchData) {
-                                if (logData.name == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "target_id") {
-                            for (auto &logData : searchData) {
-                                if (logData.obj_id == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "target_name") {
-                            for (auto &logData : searchData) {
-                                if (logData.obj_name == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "action") {
-                            for (auto &logData : searchData) {
-                                if (logData.type == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        }
-                        if (!key_logData.empty()) {
-                            Menu::showLogMenu(*sender.asPlayer(), key_logData);
-                            sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs about")+"` "+search_key+" `");
-                            //提示数据过大
-                            if (searchData.size() > 9999) {
-                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
-                            }
-                        }
-                        else {
-                            sender.sendErrorMessage(Tran.getLocal("No log found"));
-                        }
-                    } else {
-                        Menu::showLogMenu(*sender.asPlayer(), searchData);
-                        sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs"));
-                        //提示数据过大
-                        if (searchData.size() > 9999) {
-                            sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
-                        }
-                    }
-                }
+                return queue_async_log_query(
+                    [time, x, y, z, r, world]() {
+                        return tyCore.searchLog({"", time}, x, y, z, r, world);
+                    },
+                    search_key_type,
+                    search_key
+                );
 
             } catch (const std::exception &e) {
                 //返回错误给玩家
@@ -760,63 +795,13 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double time = stod(args[0]);
                 const string search_key_type = args.size() > 1 ? args[1] : "";
                 const string search_key = args.size() > 2 ? args[2] : "";
-                const string world = sender.asPlayer()->getLocation().getDimension().getName();
-                if (const auto searchData = tyCore.searchLog({"",time}); searchData.empty()) {
-                    sender.sendErrorMessage(Tran.getLocal("No log found"));
-                } else {
-                    if (!search_key_type.empty() && !search_key.empty()) {
-                        vector<TianyanCore::LogData> key_logData;
-                        if (search_key_type == "source_id") {
-                            for (auto &logData : searchData) {
-                                if (logData.id == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "source_name") {
-                            for (auto &logData : searchData) {
-                                if (logData.name == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "target_id") {
-                            for (auto &logData : searchData) {
-                                if (logData.obj_id == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "target_name") {
-                            for (auto &logData : searchData) {
-                                if (logData.obj_name == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "action") {
-                            for (auto &logData : searchData) {
-                                if (logData.type == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        }
-                        if (!key_logData.empty()) {
-                            Menu::showLogMenu(*sender.asPlayer(), key_logData);
-                            sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs about")+"` "+search_key+" `");
-                            //提示数据过大
-                            if (searchData.size() > 9999) {
-                                sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
-                            }
-                        }
-                        else {
-                            sender.sendErrorMessage(Tran.getLocal("No log found"));
-                        }
-                    } else {
-                        Menu::showLogMenu(*sender.asPlayer(), searchData);
-                        sender.sendMessage(endstone::ColorFormat::Yellow+Tran.getLocal("Display all logs"));
-                        //提示数据过大
-                        if (searchData.size() > 9999) {
-                            sender.sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
-                        }
-                    }
-                }
+                return queue_async_log_query(
+                    [time]() {
+                        return tyCore.searchLog({"", time});
+                    },
+                    search_key_type,
+                    search_key
+                );
 
             } catch (const std::exception &e) {
                 //返回错误给玩家
@@ -934,6 +919,49 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
         }
     }
     return true;
+}
+
+void TianyanPlugin::flushPendingLogQueryResults()
+{
+    vector<PendingLogQueryResult> ready_results;
+    {
+        std::lock_guard lock(completed_log_query_mutex_);
+        if (completed_log_query_results_.empty()) {
+            return;
+        }
+        ready_results.swap(completed_log_query_results_);
+    }
+
+    for (auto &result : ready_results) {
+        finishPlayerLogQuery(result.player_name);
+
+        const auto player = getServer().getPlayer(result.player_name);
+        if (!player) {
+            continue;
+        }
+
+        if (!result.error_message.empty()) {
+            player->sendErrorMessage(result.error_message);
+            continue;
+        }
+
+        if (result.search_data.empty() || result.display_data.empty()) {
+            player->sendErrorMessage(Tran.getLocal("No log found"));
+            continue;
+        }
+
+        Menu::showLogMenu(*player, result.display_data);
+        if (result.has_keyword_filter) {
+            player->sendMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Display all logs about") + "` " +
+                                result.search_key + " `");
+        } else {
+            player->sendMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Display all logs"));
+        }
+
+        if (result.search_data.size() > 9999) {
+            player->sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
+        }
+    }
 }
 
     //缓存写入机制

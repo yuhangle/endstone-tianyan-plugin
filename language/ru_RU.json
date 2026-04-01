@@ -119,5 +119,7 @@
   "Success: ": "Успешно: ",
   "Failed: ": "Ошибка: ",
   "Background log loading completed. You may now resume your operation": "Загрузка логов в фоновом режиме завершена. Теперь вы можете продолжить операцию.",
-  "Too many logs. Loading in the background to avoid lag — please wait": "Слишком много журналов. Загрузка в фоновом режиме для предотвращения лага — пожалуйста, подождите"
+  "Too many logs. Loading in the background to avoid lag — please wait": "Слишком много журналов. Загрузка в фоновом режиме для предотвращения лага — пожалуйста, подождите",
+  "A background operation is in progress. Please wait for it to complete": "Фоновая операция уже выполняется. Дождитесь ее завершения.",
+  "Searching logs in the background. Please wait": "Поиск журналов выполняется в фоновом режиме. Пожалуйста, подождите."
 }
