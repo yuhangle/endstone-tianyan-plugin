@@ -6,8 +6,11 @@
 #include "version.h"
 #include <functional>
 #include <thread>
+#include <cstddef>
 
 namespace {
+constexpr size_t kMaxInGameLogDisplayCount = 2000;
+
 const std::vector<std::string> kLegacyDefaultNoLogMobs = {
     "minecraft:zombie",
     "minecraft:zombie_villager",
@@ -684,7 +687,8 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                         //对玩家右键方块的状态复原
                         else if (logData.type == "player_right_click_block") {
                             //右键方块存在状态
-                            if (auto hand_block = yuhangle::Database::splitString(logData.data); hand_block[1] != "[]") {
+                            if (auto hand_block = yuhangle::Database::splitString(logData.data);
+                                hand_block.size() > 1 && hand_block[1] != "[]") {
                                 //跳过内部存在数据的方块
                                 static const std::vector<std::string> skipKeywords = {
                                     "chest", "sign", "command", "shulker_box",
@@ -941,6 +945,9 @@ void TianyanPlugin::flushPendingLogQueryResults()
         }
 
         const auto total_result_count = result.search_data.size();
+        if (result.search_data.size() > kMaxInGameLogDisplayCount) {
+            result.search_data.resize(kMaxInGameLogDisplayCount);
+        }
         Menu::showLogMenu(*player, std::move(result.search_data));
         if (result.has_keyword_filter) {
             player->sendMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Display all logs about") + "` " +
@@ -949,8 +956,9 @@ void TianyanPlugin::flushPendingLogQueryResults()
             player->sendMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Display all logs"));
         }
 
-        if (total_result_count > 9999) {
+        if (total_result_count > kMaxInGameLogDisplayCount) {
             player->sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
+            player->sendErrorMessage(Tran.getLocal("Showing the first 2000 results only in the in-game menu."));
         }
     }
 }

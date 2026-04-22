@@ -10,13 +10,23 @@ namespace {
 using LogDataList = std::vector<TianyanCore::LogData>;
 using LogDataListPtr = std::shared_ptr<const LogDataList>;
 
+constexpr int kLogsPerPage = 10;
+constexpr size_t kMaxFieldPreviewLength = 160;
+constexpr size_t kMaxMenuContentLength = 12000;
+
+std::string previewText(const std::string& text, const size_t max_length = kMaxFieldPreviewLength) {
+    if (text.size() <= max_length) {
+        return text;
+    }
+    return text.substr(0, max_length) + "...";
+}
+
 void showLogMenuPage(endstone::Player &player, const LogDataListPtr &log_datas, const int page) {
     if (log_datas == nullptr) {
         return;
     }
 
-    constexpr int logsPerPage = 30;
-    const int totalPages = (static_cast<int>(log_datas->size()) + logsPerPage - 1) / logsPerPage;
+    const int totalPages = (static_cast<int>(log_datas->size()) + kLogsPerPage - 1) / kLogsPerPage;
     const int currentPage = std::min(page, std::max(0, totalPages - 1));
 
     endstone::ActionForm logMenu;
@@ -24,48 +34,53 @@ void showLogMenuPage(endstone::Player &player, const LogDataListPtr &log_datas, 
                                  currentPage + 1, std::max(1, totalPages), Tran.getLocal("Page")));
 
     string showLogs;
+    bool truncated = false;
 
     if (!log_datas->empty() && currentPage < totalPages) {
-        const int startIndex = currentPage * logsPerPage;
-        const int endIndex = std::min(startIndex + logsPerPage, static_cast<int>(log_datas->size()));
+        const int startIndex = currentPage * kLogsPerPage;
+        const int endIndex = std::min(startIndex + kLogsPerPage, static_cast<int>(log_datas->size()));
 
         for (int i = endIndex - 1; i >= startIndex; --i) {
             const auto& logData = log_datas->at(i);
             std::vector<std::pair<std::string, std::string>> logFields;
 
             if (!logData.name.empty()) {
-                logFields.emplace_back(Tran.getLocal("Source Name"), logData.name);
+                logFields.emplace_back(Tran.getLocal("Source Name"), previewText(logData.name));
             }
 
             if (logData.id == "minecraft:player") {
                 logFields.emplace_back(Tran.getLocal("Source Type"), Tran.getLocal("Player"));
             } else if (!logData.id.empty()) {
-                logFields.emplace_back(Tran.getLocal("Source ID"), logData.id);
+                logFields.emplace_back(Tran.getLocal("Source ID"), previewText(logData.id));
             }
 
             logFields.emplace_back(Tran.getLocal("Action"), Tran.getLocal(logData.type));
             logFields.emplace_back(Tran.getLocal("Position"),
                                    fmt::format("{:.2f},{:.2f},{:.2f}", logData.pos_x, logData.pos_y, logData.pos_z));
-            logFields.emplace_back(Tran.getLocal("Dimension"), logData.world);
-            logFields.emplace_back(Tran.getLocal("Time"), TianyanCore::timestampToString(logData.time));
+            logFields.emplace_back(Tran.getLocal("Dimension"), previewText(logData.world));
+            logFields.emplace_back(Tran.getLocal("Time"), previewText(TianyanCore::timestampToString(logData.time)));
 
             if (!logData.obj_name.empty()) {
-                logFields.emplace_back(Tran.getLocal("Target Name"), Tran.getLocal(logData.obj_name));
+                logFields.emplace_back(Tran.getLocal("Target Name"), previewText(Tran.getLocal(logData.obj_name)));
             }
 
             if (!logData.obj_id.empty()) {
-                logFields.emplace_back(Tran.getLocal("Target ID"), logData.obj_id);
+                logFields.emplace_back(Tran.getLocal("Target ID"), previewText(logData.obj_id));
             }
 
             if (!logData.data.empty()) {
                 if (logData.type == "player_right_click_block") {
                     auto hand_block = yuhangle::Database::splitString(logData.data);
-                    logFields.emplace_back(Tran.getLocal("Item in Hand"), Tran.getLocal(hand_block[0]));
+                    if (!hand_block.empty()) {
+                        logFields.emplace_back(Tran.getLocal("Item in Hand"), previewText(Tran.getLocal(hand_block[0])));
+                    }
                     if (hand_block.size() > 1 && hand_block[1] != "[]") {
-                        logFields.emplace_back(Tran.getLocal("Data"), hand_block[1]);
+                        logFields.emplace_back(Tran.getLocal("Data"), previewText(hand_block[1]));
+                    } else if (hand_block.empty()) {
+                        logFields.emplace_back(Tran.getLocal("Data"), previewText(logData.data));
                     }
                 } else if (logData.data != "[]") {
-                    logFields.emplace_back(Tran.getLocal("Data"), logData.data);
+                    logFields.emplace_back(Tran.getLocal("Data"), previewText(logData.data));
                 }
             }
 
@@ -76,7 +91,17 @@ void showLogMenuPage(endstone::Player &player, const LogDataListPtr &log_datas, 
             }
 
             for (const auto& [fst, snd] : logFields) {
-                showLogs += fmt::format("{}: {}\n", fst, snd);
+                const auto line = fmt::format("{}: {}\n", fst, snd);
+                if (showLogs.size() + line.size() > kMaxMenuContentLength) {
+                    truncated = true;
+                    break;
+                }
+                showLogs += line;
+            }
+
+            if (truncated) {
+                showLogs += "\n... menu content truncated ...\n";
+                break;
             }
 
             showLogs += "--------------------------------\n\n";
