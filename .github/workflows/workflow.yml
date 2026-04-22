@@ -1,5 +1,8 @@
 name: Build Endstone Tianyan
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches:
@@ -38,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -138,58 +141,21 @@ jobs:
             cp "$SO_FILE" build/endstone_tianyan.so
           fi
 
-      - name: Prepare deployable package (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          PACKAGE_DIR=build/package/plugins/tianyan_data
-          mkdir -p "${PACKAGE_DIR}/language"
-          cp build/endstone_tianyan.so build/package/plugins/endstone_tianyan.so
-          cp -r language/* "${PACKAGE_DIR}/language/"
-          cp -r WebUI "${PACKAGE_DIR}/"
-          cd build/package
-          zip -r ../../tianyan-linux-package.zip plugins
-          cd ../..
-
       # ===== Upload plugin artifact =====
       - name: Upload plugin artifact (Linux)
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tianyan-linux-plugin
           path: build/endstone_tianyan.so
 
-      - name: Upload deployable package (Linux)
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tianyan-linux-package
-          path: tianyan-linux-package.zip
-
       - name: Upload plugin artifact (Windows)
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tianyan-windows-plugin
           path: |
             ${{ github.workspace }}\build\endstone_tianyan.dll
-
-      - name: Prepare deployable package (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $packageDir = "${{ github.workspace }}\\build\\package\\plugins\\tianyan_data"
-          New-Item -ItemType Directory -Force -Path "$packageDir\\language" | Out-Null
-          Copy-Item "${{ github.workspace }}\\build\\endstone_tianyan.dll" "${{ github.workspace }}\\build\\package\\plugins\\endstone_tianyan.dll" -Force
-          Copy-Item "${{ github.workspace }}\\language\\*" "$packageDir\\language" -Recurse -Force
-          Copy-Item "${{ github.workspace }}\\WebUI" "$packageDir" -Recurse -Force
-          Compress-Archive -Path "${{ github.workspace }}\\build\\package\\plugins" -DestinationPath "${{ github.workspace }}\\tianyan-windows-package.zip" -Force
-
-      - name: Upload deployable package (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tianyan-windows-package
-          path: tianyan-windows-package.zip
 
   release:
     name: Publish Release
@@ -200,7 +166,7 @@ jobs:
       RELEASE_TYPE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type || 'development' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -246,7 +212,7 @@ jobs:
           echo "RELEASE_TITLE=${RELEASE_TITLE}" >> $GITHUB_OUTPUT
 
       - name: Download all plugin artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: tianyan-*-plugin
           merge-multiple: false
