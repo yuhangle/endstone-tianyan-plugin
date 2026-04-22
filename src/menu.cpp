@@ -4,61 +4,51 @@
 
 #include "menu.h"
 #include "tianyan_protect.h"
+#include <memory>
 
-//日志展示菜单
-void Menu::showLogMenu(endstone::Player &player, const std::vector<TianyanCore::LogData>& logDatas, const int page) {
-    // 计算分页信息
+namespace {
+using LogDataList = std::vector<TianyanCore::LogData>;
+using LogDataListPtr = std::shared_ptr<const LogDataList>;
+
+void showLogMenuPage(endstone::Player &player, const LogDataListPtr &log_datas, const int page) {
+    if (log_datas == nullptr) {
+        return;
+    }
+
     constexpr int logsPerPage = 30;
-    const int totalPages = (static_cast<int>(logDatas.size()) + logsPerPage - 1) / logsPerPage;
-    const int currentPage = std::min(page, std::max(0, totalPages - 1)); // 确保当前页在有效范围内
+    const int totalPages = (static_cast<int>(log_datas->size()) + logsPerPage - 1) / logsPerPage;
+    const int currentPage = std::min(page, std::max(0, totalPages - 1));
 
     endstone::ActionForm logMenu;
-    logMenu.setTitle(fmt::format("{} - {} {}/{} {}", Tran.getLocal("Logs"), Tran.getLocal("The"),currentPage + 1, std::max(1, totalPages),Tran.getLocal("Page")));
+    logMenu.setTitle(fmt::format("{} - {} {}/{} {}", Tran.getLocal("Logs"), Tran.getLocal("The"),
+                                 currentPage + 1, std::max(1, totalPages), Tran.getLocal("Page")));
 
     string showLogs;
 
-    // 如果有日志数据，则显示当前页的日志
-    if (!logDatas.empty() && currentPage < totalPages) {
+    if (!log_datas->empty() && currentPage < totalPages) {
         const int startIndex = currentPage * logsPerPage;
-        const int endIndex = std::min(startIndex + logsPerPage, static_cast<int>(logDatas.size()));
+        const int endIndex = std::min(startIndex + logsPerPage, static_cast<int>(log_datas->size()));
 
-        // 只显示当前页的日志（倒序显示）
-        std::vector<TianyanCore::LogData> pageLogs;
         for (int i = endIndex - 1; i >= startIndex; --i) {
-            pageLogs.push_back(logDatas[i]);
-        }
-
-        for (const auto& logData : pageLogs) {
-            // 构建要显示的日志信息
+            const auto& logData = log_datas->at(i);
             std::vector<std::pair<std::string, std::string>> logFields;
 
-            // 名字不为空时添加源名称
             if (!logData.name.empty()) {
                 logFields.emplace_back(Tran.getLocal("Source Name"), logData.name);
             }
 
-            // 根据是否是玩家添加不同类型的信息
             if (logData.id == "minecraft:player") {
                 logFields.emplace_back(Tran.getLocal("Source Type"), Tran.getLocal("Player"));
-            }
-            else if (!logData.id.empty()){
+            } else if (!logData.id.empty()) {
                 logFields.emplace_back(Tran.getLocal("Source ID"), logData.id);
             }
 
-            // 添加行为类型
             logFields.emplace_back(Tran.getLocal("Action"), Tran.getLocal(logData.type));
-
-            // 添加位置信息
             logFields.emplace_back(Tran.getLocal("Position"),
-                                  fmt::format("{:.2f},{:.2f},{:.2f}", logData.pos_x, logData.pos_y, logData.pos_z));
-
-            //添加维度信息
+                                   fmt::format("{:.2f},{:.2f},{:.2f}", logData.pos_x, logData.pos_y, logData.pos_z));
             logFields.emplace_back(Tran.getLocal("Dimension"), logData.world);
-
-            // 添加时间信息
             logFields.emplace_back(Tran.getLocal("Time"), TianyanCore::timestampToString(logData.time));
 
-            // 根据目标名称和ID是否存在添加相应信息
             if (!logData.obj_name.empty()) {
                 logFields.emplace_back(Tran.getLocal("Target Name"), Tran.getLocal(logData.obj_name));
             }
@@ -67,72 +57,70 @@ void Menu::showLogMenu(endstone::Player &player, const std::vector<TianyanCore::
                 logFields.emplace_back(Tran.getLocal("Target ID"), logData.obj_id);
             }
 
-            // 添加数据信息
-            if (!logData.data.empty()){
-                //对手持物品交互进行处理
+            if (!logData.data.empty()) {
                 if (logData.type == "player_right_click_block") {
                     auto hand_block = yuhangle::Database::splitString(logData.data);
                     logFields.emplace_back(Tran.getLocal("Item in Hand"), Tran.getLocal(hand_block[0]));
-                    if (hand_block[1] != "[]") {
+                    if (hand_block.size() > 1 && hand_block[1] != "[]") {
                         logFields.emplace_back(Tran.getLocal("Data"), hand_block[1]);
                     }
-                } else {
-                    if (logData.data != "[]") {
-                        logFields.emplace_back(Tran.getLocal("Data"), logData.data);
-                    }
+                } else if (logData.data != "[]") {
+                    logFields.emplace_back(Tran.getLocal("Data"), logData.data);
                 }
             }
 
-            //事件是否取消或被恢复
             if (logData.status == "canceled") {
                 logFields.emplace_back(Tran.getLocal("Status"), Tran.getLocal("This event has been canceled"));
             } else if (logData.status == "reverted") {
                 logFields.emplace_back(Tran.getLocal("Status"), Tran.getLocal("This event has been reverted"));
             }
 
-            // 格式化输出
-            for (const auto&[fst, snd] : logFields) {
+            for (const auto& [fst, snd] : logFields) {
                 showLogs += fmt::format("{}: {}\n", fst, snd);
             }
 
             showLogs += "--------------------------------\n\n";
         }
     } else {
-        // 没有日志数据
         showLogs = Tran.getLocal("No log found");
     }
 
     logMenu.setContent(endstone::ColorFormat::Yellow + showLogs);
 
-    // 设置翻页按钮
     std::vector<std::variant<endstone::Button, endstone::Divider, endstone::Header, endstone::Label>> controls;
-
-    // 添加上一页按钮（如果有多页）
     if (totalPages > 1) {
         endstone::Button pageUp;
         pageUp.setText(Tran.getLocal("Page Up"));
-        pageUp.setOnClick([=, &player](endstone::Player*) {
-            // 如果是第一页，则跳转到最后一页；否则上一页
+        pageUp.setOnClick([log_datas, currentPage, totalPages](endstone::Player* clicked_player) {
+            if (clicked_player == nullptr) {
+                return;
+            }
             const int prevPage = (currentPage == 0) ? (totalPages - 1) : (currentPage - 1);
-            showLogMenu(player, logDatas, prevPage);
+            showLogMenuPage(*clicked_player, log_datas, prevPage);
         });
         controls.emplace_back(pageUp);
-    }
 
-    // 添加下一页按钮（如果有多页）
-    if (totalPages > 1) {
         endstone::Button pageDown;
         pageDown.setText(Tran.getLocal("Page Down"));
-        pageDown.setOnClick([=, &player](endstone::Player*) {
-            // 如果是最后一页，则回到第一页；否则下一页
+        pageDown.setOnClick([log_datas, currentPage, totalPages](endstone::Player* clicked_player) {
+            if (clicked_player == nullptr) {
+                return;
+            }
             const int nextPage = (currentPage + 1) % totalPages;
-            showLogMenu(player, logDatas, nextPage);
+            showLogMenuPage(*clicked_player, log_datas, nextPage);
         });
         controls.emplace_back(pageDown);
     }
 
     logMenu.setControls(controls);
     player.sendForm(logMenu);
+}
+}  // namespace
+
+//日志展示菜单
+void Menu::showLogMenu(endstone::Player &player, std::vector<TianyanCore::LogData> logDatas, const int page) {
+    auto shared_logs = std::make_shared<LogDataList>(std::move(logDatas));
+    showLogMenuPage(player, shared_logs, page);
 }
 
 //tyback菜单

@@ -53,7 +53,6 @@ private:
     struct PendingLogQueryResult {
         string player_name;
         vector<TianyanCore::LogData> search_data;
-        vector<TianyanCore::LogData> display_data;
         string search_key;
         bool has_keyword_filter = false;
         string error_message;

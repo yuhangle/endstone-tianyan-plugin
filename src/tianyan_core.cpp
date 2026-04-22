@@ -4,6 +4,38 @@
 
 #include "../include/tianyan_core.h"
 #include "database.hpp"
+
+namespace {
+std::vector<TianyanCore::LogData> convertRowsToLogData(
+    const std::vector<std::map<std::string, std::string>>& rows)
+{
+    if (rows.empty()) {
+        return {};
+    }
+
+    std::vector<TianyanCore::LogData> log_datas;
+    log_datas.reserve(rows.size());
+    for (const auto& data : rows) {
+        TianyanCore::LogData one_log;
+        one_log.uuid = data.at("uuid");
+        one_log.id = data.at("id");
+        one_log.name = data.at("name");
+        one_log.pos_x = std::stod(data.at("pos_x"));
+        one_log.pos_y = std::stod(data.at("pos_y"));
+        one_log.pos_z = std::stod(data.at("pos_z"));
+        one_log.world = data.at("world");
+        one_log.obj_id = data.at("obj_id");
+        one_log.obj_name = data.at("obj_name");
+        one_log.time = std::stoll(data.at("time"));
+        one_log.type = data.at("type");
+        one_log.data = data.at("data");
+        one_log.status = data.at("status");
+        log_datas.push_back(std::move(one_log));
+    }
+    return log_datas;
+}
+}  // namespace
+
 TianyanCore::TianyanCore(yuhangle::Database database) : Database(std::move(database)) {};
 
 long long TianyanCore::stringToTimestamp(const std::string& timestampStr) {
@@ -66,28 +98,14 @@ int TianyanCore::recordLogs(const std::vector<LogData>& logDatas) const {
 vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& key) const {
     std::vector<std::map<std::string, std::string>> result;
     Database.searchLog(result,key);
-    if (result.empty()) {
-        return {};
-    }
-    vector<LogData> LogDatas;
-    for (const auto& data:result) {
-        LogData oneLog;
-        oneLog.uuid = data.at("uuid");
-        oneLog.id = data.at("id");
-        oneLog.name = data.at("name");
-        oneLog.pos_x = std::stod(data.at("pos_x"));
-        oneLog.pos_y = std::stod(data.at("pos_y"));
-        oneLog.pos_z = std::stod(data.at("pos_z"));
-        oneLog.world = data.at("world");
-        oneLog.obj_id = data.at("obj_id");
-        oneLog.obj_name = data.at("obj_name");
-        oneLog.time = std::stoll(data.at("time"));
-        oneLog.type = data.at("type");
-        oneLog.data = data.at("data");
-        oneLog.status = data.at("status");
-        LogDatas.push_back(oneLog);
-    }
-    return LogDatas;
+    return convertRowsToLogData(result);
+}
+
+vector<TianyanCore::LogData> TianyanCore::searchLog(const double hours, const string& search_key_type,
+                                                    const string& search_key) const {
+    std::vector<std::map<std::string, std::string>> result;
+    Database.searchLog(result, hours, search_key_type, search_key);
+    return convertRowsToLogData(result);
 }
 
 vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& key, const double x, const double y, const double z, const double r, const string& world, bool if_max) const {
@@ -97,28 +115,16 @@ vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& 
     } else {
         Database.searchLog(result, key, x, y, z, r, world);
     }
-    if (result.empty()) {
-        return {};
-    }
-    vector<LogData> LogDatas;
-    for (const auto& data:result) {
-        LogData oneLog;
-        oneLog.uuid = data.at("uuid");
-        oneLog.id = data.at("id");
-        oneLog.name = data.at("name");
-        oneLog.pos_x = std::stod(data.at("pos_x"));
-        oneLog.pos_y = std::stod(data.at("pos_y"));
-        oneLog.pos_z = std::stod(data.at("pos_z"));
-        oneLog.world = data.at("world");
-        oneLog.obj_id = data.at("obj_id");
-        oneLog.obj_name = data.at("obj_name");
-        oneLog.time = std::stoll(data.at("time"));
-        oneLog.type = data.at("type");
-        oneLog.data = data.at("data");
-        oneLog.status = data.at("status");
-        LogDatas.push_back(oneLog);
-    }
-    return LogDatas;
+    return convertRowsToLogData(result);
+}
+
+vector<TianyanCore::LogData> TianyanCore::searchLog(const double hours, const AreaFilter& area_filter,
+                                                    const string& search_key_type, const string& search_key,
+                                                    const bool if_max) const {
+    std::vector<std::map<std::string, std::string>> result;
+    Database.searchLog(result, hours, area_filter.x, area_filter.y, area_filter.z, area_filter.radius,
+                       area_filter.world, search_key_type, search_key, if_max);
+    return convertRowsToLogData(result);
 }
 
 int TianyanCore::recordPlayerSendMSG(const string& player_name) {

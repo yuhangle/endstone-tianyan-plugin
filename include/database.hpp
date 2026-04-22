@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <iostream>
 #include <locale>
+#include <limits>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -258,6 +259,7 @@ namespace yuhangle {
             createIndexIfNeeded(db, "idx_logdata_world", "world");
             createIndexIfNeeded(db, "idx_logdata_type", "type");
             createIndexIfNeeded(db, "idx_logdata_name", "name", 191);
+            createCompositeIndexIfNeeded(db, "idx_logdata_world_time", {{"world", 0}, {"time", 0}});
 
             pool.returnConnection(conn);
             return DB_OK;
@@ -607,7 +609,9 @@ namespace yuhangle {
         }
 
         int searchLog(std::vector<std::map<std::string, std::string>>& result,
-                      const std::pair<std::string, double>& searchCriteria) const {
+                      const double hours,
+                      const std::string& search_key_type = "",
+                      const std::string& search_key = "") const {
             auto& pool = ConnectionPool::getInstance(config_);
             std::shared_ptr<DatabaseConnection> conn;
             try {
@@ -620,15 +624,11 @@ namespace yuhangle {
 
             const long long currentTime = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
-            const long long timeThreshold = currentTime - static_cast<long long>(searchCriteria.second * 3600);
+            const long long timeThreshold = currentTime - static_cast<long long>(hours * 3600);
 
-            const std::string searchPattern = "%" + escapeString(db, searchCriteria.first) + "%";
-            const std::string sql =
-                "SELECT * FROM LOGDATA WHERE "
-                "(name LIKE " + quoteLiteral(searchPattern) +
-                " OR type LIKE " + quoteLiteral(searchPattern) +
-                " OR data LIKE " + quoteLiteral(searchPattern) +
-                ") AND time >= " + std::to_string(timeThreshold) + " LIMIT 10000;";
+            std::string sql = "SELECT * FROM LOGDATA WHERE time >= " + std::to_string(timeThreshold);
+            appendExactSearchCondition(db, sql, search_key_type, search_key);
+            sql += " ORDER BY time DESC LIMIT 10000;";
 
             if (mysql_query(db, sql.c_str()) != 0) {
                 std::cerr << "SQL 查询失败: " << mysql_error(db) << std::endl;
@@ -642,9 +642,16 @@ namespace yuhangle {
         }
 
         int searchLog(std::vector<std::map<std::string, std::string>>& result,
-                      const std::pair<std::string, double>& searchCriteria,
+                      const std::pair<std::string, double>& searchCriteria) const {
+            return searchLog(result, searchCriteria.second);
+        }
+
+        int searchLog(std::vector<std::map<std::string, std::string>>& result,
+                      const double hours,
                       const double x, const double y, const double z, const double r,
                       const std::string& world,
+                      const std::string& search_key_type = "",
+                      const std::string& search_key = "",
                       bool if_max = false) const {
             auto& pool = ConnectionPool::getInstance(config_);
             std::shared_ptr<DatabaseConnection> conn;
@@ -658,35 +665,103 @@ namespace yuhangle {
 
             const long long currentTime = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
-            const long long timeThreshold = currentTime - static_cast<long long>(searchCriteria.second * 3600);
+            const long long timeThreshold = currentTime - static_cast<long long>(hours * 3600);
+            const double min_x = x - r;
+            const double max_x = x + r;
+            const double min_y = y - r;
+            const double max_y = y + r;
+            const double min_z = z - r;
+            const double max_z = z + r;
+            const double radius_squared = r * r;
+            const size_t match_limit = if_max ? std::numeric_limits<size_t>::max() : 10000;
+            constexpr size_t batch_size = 1000;
+            constexpr size_t scan_row_limit = 10000;
+            size_t scanned_rows = 0;
 
-            const std::string searchPattern = "%" + escapeString(db, searchCriteria.first) + "%";
-            std::string sql =
-                "SELECT * FROM LOGDATA WHERE "
-                "(name LIKE " + quoteLiteral(searchPattern) +
-                " OR type LIKE " + quoteLiteral(searchPattern) +
-                " OR data LIKE " + quoteLiteral(searchPattern) +
-                ") AND time >= " + std::to_string(timeThreshold) +
-                " AND world = " + quoteString(db, world) +
-                " AND ((pos_x - " + toSqlDouble(x) + ")*(pos_x - " + toSqlDouble(x) + ")"
-                " + (pos_y - " + toSqlDouble(y) + ")*(pos_y - " + toSqlDouble(y) + ")"
-                " + (pos_z - " + toSqlDouble(z) + ")*(pos_z - " + toSqlDouble(z) + ")) <= " +
-                toSqlDouble(r * r);
+            auto matches_coordinate = [&](const std::map<std::string, std::string>& row) {
+                const auto pos_x_it = row.find("pos_x");
+                const auto pos_y_it = row.find("pos_y");
+                const auto pos_z_it = row.find("pos_z");
+                if (pos_x_it == row.end() || pos_y_it == row.end() || pos_z_it == row.end()) {
+                    return false;
+                }
+                if (pos_x_it->second == "NULL" || pos_y_it->second == "NULL" || pos_z_it->second == "NULL") {
+                    return false;
+                }
 
-            if (!if_max) {
-                sql += " LIMIT 10000";
+                const double row_x = std::stod(pos_x_it->second);
+                const double row_y = std::stod(pos_y_it->second);
+                const double row_z = std::stod(pos_z_it->second);
+                if (row_x < min_x || row_x > max_x || row_y < min_y || row_y > max_y || row_z < min_z ||
+                    row_z > max_z) {
+                    return false;
+                }
+
+                const double dx = row_x - x;
+                const double dy = row_y - y;
+                const double dz = row_z - z;
+                return (dx * dx + dy * dy + dz * dz) <= radius_squared;
+            };
+
+            long long cursor_time = 0;
+            std::string cursor_uuid;
+
+            while (result.size() < match_limit && scanned_rows < scan_row_limit) {
+                std::string sql =
+                    "SELECT * FROM LOGDATA WHERE time >= " + std::to_string(timeThreshold) +
+                    " AND world = " + quoteString(db, world);
+                appendExactSearchCondition(db, sql, search_key_type, search_key);
+                if (!cursor_uuid.empty()) {
+                    sql += " AND (time < " + std::to_string(cursor_time) +
+                           " OR (time = " + std::to_string(cursor_time) +
+                           " AND uuid < " + quoteString(db, cursor_uuid) + "))";
+                }
+                sql += " ORDER BY time DESC, uuid DESC LIMIT " + std::to_string(batch_size) + ";";
+
+                if (mysql_query(db, sql.c_str()) != 0) {
+                    std::cerr << "SQL 查询失败: " << mysql_error(db) << std::endl;
+                    pool.returnConnection(conn);
+                    return DB_ERROR;
+                }
+
+                std::vector<std::map<std::string, std::string>> batch_rows;
+                const int rc = fetchResultToMaps(db, batch_rows);
+                if (rc != DB_OK) {
+                    pool.returnConnection(conn);
+                    return rc;
+                }
+                if (batch_rows.empty()) {
+                    break;
+                }
+                scanned_rows += batch_rows.size();
+
+                for (const auto& row : batch_rows) {
+                    if (matches_coordinate(row)) {
+                        result.push_back(row);
+                        if (result.size() >= match_limit) {
+                            break;
+                        }
+                    }
+                }
+
+                if (batch_rows.size() < batch_size) {
+                    break;
+                }
+
+                cursor_time = std::stoll(batch_rows.back().at("time"));
+                cursor_uuid = batch_rows.back().at("uuid");
             }
-            sql += ";";
 
-            if (mysql_query(db, sql.c_str()) != 0) {
-                std::cerr << "SQL 查询失败: " << mysql_error(db) << std::endl;
-                pool.returnConnection(conn);
-                return DB_ERROR;
-            }
-
-            const int rc = fetchResultToMaps(db, result);
             pool.returnConnection(conn);
-            return rc;
+            return DB_OK;
+        }
+
+        int searchLog(std::vector<std::map<std::string, std::string>>& result,
+                      const std::pair<std::string, double>& searchCriteria,
+                      const double x, const double y, const double z, const double r,
+                      const std::string& world,
+                      bool if_max = false) const {
+            return searchLog(result, searchCriteria.second, x, y, z, r, world, "", "", if_max);
         }
 
         static std::vector<std::string> splitString(const std::string& input) {
@@ -813,6 +888,30 @@ namespace yuhangle {
         }
 
     private:
+        static void appendExactSearchCondition(MYSQL* db, std::string& sql, const std::string& search_key_type,
+                                               const std::string& search_key) {
+            if (search_key_type.empty() || search_key.empty()) {
+                return;
+            }
+
+            std::string column_name;
+            if (search_key_type == "source_id") {
+                column_name = "id";
+            } else if (search_key_type == "source_name") {
+                column_name = "name";
+            } else if (search_key_type == "target_id") {
+                column_name = "obj_id";
+            } else if (search_key_type == "target_name") {
+                column_name = "obj_name";
+            } else if (search_key_type == "action") {
+                column_name = "type";
+            } else {
+                return;
+            }
+
+            sql += " AND " + column_name + " = " + quoteString(db, search_key);
+        }
+
         static bool isSafeIdentifier(const std::string& id) {
             if (id.empty()) {
                 return false;
@@ -1023,6 +1122,31 @@ namespace yuhangle {
                 // 1061: Duplicate key name
                 if (mysql_errno(db) != 1061) {
                     std::cerr << "Create index failed(" << index_name << "): " << mysql_error(db) << std::endl;
+                }
+            }
+        }
+
+        static void createCompositeIndexIfNeeded(
+            MYSQL* db,
+            const std::string& index_name,
+            const std::vector<std::pair<std::string, size_t>>& columns
+        ) {
+            std::string sql = "CREATE INDEX " + index_name + " ON LOGDATA(";
+            for (size_t i = 0; i < columns.size(); ++i) {
+                sql += columns[i].first;
+                if (columns[i].second > 0) {
+                    sql += "(" + std::to_string(columns[i].second) + ")";
+                }
+                if (i + 1 < columns.size()) {
+                    sql += ", ";
+                }
+            }
+            sql += ");";
+
+            if (mysql_query(db, sql.c_str()) != 0) {
+                if (mysql_errno(db) != 1061) {
+                    std::cerr << "Create composite index failed(" << index_name << "): "
+                              << mysql_error(db) << std::endl;
                 }
             }
         }

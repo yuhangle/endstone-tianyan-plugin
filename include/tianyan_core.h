@@ -75,6 +75,14 @@ public:
         std::optional<double> entity_pos_x, entity_pos_y, entity_pos_z;
     };
 
+    struct AreaFilter {
+        double x;
+        double y;
+        double z;
+        double radius;
+        string world;
+    };
+
 
     //将字符串形式的Unix时间戳转换为 2 long 类型
     static long long stringToTimestamp(const std::string& timestampStr) ;
@@ -90,9 +98,19 @@ public:
 
     //查询日志
     [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key) const;
-    
+
+    //查询日志并在数据库内精确筛选字段
+    [[nodiscard]] vector<LogData> searchLog(double hours, const string& search_key_type = "",
+                                            const string& search_key = "") const;
+
     //查询日志并在指定世界和坐标范围内筛选
     [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key, double x, double y, double z, double r, const string& world, bool if_max = false) const;
+
+    //查询日志并在数据库内精确筛选字段与坐标范围
+    [[nodiscard]] vector<LogData> searchLog(double hours, const AreaFilter& area_filter,
+                                            const string& search_key_type = "",
+                                            const string& search_key = "",
+                                            bool if_max = false) const;
 
     // 记录玩家发送了一条消息（自动清理过期记录）
     static int recordPlayerSendMSG(const string& player_name);

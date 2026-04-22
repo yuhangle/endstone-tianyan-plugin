@@ -8,8 +8,7 @@
 #include <thread>
 
 namespace {
-const std::vector<std::string> kDefaultNoLogMobs = {
-    // 主动刷新的常见怪物（按实体ID）
+const std::vector<std::string> kLegacyDefaultNoLogMobs = {
     "minecraft:zombie",
     "minecraft:zombie_villager",
     "minecraft:husk",
@@ -68,37 +67,44 @@ const std::vector<std::string> kDefaultNoLogMobs = {
     "minecraft:glow_squid",
     "minecraft:camel",
     "minecraft:sniffer",
-    // 额外要求：铁傀儡默认不记录
+    "minecraft:iron_golem"
+};
+
+const std::vector<std::string> kDefaultNoLogMobs = {
+    "minecraft:zombie_pigman",
+    "minecraft:zombified_piglin",
     "minecraft:iron_golem"
 };
 
 const std::vector<std::string> kDefaultNoLogBlocks = {
-    // 额外要求：屏蔽玩家右键铁活板门
-    "minecraft:iron_trapdoor"
+    "minecraft:iron_trapdoor",
+    "minecraft:oak_trapdoor",
+    "minecraft:spruce_trapdoor",
+    "minecraft:birch_trapdoor",
+    "minecraft:jungle_trapdoor",
+    "minecraft:acacia_trapdoor",
+    "minecraft:dark_oak_trapdoor",
+    "minecraft:mangrove_trapdoor",
+    "minecraft:cherry_trapdoor",
+    "minecraft:bamboo_trapdoor",
+    "minecraft:crimson_trapdoor",
+    "minecraft:warped_trapdoor",
+    "minecraft:pale_oak_trapdoor",
+    "minecraft:piston",
+    "minecraft:sticky_piston"
 };
 
-bool matchesSearchFilter(const TianyanCore::LogData &log_data, const std::string &search_key_type,
-                         const std::string &search_key)
-{
-    if (search_key_type.empty() || search_key.empty()) {
-        return true;
+bool jsonArrayEquals(const json& value, const std::vector<std::string>& expected) {
+    if (!value.is_array() || value.size() != expected.size()) {
+        return false;
     }
-    if (search_key_type == "source_id") {
-        return log_data.id == search_key;
+
+    for (size_t i = 0; i < expected.size(); ++i) {
+        if (!value[i].is_string() || value[i].get<std::string>() != expected[i]) {
+            return false;
+        }
     }
-    if (search_key_type == "source_name") {
-        return log_data.name == search_key;
-    }
-    if (search_key_type == "target_id") {
-        return log_data.obj_id == search_key;
-    }
-    if (search_key_type == "target_name") {
-        return log_data.obj_name == search_key;
-    }
-    if (search_key_type == "action") {
-        return log_data.type == search_key;
-    }
-    return false;
+    return true;
 }
 }  // namespace
 
@@ -151,6 +157,20 @@ void TianyanPlugin::datafile_check() const {
                     getLogger().info(Tran.tr(Tran.getLocal("Config '{}' has update with default config"), key));
                     need_update = true;
                 }
+            }
+
+            if (loaded_config.contains("no_log_mobs") &&
+                jsonArrayEquals(loaded_config["no_log_mobs"], kLegacyDefaultNoLogMobs)) {
+                loaded_config["no_log_mobs"] = kDefaultNoLogMobs;
+                getLogger().info("Migrate legacy no_log_mobs defaults to keep combat logs available.");
+                need_update = true;
+            }
+
+            if (loaded_config.contains("no_log_blocks") &&
+                jsonArrayEquals(loaded_config["no_log_blocks"], std::vector<std::string>{"minecraft:iron_trapdoor"})) {
+                loaded_config["no_log_blocks"] = kDefaultNoLogBlocks;
+                getLogger().info("Expand no_log_blocks defaults to cover trapdoors and pistons.");
+                need_update = true;
             }
 
             // 如果需要更新配置文件，则进行写入
@@ -517,16 +537,6 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
 
             try {
                 result.search_data = query_task();
-                if (result.has_keyword_filter) {
-                    result.display_data.reserve(result.search_data.size());
-                    for (const auto &log_data : result.search_data) {
-                        if (matchesSearchFilter(log_data, search_key_type, search_key)) {
-                            result.display_data.push_back(log_data);
-                        }
-                    }
-                } else {
-                    result.display_data = result.search_data;
-                }
             } catch (const std::exception &e) {
                 result.error_message = e.what();
             } catch (...) {
@@ -571,9 +581,10 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double x = sender.asPlayer()->getLocation().getX();
                 const double y = sender.asPlayer()->getLocation().getY();
                 const double z = sender.asPlayer()->getLocation().getZ();
+                const TianyanCore::AreaFilter area_filter{x, y, z, r, world};
                 return queue_async_log_query(
-                    [time, x, y, z, r, world]() {
-                        return tyCore.searchLog({"", time}, x, y, z, r, world);
+                    [time, area_filter, search_key_type, search_key]() {
+                        return tyCore.searchLog(time, area_filter, search_key_type, search_key);
                     },
                     search_key_type,
                     search_key
@@ -618,7 +629,8 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double x = sender.asPlayer()->getLocation().getX();
                 const double y = sender.asPlayer()->getLocation().getY();
                 const double z = sender.asPlayer()->getLocation().getZ();
-                if (auto searchData = tyCore.searchLog({"",time},x, y, z, r, world); searchData.empty()) {
+                const TianyanCore::AreaFilter area_filter{x, y, z, r, world};
+                if (auto searchData = tyCore.searchLog(time, area_filter, source_key_type, source_key); searchData.empty()) {
                     sender.sendErrorMessage(Tran.getLocal("No log found"));
                 } else {
                     //数据过大，启动后台模式
@@ -631,9 +643,10 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                         }
                         tyback_cache.player_name = sender.asPlayer()->getName();
                         tyback_cache.time = time;tyback_cache.r = r;
-                        std::thread tyback_thread( [this,time, x, y, z, r, world]() {
+                        std::thread tyback_thread([this, time, area_filter, source_key_type, source_key]() {
                             tyback_cache.is_running = true;
-                            const auto searchData_ = tyCore.searchLog({"",time},x, y, z, r, world, true);
+                            const auto searchData_ =
+                                tyCore.searchLog(time, area_filter, source_key_type, source_key, true);
                             tyback_cache.logDatas = searchData_;
                             tyback_cache.status = true;
                         });
@@ -649,29 +662,6 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                         //跳过取消掉和已回溯的事件
                         if (logData.status == "canceled" || logData.status == "reverted") {
                             continue;
-                        }
-                        //输入了查找指定源
-                        if (!source_key_type.empty() && !source_key.empty()) {
-                            //查询ID而事件非源ID
-                            if (source_key_type == "source_id" && logData.id != source_key) {
-                                continue;
-                            }
-                            //查询名称而事件非源名称
-                            if (source_key_type == "source_name" && logData.name != source_key) {
-                                continue;
-                            }
-                            //查询ID而事件非目标ID
-                            if (source_key_type == "target_id" && logData.obj_id != source_key) {
-                                continue;
-                            }
-                            //查询名称而事件非目标名称
-                            if (source_key_type == "target_name" && logData.obj_name != source_key) {
-                                continue;
-                            }
-                            //查询类型而事件非指定类型
-                            if (source_key_type == "action" && logData.type != source_key) {
-                                continue;
-                            }
                         }
                         endstone::CommandSenderWrapper wrapper_sender(sender,
                         [](const endstone::Message &) {},
@@ -796,8 +786,8 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const string search_key_type = args.size() > 1 ? args[1] : "";
                 const string search_key = args.size() > 2 ? args[2] : "";
                 return queue_async_log_query(
-                    [time]() {
-                        return tyCore.searchLog({"", time});
+                    [time, search_key_type, search_key]() {
+                        return tyCore.searchLog(time, search_key_type, search_key);
                     },
                     search_key_type,
                     search_key
@@ -945,12 +935,13 @@ void TianyanPlugin::flushPendingLogQueryResults()
             continue;
         }
 
-        if (result.search_data.empty() || result.display_data.empty()) {
+        if (result.search_data.empty()) {
             player->sendErrorMessage(Tran.getLocal("No log found"));
             continue;
         }
 
-        Menu::showLogMenu(*player, result.display_data);
+        const auto total_result_count = result.search_data.size();
+        Menu::showLogMenu(*player, std::move(result.search_data));
         if (result.has_keyword_filter) {
             player->sendMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Display all logs about") + "` " +
                                 result.search_key + " `");
@@ -958,7 +949,7 @@ void TianyanPlugin::flushPendingLogQueryResults()
             player->sendMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Display all logs"));
         }
 
-        if (result.search_data.size() > 9999) {
+        if (total_result_count > 9999) {
             player->sendErrorMessage(Tran.getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
         }
     }

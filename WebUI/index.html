@@ -1,1108 +1,1121 @@
 <!DOCTYPE html>
-<html lang="en_US">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/assets/element-plus/index.css">
+    <title>天眼日志检索</title>
     <script src="/assets/vendor.js"></script>
     <style>
-        .login-container { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f7fa; }
-        .dashboard { padding: 20px; }
-        .stats-card { margin-bottom: 20px; }
-        .search-bar { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ebeef5; }
-        .coord-input { width: 100px; }
-        .el-table__body-wrapper {
-            max-height: 600px;
-            overflow-y: auto;
+        :root {
+            --bg: #f4efe7;
+            --bg-accent: #efe7da;
+            --panel: #fffdf8;
+            --panel-strong: #fffaf3;
+            --line: rgba(31, 41, 55, 0.16);
+            --line-strong: rgba(31, 41, 55, 0.28);
+            --ink: #19222e;
+            --muted: #667382;
+            --accent: #0f766e;
+            --accent-soft: rgba(15, 118, 110, 0.12);
+            --accent-strong: #115e59;
+            --warm: #c2410c;
+            --warm-soft: rgba(194, 65, 12, 0.12);
+            --danger: #b91c1c;
+            --shadow: 0 20px 60px rgba(24, 32, 44, 0.08);
+            --radius-xl: 28px;
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 12px;
+            --mono: "SFMono-Regular", "JetBrains Mono", "Menlo", monospace;
+            --sans: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
         }
-        .loading-overlay {
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            font-family: var(--sans);
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 28%),
+                radial-gradient(circle at top right, rgba(194, 65, 12, 0.08), transparent 24%),
+                linear-gradient(180deg, var(--bg), var(--bg-accent));
+        }
+
+        body::before {
+            content: "";
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(25, 34, 46, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(25, 34, 46, 0.03) 1px, transparent 1px);
+            background-size: 36px 36px;
+            pointer-events: none;
+            mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent 80%);
         }
-        .pagination-container {
-            margin-top: 20px;
+
+        button,
+        input,
+        select,
+        summary {
+            font: inherit;
+        }
+
+        button,
+        summary {
+            cursor: pointer;
+        }
+
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        summary:focus-visible {
+            outline: 3px solid rgba(15, 118, 110, 0.22);
+            outline-offset: 2px;
+        }
+
+        .app-shell {
+            width: min(1200px, calc(100vw - 32px));
+            margin: 28px auto 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero {
+            padding: 28px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius-xl);
+            background: linear-gradient(145deg, rgba(255, 252, 247, 0.94), rgba(250, 245, 238, 0.9));
+            box-shadow: var(--shadow);
+            display: grid;
+            gap: 18px;
+        }
+
+        .hero-top {
             display: flex;
             justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(25, 34, 46, 0.06);
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 12px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .title-block h1 {
+            margin: 10px 0 8px;
+            font-size: clamp(36px, 5vw, 64px);
+            line-height: 0.96;
+            letter-spacing: -0.06em;
+        }
+
+        .title-block p {
+            margin: 0;
+            max-width: 720px;
+            color: var(--muted);
+            font-size: 16px;
+            line-height: 1.7;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
             align-items: center;
         }
-        .coord-status {
-            background-color: #f0f9ff;
-            padding: 8px 12px;
-            border-radius: 4px;
-            border-left: 4px solid #409eff;
-            margin-bottom: 10px;
+
+        .hero-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
         }
-        .coord-status span {
-            font-weight: bold;
-            color: #409eff;
+
+        .meta-chip,
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 13px;
         }
-        .dimension-select {
-            width: 140px;
+
+        .meta-chip strong,
+        .filter-chip strong {
+            color: var(--ink);
+            font-weight: 600;
         }
-        .custom-dimension-input {
-            width: 150px;
-            margin-left: 10px;
+
+        .panel {
+            margin-top: 20px;
+            padding: 24px;
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--line);
+            background: linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(255, 249, 241, 0.98));
+            box-shadow: var(--shadow);
+            animation: fadeUp 220ms ease;
         }
-        .export-dialog .el-dialog__body {
-            padding: 20px;
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
         }
-        #debug-btn {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            z-index: 10000;
-            padding: 5px 10px;
-            background-color: #f56c6c;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
+
+        .panel-header h2 {
+            margin: 0;
+            font-size: 26px;
+            letter-spacing: -0.04em;
+        }
+
+        .panel-header p {
+            margin: 6px 0 0;
+            color: var(--muted);
+        }
+
+        .preset-row,
+        .range-row,
+        .active-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .pill {
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--muted);
+            border-radius: 999px;
+            padding: 10px 14px;
+            transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+        }
+
+        .pill:hover {
+            transform: translateY(-1px);
+            border-color: var(--line-strong);
+        }
+
+        .pill.active {
+            color: var(--accent-strong);
+            background: var(--accent-soft);
+            border-color: rgba(15, 118, 110, 0.22);
+        }
+
+        .query-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+        }
+
+        .field label {
+            font-size: 13px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            padding: 14px 15px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--ink);
+            transition: border-color 180ms ease, box-shadow 180ms ease;
+        }
+
+        .field input:hover,
+        .field select:hover {
+            border-color: var(--line-strong);
+        }
+
+        .inline-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .details-box {
+            margin-top: 16px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.72);
+            overflow: hidden;
+        }
+
+        .details-box summary {
+            list-style: none;
+            padding: 16px 18px;
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        .details-box summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .details-content {
+            border-top: 1px solid var(--line);
+            padding: 18px;
+            display: grid;
+            gap: 16px;
+        }
+
+        .coord-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .button {
+            border: 0;
+            border-radius: 999px;
+            padding: 13px 18px;
+            transition: transform 180ms ease, opacity 180ms ease, filter 180ms ease;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.02);
+        }
+
+        .button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .button-secondary {
+            background: rgba(25, 34, 46, 0.06);
+            color: var(--ink);
+            border: 1px solid var(--line);
+        }
+
+        .button-warm {
+            background: var(--warm-soft);
+            color: var(--warm);
+            border: 1px solid rgba(194, 65, 12, 0.16);
+        }
+
+        .status-banner {
+            margin-top: 18px;
+            padding: 14px 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--ink);
+        }
+
+        .status-banner[data-type="error"] {
+            border-color: rgba(185, 28, 28, 0.2);
+            background: rgba(185, 28, 28, 0.08);
+            color: var(--danger);
+        }
+
+        .status-banner[data-type="success"] {
+            border-color: rgba(15, 118, 110, 0.2);
+            background: rgba(15, 118, 110, 0.08);
+            color: var(--accent-strong);
+        }
+
+        .result-summary {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .summary-number {
+            font-family: var(--mono);
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .table-wrap {
+            overflow: auto;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.84);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 920px;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 252, 246, 0.96);
+            color: var(--muted);
+            text-align: left;
+            font-size: 12px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        tbody td {
+            padding: 16px;
+            border-top: 1px solid rgba(25, 34, 46, 0.08);
+            vertical-align: top;
+            line-height: 1.6;
+        }
+
+        tbody tr:hover {
+            background: rgba(15, 118, 110, 0.05);
+        }
+
+        .mono {
+            font-family: var(--mono);
             font-size: 12px;
         }
-        .language-selector {
-            margin-bottom: 20px;
+
+        .data-cell {
+            max-width: 360px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: var(--muted);
         }
-        .lang-flag {
-            margin-right: 8px;
-            vertical-align: middle;
+
+        .empty-state {
+            padding: 40px 24px;
+            border-radius: var(--radius-lg);
+            border: 1px dashed var(--line-strong);
+            background: rgba(255, 255, 255, 0.52);
+            text-align: center;
+            color: var(--muted);
+        }
+
+        .empty-state strong {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--ink);
+            font-size: 22px;
+            letter-spacing: -0.04em;
+        }
+
+        .loading-line {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--muted);
+            font-family: var(--mono);
+        }
+
+        .loading-line::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: pulse 1s infinite ease;
+        }
+
+        .footer-note {
+            margin-top: 18px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(0.9); opacity: 0.55; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
+
+        @keyframes fadeUp {
+            from { transform: translateY(10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @media (max-width: 1024px) {
+            .query-grid,
+            .coord-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 720px) {
+            .app-shell {
+                width: min(100vw - 20px, 1200px);
+                margin-top: 14px;
+            }
+
+            .hero,
+            .panel {
+                padding: 18px;
+            }
+
+            .query-grid,
+            .coord-grid,
+            .inline-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                min-width: 760px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation: none !important;
+                transition: none !important;
+            }
         }
     </style>
-    <title>天眼插件Web UI</title>
 </head>
 <body>
-<div id="app">
-    <!-- 加载遮罩 -->
-    <div v-if="loading" class="loading-overlay">
-        <div style="text-align: center;">
-            <el-icon class="is-loading" style="font-size: 40px;"><Loading /></el-icon>
-            <div style="margin-top: 10px;">{{ t('Loading...') }} ({{loadingProgress}})</div>
-        </div>
-    </div>
-
-    <div class="dashboard">
-        <el-page-header :content="t('Tianyan Record Monitor Panel')">
-            <template #content>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <span>{{ t('Tianyan Record Monitor Panel') }}</span>
-                    <el-select v-model="currentLanguage" @change="changeLanguage" size="small" style="width: 120px; margin-left: 20px;">
-                        <el-option v-for="lang in availableLanguages" :key="lang.code" :value="lang.code">
-                            <span class="lang-flag">{{ lang.flag }}</span>
-                            {{ lang.name }}
-                        </el-option>
-                    </el-select>
-                </div>
-            </template>
-        </el-page-header>
-
-        <el-row :gutter="20" class="stats-card">
-            <el-col :span="6">
-                <el-statistic :title="t('Total Logs')" :value="stats.total_logs" />
-            </el-col>
-            <el-col :span="6">
-                <el-statistic :title="t('Database Size')" :value="stats.db_size" />
-            </el-col>
-            <el-col :span="6">
-                <el-statistic :title="t('Query Time')" :value="lastQueryTime ? lastQueryTime + 'ms' : '--'" />
-            </el-col>
-            <el-col :span="6">
-                <el-button
-                    @click="fetchStats"
-                    icon="Refresh"
-                    :loading="statsLoading"
-                    >
-                    {{ statsLoading ? t('Refreshing...') : t('Refresh Status') }}
-                </el-button>
-                <el-button @click="showDbInfo" icon="InfoFilled">{{ t('Database Info') }}</el-button>
-                <el-button v-if="isDebugMode" @click="debugCheckData" type="warning" size="small">{{ t('Debug') }}</el-button>
-            </el-col>
-        </el-row>
-
-        <div class="search-bar">
-            <!-- 坐标状态显示 -->
-            <div v-if="hasActiveCoordQuery" class="coord-status">
-                <span>{{ t('Current query conditions') }}:</span>
-                X={{queryForm.center_x}}, Y={{queryForm.center_y}}, Z={{queryForm.center_z}}, {{ t('Radius') }}={{queryForm.radius}}{{ t('blocks') }}
-                <span v-if="queryForm.dimension && queryForm.dimension !== 'all'">, {{ t('World/Dimension') }}={{queryForm.dimension}}</span>
+<div id="app" class="app-shell">
+    <section class="hero">
+        <div class="hero-top">
+            <div class="title-block">
+                <span class="eyebrow">Tianyan Log Retrieval</span>
+                <h1>天眼日志检索</h1>
+                <p>只保留检索真正需要的内容。首屏不自动扫全库，查询走轻量分页，预设场景和玩家/类型/时间组合直接落到数据库白名单条件，避免无意义的高负载读取。</p>
             </div>
-
-            <el-form :inline="true" :model="queryForm">
-                <el-form-item :label="t('Items per page')">
-                    <el-input-number v-model="pagination.page_size" :min="10" :max="500" :step="10" @change="handlePageSizeChange" />
-                </el-form-item>
-                <el-form-item :label="t('Time Range')">
-                    <el-date-picker
-                        v-model="queryForm.timeRange"
-                        type="datetimerange"
-                        :range-separator="t('to')"
-                        :start-placeholder="t('Start')"
-                        :end-placeholder="t('End')"
-                        value-format="x"
-                        :disabled="loading">
-                    </el-date-picker>
-                </el-form-item>
-                <el-form-item :label="t('Keyword Filter')">
-                    <el-select v-model="queryForm.filterType" :placeholder="t('Select field')" style="width: 150px" clearable :disabled="loading">
-                        <el-option :label="t('Source ID')" value="id"></el-option>
-                        <el-option :label="t('Source Name')" value="name"></el-option>
-                        <el-option :label="t('Action Type')" value="type"></el-option>
-                        <el-option :label="t('Target ID')" value="obj_id"></el-option>
-                        <el-option :label="t('Target Name')" value="obj_name"></el-option>
-                        <el-option :label="t('World/Dimension')" value="world"></el-option>
-                        <el-option :label="t('Detailed Info')" value="data"></el-option>
-                    </el-select>
-                    <el-input v-model="queryForm.filterValue" :placeholder="t('Keyword (fuzzy matching)')" style="width: 180px; margin-left: 10px" :disabled="loading"></el-input>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="fetchLogs(1)" :disabled="loading">{{ t('Query Data') }}</el-button>
-                    <el-button @click="resetSearch" :disabled="loading">{{ t('Reset Conditions') }}</el-button>
-                    <el-button @click="showExportDialog" :disabled="loading || !hasQueryResults">{{ t('Export CSV') }}</el-button>
-                </el-form-item>
-            </el-form>
-
-            <el-divider></el-divider>
-
-            <el-form :inline="true" :model="tempCoord">
-                <el-form-item :label="t('Coordinate Query')">
-                    <el-input v-model="tempCoord.center_x" placeholder="X" class="coord-input" :disabled="loading"></el-input>
-                    <el-input v-model="tempCoord.center_y" placeholder="Y" class="coord-input" :disabled="loading"></el-input>
-                    <el-input v-model="tempCoord.center_z" placeholder="Z" class="coord-input" :disabled="loading"></el-input>
-                    <span style="margin: 0 10px;">{{ t('Radius') }}:</span>
-                    <el-input-number v-model="tempCoord.radius" :min="0" :step="1" :precision="1" :placeholder="t('Radius')" :disabled="loading"></el-input-number>
-
-                    <el-select
-                        v-model="tempCoord.dimension"
-                        :placeholder="t('Select Dimension')"
-                        class="dimension-select"
-                        :disabled="loading"
-                        style="margin-left: 10px;"
-                    >
-                        <el-option :label="t('All (all dimensions)')" value="all"></el-option>
-                        <el-option :label="t('Overworld')" value="Overworld"></el-option>
-                        <el-option :label="t('Nether')" value="Nether"></el-option>
-                        <el-option :label="t('TheEnd')" value="TheEnd"></el-option>
-                        <el-option :label="t('Custom Dimension')" value="custom"></el-option>
-                    </el-select>
-
-                    <el-input
-                        v-if="tempCoord.dimension === 'custom'"
-                        v-model="tempCoord.customDimension"
-                        :placeholder="t('Enter dimension name')"
-                        class="custom-dimension-input"
-                        :disabled="loading"
-                    ></el-input>
-
-                    <el-button type="success" @click="applyCoordQuery" style="margin-left: 10px;" :disabled="loading">{{ t('Apply Coordinates') }}</el-button>
-                    <el-button @click="clearCoordQuery" :disabled="loading || !hasActiveCoordQuery">{{ t('Clear Coordinates') }}</el-button>
-                </el-form-item>
-            </el-form>
+            <div class="hero-actions">
+                <button class="button button-secondary" @click="refreshStats" :disabled="statsLoading">
+                    {{ statsLoading ? '刷新中...' : '查看状态' }}
+                </button>
+                <button class="button button-secondary" @click="resetFilters" :disabled="query.loading || query.loadingMore">
+                    重置条件
+                </button>
+            </div>
         </div>
+        <div class="hero-meta">
+            <span class="meta-chip"><strong>库规模</strong>{{ stats ? stats.total_logs.toLocaleString() + ' 条(近似)' : '按需加载' }}</span>
+            <span class="meta-chip"><strong>库体积</strong>{{ stats ? stats.db_size : '按需加载' }}</span>
+            <span class="meta-chip"><strong>上次查询</strong>{{ query.queryTimeMs ? query.queryTimeMs + ' ms' : '尚未执行' }}</span>
+        </div>
+    </section>
 
-        <div v-if="hasQueryResults" class="pagination-container">
+    <section class="panel">
+        <div class="panel-header">
             <div>
-                <span>{{ pagination.total }} {{ t('records found, total') }} {{pagination.total_pages}} {{ t('pages') }}</span>
-                <span v-if="pagination.total > 0">，{{ t('Currently showing') }} {{(pagination.page - 1) * pagination.page_size + 1}}-{{Math.min(pagination.page * pagination.page_size, pagination.total)}} {{ t('records') }}</span>
+                <h2>检索条件</h2>
+                <p>优先选择预设，再叠加时间、玩家、类型和范围过滤。</p>
+            </div>
+            <div class="summary-number">默认时间窗 {{ defaultWindowLabel }}</div>
+        </div>
+
+        <div class="preset-row">
+            <button
+                v-for="preset in presets"
+                :key="preset.value"
+                class="pill"
+                :class="{ active: filters.preset === preset.value }"
+                @click="filters.preset = preset.value"
+            >
+                {{ preset.label }}
+            </button>
+        </div>
+
+        <div class="range-row">
+            <button
+                v-for="range in quickRanges"
+                :key="range.value"
+                class="pill"
+                :class="{ active: activeRange === range.value }"
+                @click="applyQuickRange(range.value)"
+            >
+                {{ range.label }}
+            </button>
+        </div>
+
+        <div class="query-grid">
+            <div class="field">
+                <label for="start-time">开始时间</label>
+                <input id="start-time" v-model="filters.startTime" type="datetime-local">
+            </div>
+            <div class="field">
+                <label for="end-time">结束时间</label>
+                <input id="end-time" v-model="filters.endTime" type="datetime-local">
+            </div>
+            <div class="field">
+                <label for="player-name">玩家</label>
+                <input
+                    id="player-name"
+                    v-model.trim="filters.playerName"
+                    type="text"
+                    list="player-suggestions"
+                    placeholder="输入玩家名"
+                >
+                <datalist id="player-suggestions">
+                    <option v-for="player in playerSuggestions" :key="player" :value="player"></option>
+                </datalist>
+            </div>
+            <div class="field">
+                <label for="action-type">类型</label>
+                <select id="action-type" v-model="filters.actionType">
+                    <option value="">全部类型</option>
+                    <option v-for="action in actions" :key="action.value" :value="action.value">{{ action.label }}</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="world">维度</label>
+                <select id="world" v-model="filters.world">
+                    <option value="all">全部维度</option>
+                    <option v-for="world in worlds" :key="world" :value="world">{{ world }}</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="target-name">目标名称</label>
+                <input id="target-name" v-model.trim="filters.targetName" type="text" placeholder="精确匹配目标名称">
+            </div>
+            <div class="field">
+                <label for="target-id">目标 ID</label>
+                <input id="target-id" v-model.trim="filters.targetId" type="text" placeholder="例如 minecraft:chest">
+            </div>
+            <div class="field">
+                <label for="export-limit">导出上限</label>
+                <input id="export-limit" v-model.number="filters.exportLimit" type="number" min="100" max="20000" step="100">
             </div>
         </div>
 
-        <div v-else-if="!hasQueryResults && logs.length === 0" style="text-align: center; padding: 40px; color: #999;">
-            <el-icon size="40"><Search /></el-icon>
-            <div style="margin-top: 10px;">{{ t('Please enter search conditions and click') }} "{{ t('Query Data') }}" {{ t('button') }}</div>
-            <div style="margin-top: 5px; font-size: 14px;">{{ t('Or use coordinate query for specific area') }}</div>
-        </div>
-
-        <!-- 查询过但没有结果的提示 -->
-        <div v-else-if="hasQueryResults && logs.length === 0" style="text-align: center; padding: 40px; color: #999;">
-            <el-icon size="40"><Search /></el-icon>
-            <div style="margin-top: 10px;">{{ t('No matching records found') }}</div>
-        </div>
-
-        <!-- 使用一个表格，动态显示距离列 -->
-        <el-table
-            v-if="hasQueryResults && logs.length > 0"
-            :data="logs"
-            border
-            stripe
-            style="width: 100%"
-            height="600"
-            v-loading="tableLoading"
-            :row-key="getRowKey"
-            :default-sort="{prop: 'time', order: 'descending'}"
-            :key="tableKey"
-        >
-            <el-table-column :label="t('Time')" width="180" sortable prop="time">
-                <template #default="scope">
-                    {{ new Date(scope.row.time * 1000).toLocaleString() }}
-                </template>
-            </el-table-column>
-            <el-table-column prop="id" :label="t('Source ID')" width="200"></el-table-column>
-            <el-table-column prop="name" :label="t('Source Name')" width="180"></el-table-column>
-            <el-table-column prop="type" :label="t('Action Type')" width="200"></el-table-column>
-            <el-table-column prop="obj_id" :label="t('Target ID')" width="200"></el-table-column>
-            <el-table-column prop="obj_name" :label="t('Target Name')" width="180"></el-table-column>
-            <el-table-column :label="t('Position')" width="240">
-                <template #default="scope">
-                    {{scope.row.pos_x.toFixed(1)}}, {{scope.row.pos_y.toFixed(1)}}, {{scope.row.pos_z.toFixed(1)}} ({{scope.row.world}})
-                </template>
-            </el-table-column>
-            <!-- 动态显示距离列 -->
-            <el-table-column v-if="showDistanceColumn" :label="t('Distance')" width="80">
-                <template #default="scope">
-                    {{scope.row.distance ? scope.row.distance + t('blocks') : '-'}}
-                </template>
-            </el-table-column>
-            <el-table-column prop="data" :label="t('Detailed Data')" min-width="300"></el-table-column>
-        </el-table>
-
-        <div v-if="hasQueryResults && logs.length > 0" class="pagination-container" style="margin-top: 20px;">
-            <div></div> <!-- 占位 -->
-            <el-pagination
-                v-model:current-page="pagination.page"
-                v-model:page-size="pagination.page_size"
-                :page-sizes="[50, 100, 200, 500]"
-                :small="true"
-                :background="true"
-                layout="sizes, prev, pager, next, jumper, ->, total"
-                :total="pagination.total"
-                @size-change="handlePageSizeChange"
-                @current-change="handlePageChange"
-                :disabled="loading"
-            />
-        </div>
-    </div>
-
-    <!-- 导出对话框 -->
-    <el-dialog
-        v-model="exportDialogVisible"
-        :title="t('Export Data to CSV')"
-        width="500px"
-        class="export-dialog"
-    >
-        <div style="margin-bottom: 15px;">
-            <strong>{{ t('Export Options') }}</strong>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <el-radio v-model="exportOption" label="current">{{ t('Export current page') }} ({{pagination.page_size}}{{ t('records') }})</el-radio>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <el-radio v-model="exportOption" label="range">{{ t('Export specified page range') }}</el-radio>
-            <div v-if="exportOption === 'range'" style="margin-top: 10px; margin-left: 20px;">
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <div>{{ t('From page') }}</div>
-                    <el-input-number v-model="exportStartPage" :min="1" :max="pagination.total_pages" size="small" style="width: 100px;"></el-input-number>
-                    <div>{{ t('to page') }}</div>
-                    <el-input-number v-model="exportEndPage" :min="1" :max="pagination.total_pages" size="small" style="width: 100px;"></el-input-number>
-                    <div>({{ t('of total') }} {{pagination.total_pages}} {{ t('pages (total)') }})</div>
+        <details class="details-box">
+            <summary>范围过滤</summary>
+            <div class="details-content">
+                <div class="coord-grid">
+                    <div class="field">
+                        <label for="center-x">中心 X</label>
+                        <input id="center-x" v-model.trim="filters.centerX" type="text" placeholder="可选">
+                    </div>
+                    <div class="field">
+                        <label for="center-y">中心 Y</label>
+                        <input id="center-y" v-model.trim="filters.centerY" type="text" placeholder="可选">
+                    </div>
+                    <div class="field">
+                        <label for="center-z">中心 Z</label>
+                        <input id="center-z" v-model.trim="filters.centerZ" type="text" placeholder="可选">
+                    </div>
+                    <div class="field">
+                        <label for="radius">半径</label>
+                        <input id="radius" v-model.trim="filters.radius" type="text" placeholder="格数">
+                    </div>
                 </div>
-                <div style="margin-top: 5px; color: #666; font-size: 12px;">
-                    {{ t('Max export data') }}: 50000 {{ t('records') }}, {{ t('approximately') }} {{Math.min(pagination.total_pages, Math.floor(50000/pagination.page_size))}} {{ t('pages') }}
-                </div>
+                <div class="footer-note">坐标过滤启用后，会同时加上包围盒和球形半径限制，避免整表距离计算。</div>
+            </div>
+        </details>
+
+        <div class="button-row">
+            <button class="button button-primary" @click="runQuery(false)" :disabled="query.loading || query.loadingMore">
+                {{ query.loading ? '查询中...' : '开始查询' }}
+            </button>
+            <button class="button button-secondary" @click="exportCsv" :disabled="query.loading || exportLoading">
+                {{ exportLoading ? '导出中...' : '导出 CSV' }}
+            </button>
+            <button class="button button-warm" @click="clearResults" :disabled="query.loading || query.loadingMore">
+                清空结果
+            </button>
+        </div>
+
+        <div v-if="activeFilters.length" class="active-filters" style="margin-top: 18px;">
+            <span v-for="item in activeFilters" :key="item" class="filter-chip">{{ item }}</span>
+        </div>
+
+        <div v-if="feedback.message" class="status-banner" :data-type="feedback.type">
+            {{ feedback.message }}
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>查询结果</h2>
+                <p>采用轻量翻页，只拿当前需要的一页数据。</p>
+            </div>
+            <div v-if="query.loading || query.loadingMore" class="loading-line">
+                {{ query.loadingMore ? '加载下一页中' : '查询执行中' }}
             </div>
         </div>
-        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
-            <div style="color: #666; font-size: 13px;">
-                {{ t('Note: Exporting large amounts of data may take time, please be patient') }}
+
+        <div v-if="query.searched" class="result-summary">
+            <div class="summary-number">
+                已返回 {{ results.length.toLocaleString() }} 条
+                <span v-if="query.queryTimeMs"> / 接口耗时 {{ query.queryTimeMs }} ms</span>
+            </div>
+            <div class="button-row" style="margin-top: 0;">
+                <button class="button button-secondary" @click="runQuery(true)" :disabled="!query.hasMore || query.loading || query.loadingMore">
+                    {{ query.loadingMore ? '加载中...' : (query.hasMore ? '加载更多' : '没有更多了') }}
+                </button>
             </div>
         </div>
-        <template #footer>
-            <span class="dialog-footer">
-                <el-button @click="exportDialogVisible = false">{{ t('Cancel') }}</el-button>
-                <el-button type="primary" @click="handleExportConfirm" :disabled="exporting">
-                    {{ exporting ? t('Exporting...') : t('Start Export') }}
-                </el-button>
-            </span>
-        </template>
-    </el-dialog>
+
+        <div v-if="!query.searched && !query.loading" class="empty-state">
+            <strong>等待第一次查询</strong>
+            先选一个预设和时间范围，再按玩家、类型、坐标缩小结果。
+        </div>
+
+        <div v-else-if="query.searched && results.length === 0 && !query.loading" class="empty-state">
+            <strong>没有匹配结果</strong>
+            可以缩短时间跨度，或者去掉部分精确过滤条件后再查一次。
+        </div>
+
+        <div v-else-if="results.length > 0" class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>时间</th>
+                    <th>来源</th>
+                    <th>行为</th>
+                    <th>目标</th>
+                    <th>位置</th>
+                    <th>详情</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="row in results" :key="row.uuid">
+                    <td class="mono">{{ formatTime(row.time) }}</td>
+                    <td>
+                        <div><strong>{{ row.name || row.id || '未知来源' }}</strong></div>
+                        <div class="mono">{{ row.id || '-' }}</div>
+                    </td>
+                    <td>
+                        <div><strong>{{ actionLabel(row.type) }}</strong></div>
+                        <div v-if="row.status" class="mono">{{ row.status }}</div>
+                    </td>
+                    <td>
+                        <div><strong>{{ row.obj_name || row.obj_id || '-' }}</strong></div>
+                        <div class="mono">{{ row.obj_id || '-' }}</div>
+                    </td>
+                    <td class="mono">
+                        {{ formatPosition(row) }}
+                        <div v-if="row.distance !== undefined" style="margin-top: 4px;">距离 {{ row.distance }} 格</div>
+                    </td>
+                    <td class="data-cell">{{ row.data || '-' }}</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
 
 <script>
-    const { createApp, ref, reactive, onMounted, computed, watch, nextTick } = Vue;
+    const { createApp, reactive, ref, computed, onMounted, watch } = Vue;
 
-    // 语言配置
-    const languageConfig = {
-        'en_US': { name: 'English', flag: '🇺🇸' },
-        'zh_CN': { name: '中文', flag: '🇨🇳' },
-        'ru_RU': { name: 'Русский', flag: '🇷🇺' }
-    };
-
-    const app = createApp({
+    createApp({
         setup() {
-            const apiBase = ref(window.location.origin);
-            const stats = reactive({ total_logs: 0, db_size: '0 MB' });
-            const logs = ref([]);
-            const loading = ref(false);
-            const tableLoading = ref(false);
-            const loadingProgress = ref('');
-            const lastQueryTime = ref(0);
-            const hasQueryResults = ref(false);
+            const quickRanges = [
+                { value: 2, label: '2 小时' },
+                { value: 12, label: '12 小时' },
+                { value: 24, label: '24 小时' },
+                { value: 72, label: '3 天' },
+                { value: 168, label: '7 天' }
+            ];
+
+            const fallbackPresets = [
+                { value: 'recent_activity', label: '最近活动' },
+                { value: 'block_changes', label: '方块改动' },
+                { value: 'combat', label: '战斗与死亡' },
+                { value: 'interactions', label: '交互记录' },
+                { value: 'redstone', label: '红石触发' },
+                { value: 'explosions', label: '爆炸相关' }
+            ];
+
+            const fallbackActions = [
+                { value: 'block_break', label: '方块破坏' },
+                { value: 'block_place', label: '方块放置' },
+                { value: 'entity_damage', label: '实体伤害' },
+                { value: 'damage', label: '环境伤害' },
+                { value: 'player_right_click_block', label: '方块触发' },
+                { value: 'player_right_click_entity', label: '实体交互' },
+                { value: 'entity_bomb', label: '爆炸源' },
+                { value: 'block_break_bomb', label: '爆炸破坏' },
+                { value: 'piston_extend', label: '活塞伸出' },
+                { value: 'piston_retract', label: '活塞收回' },
+                { value: 'entity_die', label: '实体死亡' },
+                { value: 'player_pickup_item', label: '拾取物品' }
+            ];
+
+            const presets = ref(fallbackPresets);
+            const actions = ref(fallbackActions);
+            const worlds = ref([]);
+            const playerSuggestions = ref([]);
+            const stats = ref(null);
             const statsLoading = ref(false);
-            const isQuerying = ref(false);
+            const exportLoading = ref(false);
+            const activeRange = ref(12);
+            const defaultWindowLabel = computed(() => `${activeRange.value} 小时`);
+            const results = ref([]);
+            const nextCursor = ref(null);
+            const playerSuggestTimer = ref(null);
 
-            // 多语言相关
-            const currentLanguage = ref(localStorage.getItem('ty_language') || 'en_US');
-            const availableLanguages = ref([]);
-            const translations = ref({});
-
-            // 导出相关状态
-            const exportDialogVisible = ref(false);
-            const exportOption = ref('current');
-            const exportStartPage = ref(1);
-            const exportEndPage = ref(1);
-            const exporting = ref(false);
-
-            // 控制是否显示距离列
-            const showDistanceColumn = ref(false);
-
-            // 表格版本号，用于强制重新渲染
-            const tableVersion = ref(0);
-
-            // 调试模式
-            const isDebugMode = ref(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-            const queryForm = reactive({
-                timeRange: [Date.now() - 7200000, Date.now()], // 默认最近2小时
-                filterType: '',
-                filterValue: '',
-                center_x: null,
-                center_y: null,
-                center_z: null,
-                radius: null,
-                dimension: null
+            const filters = reactive({
+                preset: 'recent_activity',
+                startTime: '',
+                endTime: '',
+                playerName: '',
+                actionType: '',
+                targetName: '',
+                targetId: '',
+                world: 'all',
+                centerX: '',
+                centerY: '',
+                centerZ: '',
+                radius: '',
+                exportLimit: 5000
             });
 
-            const tempCoord = reactive({
-                center_x: '',
-                center_y: '',
-                center_z: '',
-                radius: 10,
-                dimension: 'all',
-                customDimension: ''
+            const query = reactive({
+                loading: false,
+                loadingMore: false,
+                queried: false,
+                queryTimeMs: null,
+                hasMore: false,
+                searched: false
             });
 
-            const pagination = reactive({
-                page: 1,
-                page_size: 100,
-                total: 0,
-                total_pages: 1
+            const feedback = reactive({
+                type: '',
+                message: ''
             });
 
-            const API_BASE = computed(() => {
-                return `${apiBase.value}/api`;
+            const actionMap = computed(() => {
+                const map = {};
+                actions.value.forEach(action => {
+                    map[action.value] = action.label;
+                });
+                return map;
             });
 
-            // 计算属性
-            const hasActiveCoordQuery = computed(() => {
-                return (queryForm.center_x !== null && queryForm.center_y !== null &&
-                       queryForm.center_z !== null && queryForm.radius !== null) ||
-                       (queryForm.dimension !== null && queryForm.dimension !== 'all');
+            const activeFilters = computed(() => {
+                const items = [];
+                const preset = presets.value.find(item => item.value === filters.preset);
+                if (preset) items.push(`预设：${preset.label}`);
+                if (filters.playerName) items.push(`玩家：${filters.playerName}`);
+                if (filters.actionType) items.push(`类型：${actionLabel(filters.actionType)}`);
+                if (filters.targetName) items.push(`目标名称：${filters.targetName}`);
+                if (filters.targetId) items.push(`目标 ID：${filters.targetId}`);
+                if (filters.world && filters.world !== 'all') items.push(`维度：${filters.world}`);
+                if (filters.centerX && filters.centerY && filters.centerZ && filters.radius) {
+                    items.push(`范围：(${filters.centerX}, ${filters.centerY}, ${filters.centerZ}) 半径 ${filters.radius}`);
+                }
+                return items;
             });
 
-            // 表格key，强制重新渲染
-            const tableKey = computed(() => {
-                return `table-${tableVersion.value}`;
-            });
-
-            // 翻译函数
-            const t = (key) => {
-                return translations.value[key] || key;
+            const toDatetimeLocal = (timestampMs) => {
+                const date = new Date(timestampMs);
+                const pad = (value) => String(value).padStart(2, '0');
+                return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
             };
 
-            // 加载可用语言
-            const loadAvailableLanguages = async () => {
-                try {
-                    const res = await axios.get(`${API_BASE.value}/languages`);
-                    const languages = res.data.languages || [];
-
-                    availableLanguages.value = languages.map(code => ({
-                        code,
-                        name: languageConfig[code]?.name || code,
-                        flag: languageConfig[code]?.flag || '🌐'
-                    }));
-
-                    // 如果当前语言不在可用语言中，使用默认语言
-                    if (!languages.includes(currentLanguage.value)) {
-                        currentLanguage.value = res.data.default || 'en_US';
-                    }
-
-                    await loadLanguage(currentLanguage.value);
-                } catch (error) {
-                    console.error('Failed to load languages:', error);
-                    // 默认加载英文
-                    await loadLanguage('en_US');
-                }
+            const toUnixSeconds = (value) => {
+                if (!value) return null;
+                return Math.floor(new Date(value).getTime() / 1000);
             };
 
-            // 加载语言文件
-            const loadLanguage = async (langCode) => {
-                try {
-                    loading.value = true;
-                    loadingProgress.value = t('Loading language...');
-
-                    const res = await axios.get(`${API_BASE.value}/language/${langCode}`);
-                    translations.value = res.data;
-                    currentLanguage.value = langCode;
-                    localStorage.setItem('ty_language', langCode);
-
-                    // 更新页面标题
-                    document.title = t('Tianyan Plugin Web UI');
-
-                    console.log(`Loaded language: ${langCode}`);
-                } catch (error) {
-                    console.error(`Failed to load language ${langCode}:`, error);
-                    ElementPlus.ElMessage.error(`Failed to load language: ${langCode}`);
-                } finally {
-                    loading.value = false;
-                }
+            const setFeedback = (message, type = 'success') => {
+                feedback.message = message;
+                feedback.type = type;
             };
 
-            // 切换语言
-            const changeLanguage = async (langCode) => {
-                await loadLanguage(langCode);
-                ElementPlus.ElMessage.success(`Language changed to ${languageConfig[langCode]?.name || langCode}`);
+            const clearFeedback = () => {
+                feedback.message = '';
+                feedback.type = '';
             };
 
-            // 监听导出页码变化
-            watch(() => exportStartPage.value, (newVal) => {
-                if (exportEndPage.value < newVal) {
-                    exportEndPage.value = newVal;
-                }
-                const maxPages = Math.min(pagination.total_pages, Math.floor(50000/pagination.page_size));
-                if (exportEndPage.value > maxPages) {
-                    exportEndPage.value = maxPages;
-                }
-            });
+            const applyQuickRange = (hours) => {
+                activeRange.value = hours;
+                filters.endTime = toDatetimeLocal(Date.now());
+                filters.startTime = toDatetimeLocal(Date.now() - hours * 3600 * 1000);
+            };
 
-            watch(() => pagination.total_pages, (newVal) => {
-                exportEndPage.value = Math.min(newVal, Math.floor(50000/pagination.page_size));
-            });
+            const loadOptions = async () => {
+                const response = await fetch('/api/options');
+                if (!response.ok) {
+                    throw new Error('获取选项失败');
+                }
+                const data = await response.json();
+                presets.value = data.presets || [];
+                actions.value = data.actions || [];
+                worlds.value = data.worlds || [];
+            };
 
-            const fetchStats = async () => {
+            const refreshStats = async () => {
                 statsLoading.value = true;
                 try {
-                    const res = await axios.get(`${API_BASE.value}/stats`);
-                    Object.assign(stats, res.data);
-                    ElementPlus.ElMessage.success(t('Status refreshed successfully'));
-                } catch (e) {
-                    ElementPlus.ElMessage.error(t('Failed to get status') + ': ' + (e.response?.data?.detail || e.message));
+                    const response = await fetch('/api/stats?force_refresh=true');
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.detail || '获取状态失败');
+                    }
+                    stats.value = data;
+                    setFeedback(`状态已刷新：约 ${data.total_logs.toLocaleString()} 条，库体积 ${data.db_size}`);
+                } catch (error) {
+                    setFeedback(error.message || '获取状态失败', 'error');
                 } finally {
                     statsLoading.value = false;
                 }
             };
 
-            const fetchLogs = async (page = null) => {
-                // 防止并发查询
-                if (isQuerying.value) {
-                    console.log('Query in progress, skipping this request');
-                    return;
+            const buildParams = () => {
+                const params = new URLSearchParams();
+                params.set('limit', '100');
+                params.set('preset', filters.preset || 'recent_activity');
+
+                const startTime = toUnixSeconds(filters.startTime);
+                const endTime = toUnixSeconds(filters.endTime);
+                if (startTime !== null) params.set('start_time', String(startTime));
+                if (endTime !== null) params.set('end_time', String(endTime));
+                if (filters.playerName) params.set('player_name', filters.playerName);
+                if (filters.actionType) params.set('action_type', filters.actionType);
+                if (filters.targetName) params.set('target_name', filters.targetName);
+                if (filters.targetId) params.set('target_id', filters.targetId);
+                if (filters.world && filters.world !== 'all') params.set('world', filters.world);
+
+                const coordValues = [filters.centerX, filters.centerY, filters.centerZ, filters.radius];
+                const hasAnyCoord = coordValues.some(value => value !== '');
+                const hasAllCoord = coordValues.every(value => value !== '');
+                if (hasAnyCoord && !hasAllCoord) {
+                    throw new Error('坐标过滤需要同时填写 X / Y / Z / 半径');
+                }
+                if (hasAllCoord) {
+                    params.set('center_x', filters.centerX);
+                    params.set('center_y', filters.centerY);
+                    params.set('center_z', filters.centerZ);
+                    params.set('radius', filters.radius);
                 }
 
-                isQuerying.value = true;
+                return params;
+            };
+
+            const clearResults = () => {
+                results.value = [];
+                nextCursor.value = null;
+                query.hasMore = false;
+                query.queryTimeMs = null;
+                query.searched = false;
+                clearFeedback();
+            };
+
+            const runQuery = async (loadMore) => {
+                if (query.loading || query.loadingMore) return;
+                clearFeedback();
 
                 try {
-                    if (page !== null) {
-                        pagination.page = page;
+                    const params = buildParams();
+                    if (loadMore && nextCursor.value) {
+                        params.set('cursor_time', String(nextCursor.value.time));
+                        params.set('cursor_uuid', nextCursor.value.uuid);
                     }
 
-                    // 关键修复：在每次查询前完全清空旧数据
-                    logs.value = [];
-                    hasQueryResults.value = false;
-                    showDistanceColumn.value = false;
-
-                    // 强制Vue更新DOM
-                    await nextTick();
-
-                    console.log('Starting new query, old data cleared');
-
-                    const params = {
-                        page: pagination.page,
-                        page_size: pagination.page_size,
-                        start_time: queryForm.timeRange ? Math.floor(queryForm.timeRange[0] / 1000) : null,
-                        end_time: queryForm.timeRange ? Math.floor(queryForm.timeRange[1] / 1000) : null,
-                        filter_type: queryForm.filterType,
-                        filter_value: queryForm.filterValue
-                    };
-
-                    // 如果有坐标查询条件
-                    if (queryForm.center_x !== null && queryForm.center_y !== null &&
-                        queryForm.center_z !== null && queryForm.radius !== null) {
-                        params.center_x = queryForm.center_x;
-                        params.center_y = queryForm.center_y;
-                        params.center_z = queryForm.center_z;
-                        params.radius = queryForm.radius;
-                        showDistanceColumn.value = true;
-                    }
-
-                    // 如果有维度条件
-                    if (queryForm.dimension !== null && queryForm.dimension !== 'all' && queryForm.dimension !== '') {
-                        params.dimension = queryForm.dimension;
-                    }
-
-                    console.log('Request parameters:', params);
-
-                    tableLoading.value = true;
-                    loadingProgress.value = t('Querying data...');
-
-                    const startTime = Date.now();
-                    const res = await axios.get(`${API_BASE.value}/logs`, {
-                        params: params,
-                        timeout: 30000
-                    });
-
-                    const endTime = Date.now();
-                    const duration = endTime - startTime;
-
-                    if (res.data && res.data.data) {
-                        console.log('Data returned:', res.data.data.length);
-
-                        // 创建全新的数组
-                        const processedData = [];
-
-                        for (const record of res.data.data) {
-                            const newRecord = {
-                                time: record.time || 0,
-                                id: record.id || '',
-                                name: record.name || '',
-                                type: record.type || '',
-                                obj_id: record.obj_id || '',
-                                obj_name: record.obj_name || '',
-                                pos_x: record.pos_x || 0,
-                                pos_y: record.pos_y || 0,
-                                pos_z: record.pos_z || 0,
-                                world: record.world || '',
-                                data: record.data || ''
-                            };
-
-                            if (params.center_x !== undefined &&
-                                params.center_y !== undefined &&
-                                params.center_z !== undefined) {
-                                const dx = newRecord.pos_x - params.center_x;
-                                const dy = newRecord.pos_y - params.center_y;
-                                const dz = newRecord.pos_z - params.center_z;
-                                newRecord.distance = Math.sqrt(dx*dx + dy*dy + dz*dz).toFixed(2);
-                            }
-
-                            processedData.push(newRecord);
-                        }
-
-                        // 验证数据是否符合查询条件
-                        if (queryForm.filterType && queryForm.filterValue) {
-                            const invalidRecords = processedData.filter(record => {
-                                const fieldValue = record[queryForm.filterType];
-                                return !fieldValue || !fieldValue.includes(queryForm.filterValue);
-                            });
-
-                            if (invalidRecords.length > 0) {
-                                console.error(`Found ${invalidRecords.length} records that do not match query conditions`);
-                                console.error('Query conditions:', queryForm.filterType, '=', queryForm.filterValue);
-                                console.error('Invalid record example:', invalidRecords[0]);
-                            }
-                        }
-
-                        // 更新数据
-                        logs.value = processedData;
-                        pagination.total = res.data.total || 0;
-                        pagination.total_pages = res.data.total_pages || 1;
-                        lastQueryTime.value = res.data.query_time_ms || Math.round(duration);
-
-                        // 增加表格版本号，强制重新渲染
-                        tableVersion.value++;
-
-                        if (logs.value.length > 0) {
-                            hasQueryResults.value = true;
-                            console.log(`Query successful, displaying ${logs.value.length} records`);
-                            ElementPlus.ElMessage.success(
-                                `${t('Query successful! Retrieved')} ${logs.value.length} ${t('records, query time')}: ${lastQueryTime.value}${t('ms')}`
-                            );
-                        } else {
-                            hasQueryResults.value = false;
-                            console.log('Query successful but no matching records found');
-                            ElementPlus.ElMessage.info(t('No matching records found'));
-                        }
+                    if (loadMore) {
+                        query.loadingMore = true;
                     } else {
-                        console.error('Return data format error');
-                        ElementPlus.ElMessage.error(t('Return data format error'));
-                        logs.value = [];
-                        hasQueryResults.value = false;
+                        query.loading = true;
+                        results.value = [];
+                        nextCursor.value = null;
+                        query.hasMore = false;
                     }
-                } catch (e) {
-                    console.error('Query error:', e);
-                    if (e.code === 'ECONNABORTED') {
-                        ElementPlus.ElMessage.error(t('Query timeout, please reduce query size or optimize conditions'));
-                    } else {
-                        ElementPlus.ElMessage.error(t('Query error') + ': ' + (e.response?.data?.detail || e.message));
+
+                    const response = await fetch(`/api/logs?${params.toString()}`);
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.detail || '查询失败');
                     }
-                    logs.value = [];
-                    hasQueryResults.value = false;
+
+                    results.value = loadMore ? results.value.concat(data.data || []) : (data.data || []);
+                    nextCursor.value = data.next_cursor;
+                    query.hasMore = Boolean(data.has_more);
+                    query.queryTimeMs = data.query_time_ms;
+                    query.searched = true;
+
+                    const totalLabel = results.value.length.toLocaleString();
+                    setFeedback(`本次返回 ${data.count} 条，当前已加载 ${totalLabel} 条，接口耗时 ${data.query_time_ms} ms。`);
+                } catch (error) {
+                    setFeedback(error.message || '查询失败', 'error');
                 } finally {
-                    tableLoading.value = false;
-                    loading.value = false;
-                    isQuerying.value = false;
+                    query.loading = false;
+                    query.loadingMore = false;
                 }
             };
 
-            // 统一的row-key生成方法
-            const getRowKey = (row) => {
-                return `${row.time}-${row.id}-${row.type}-${row.pos_x}-${row.pos_y}-${row.pos_z}`;
-            };
+            const exportCsv = async () => {
+                if (exportLoading.value) return;
+                clearFeedback();
 
-            const applyCoordQuery = () => {
-                // 验证坐标输入
-                if (!tempCoord.center_x || !tempCoord.center_y || !tempCoord.center_z) {
-                    ElementPlus.ElMessage.warning(t('Invalid coordinate parameters'));
-                    return;
-                }
-                if (!tempCoord.radius || tempCoord.radius <= 0) {
-                    ElementPlus.ElMessage.warning(t('Please enter valid radius'));
-                    return;
-                }
-
-                // 将临时坐标应用到查询表单
-                queryForm.center_x = parseFloat(tempCoord.center_x);
-                queryForm.center_y = parseFloat(tempCoord.center_y);
-                queryForm.center_z = parseFloat(tempCoord.center_z);
-                queryForm.radius = parseFloat(tempCoord.radius);
-
-                // 处理维度
-                if (tempCoord.dimension === 'custom' && tempCoord.customDimension) {
-                    queryForm.dimension = tempCoord.customDimension;
-                } else if (tempCoord.dimension === 'all') {
-                    queryForm.dimension = null; // 全部维度
-                } else {
-                    queryForm.dimension = tempCoord.dimension;
-                }
-
-                ElementPlus.ElMessage.success(t('Coordinate query conditions applied'));
-                fetchLogs(1);
-            };
-
-            const clearCoordQuery = () => {
-                queryForm.center_x = null;
-                queryForm.center_y = null;
-                queryForm.center_z = null;
-                queryForm.radius = null;
-                queryForm.dimension = null;
-
-                // 清空临时坐标
-                tempCoord.center_x = '';
-                tempCoord.center_y = '';
-                tempCoord.center_z = '';
-                tempCoord.radius = 10;
-                tempCoord.dimension = 'all';
-                tempCoord.customDimension = '';
-
-                ElementPlus.ElMessage.info(t('Coordinate query conditions cleared'));
-                fetchLogs(1);
-            };
-
-            const resetSearch = () => {
-                queryForm.timeRange = [Date.now() - 7200000, Date.now()];
-                queryForm.filterType = '';
-                queryForm.filterValue = '';
-                queryForm.center_x = null;
-                queryForm.center_y = null;
-                queryForm.center_z = null;
-                queryForm.radius = null;
-                queryForm.dimension = null;
-
-                tempCoord.center_x = '';
-                tempCoord.center_y = '';
-                tempCoord.center_z = '';
-                tempCoord.radius = 10;
-                tempCoord.dimension = 'all';
-                tempCoord.customDimension = '';
-
-                pagination.page = 1;
-                pagination.total = 0;
-                pagination.total_pages = 1;
-
-                // 强制清空数据
-                logs.value = [];
-                hasQueryResults.value = false;
-                lastQueryTime.value = 0;
-                showDistanceColumn.value = false;
-
-                // 增加表格版本号
-                tableVersion.value++;
-
-                // 强制DOM更新
-                nextTick(() => {
-                    console.log('Reset query conditions completed, data cleared');
-                });
-
-                ElementPlus.ElMessage.info(t('All search conditions reset'));
-            };
-
-            const handlePageChange = (page) => {
-                fetchLogs(page);
-            };
-
-            const handlePageSizeChange = (size) => {
-                pagination.page_size = size;
-                pagination.page = 1;
-                fetchLogs(1);
-            };
-
-            const showExportDialog = () => {
-                if (!hasQueryResults.value || pagination.total_pages === 0) {
-                    ElementPlus.ElMessage.warning(t('No data to export'));
-                    return;
-                }
-
-                exportStartPage.value = 1;
-                exportEndPage.value = Math.min(pagination.total_pages, Math.floor(50000/pagination.page_size));
-                exportOption.value = 'current';
-                exportDialogVisible.value = true;
-            };
-
-            const handleExportConfirm = () => {
-                if (exportOption.value === 'current') {
-                    exportCurrentPage();
-                } else if (exportOption.value === 'range') {
-                    if (exportStartPage.value > exportEndPage.value) {
-                        ElementPlus.ElMessage.error(t('Start page cannot be greater than end page'));
-                        return;
-                    }
-
-                    const totalExportPages = exportEndPage.value - exportStartPage.value + 1;
-                    const estimatedRecords = totalExportPages * pagination.page_size;
-
-                    if (estimatedRecords > 50000) {
-                        ElementPlus.ElMessage.error(t('Export data too large, max 50000 records, currently about') + ` ${estimatedRecords} ` + t('records'));
-                        return;
-                    }
-
-                    ElementPlus.ElMessageBox.confirm(
-                        `${t('Confirm export from page')} ${exportStartPage.value} ${t('to page')} ${exportEndPage.value}?` +
-                        `\n${t('Total')} ${totalExportPages} ${t('pages')}, ${t('approximately')} ${estimatedRecords} ${t('records')}.`,
-                        t('Confirm export'),
-                        {
-                            confirmButtonText: t('Confirm'),
-                            cancelButtonText: t('Cancel'),
-                            type: 'warning'
-                        }
-                    ).then(() => {
-                        exportPages(exportStartPage.value, exportEndPage.value);
-                    }).catch(() => {
-                        // 用户取消
-                    });
-                }
-
-                exportDialogVisible.value = false;
-            };
-
-            const exportCurrentPage = () => {
                 try {
-                    exporting.value = true;
+                    const params = buildParams();
+                    params.set('max_records', String(Math.min(Math.max(Number(filters.exportLimit) || 5000, 100), 20000)));
 
-                    // 创建CSV内容
-                    const headers = [
-                        t('Time'),
-                        t('Source ID'),
-                        t('Source Name'),
-                        t('Action Type'),
-                        t('Target ID'),
-                        t('Target Name'),
-                        t('Coordinate X'),
-                        t('Coordinate Y'),
-                        t('Coordinate Z'),
-                        t('World/Dimension')
-                    ];
-                    if (showDistanceColumn.value) {
-                        headers.push(t('Distance'));
+                    exportLoading.value = true;
+                    const response = await fetch(`/api/export?${params.toString()}`);
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.detail || '导出失败');
                     }
-                    headers.push(t('Detailed Data'));
 
-                    const csvRows = [];
-
-                    // 添加表头
-                    csvRows.push(headers.join(','));
-
-                    // 添加数据行
-                    logs.value.forEach(row => {
-                        const csvRow = [
-                            new Date(row.time * 1000).toLocaleString(),
+                    const headers = ['时间', '来源 ID', '来源名称', '行为', '目标 ID', '目标名称', 'X', 'Y', 'Z', '维度', '距离', '状态', '详情'];
+                    const rows = [headers.join(',')];
+                    (data.data || []).forEach(row => {
+                        rows.push([
+                            `"${formatTime(row.time)}"`,
                             `"${row.id || ''}"`,
                             `"${row.name || ''}"`,
-                            `"${row.type || ''}"`,
+                            `"${actionLabel(row.type)}"`,
                             `"${row.obj_id || ''}"`,
                             `"${row.obj_name || ''}"`,
-                            row.pos_x,
-                            row.pos_y,
-                            row.pos_z,
-                            `"${row.world || ''}"`
-                        ];
-
-                        if (showDistanceColumn.value && row.distance !== undefined) {
-                            csvRow.push(row.distance || '');
-                        }
-
-                        csvRow.push(`"${(row.data || '').replace(/"/g, '""')}"`); // 处理引号转义
-                        csvRows.push(csvRow.join(','));
+                            row.pos_x ?? '',
+                            row.pos_y ?? '',
+                            row.pos_z ?? '',
+                            `"${row.world || ''}"`,
+                            row.distance ?? '',
+                            `"${row.status || ''}"`,
+                            `"${String(row.data || '').replace(/"/g, '""')}"`
+                        ].join(','));
                     });
 
-                    const csvContent = csvRows.join('\n');
-                    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const blob = new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = url;
-                    link.download = `tianyan_${pagination.page}_${new Date().toISOString().slice(0, 10)}.csv`;
+                    link.download = `tianyan_export_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
 
-                    ElementPlus.ElMessage.success(`${t('Exported')} ${logs.value.length} ${t('records')}`);
+                    setFeedback(`导出完成，共 ${data.exported_records} 条。`);
                 } catch (error) {
-                    ElementPlus.ElMessage.error(t('Export failed') + ': ' + error.message);
+                    setFeedback(error.message || '导出失败', 'error');
                 } finally {
-                    exporting.value = false;
+                    exportLoading.value = false;
                 }
             };
 
-            const exportPages = async (startPage, endPage) => {
-                try {
-                    exporting.value = true;
-                    loading.value = true;
-                    loadingProgress.value = `${t('Preparing to export from page')} ${startPage} ${t('to')} ${endPage}...`;
-
-                    // 构建导出参数
-                    const params = {
-                        start_page: startPage,
-                        end_page: endPage,
-                        page_size: pagination.page_size,
-                        start_time: queryForm.timeRange ? Math.floor(queryForm.timeRange[0] / 1000) : null,
-                        end_time: queryForm.timeRange ? Math.floor(queryForm.timeRange[1] / 1000) : null,
-                        filter_type: queryForm.filterType,
-                        filter_value: queryForm.filterValue
-                    };
-
-                    // 如果有坐标查询条件
-                    if (queryForm.center_x !== null && queryForm.center_y !== null &&
-                        queryForm.center_z !== null && queryForm.radius !== null) {
-                        params.center_x = queryForm.center_x;
-                        params.center_y = queryForm.center_y;
-                        params.center_z = queryForm.center_z;
-                        params.radius = queryForm.radius;
-                    }
-
-                    // 如果有维度条件
-                    if (queryForm.dimension !== null && queryForm.dimension !== 'all' && queryForm.dimension !== '') {
-                        params.dimension = queryForm.dimension;
-                    }
-
-                    loadingProgress.value = t('Getting data from server...');
-
-                    const res = await axios.get(`${API_BASE.value}/export`, {
-                        params: params,
-                        timeout: 120000 // 120秒超时
-                    });
-
-                    if (res.data && res.data.data) {
-                        const exportData = res.data.data;
-
-                        loadingProgress.value = t('Generating CSV file...');
-
-                        // 创建CSV内容
-                        const headers = [
-                            t('Time'),
-                            t('Source ID'),
-                            t('Source Name'),
-                            t('Action Type'),
-                            t('Target ID'),
-                            t('Target Name'),
-                            t('Coordinate X'),
-                            t('Coordinate Y'),
-                            t('Coordinate Z'),
-                            t('World/Dimension')
-                        ];
-                        if (showDistanceColumn.value) {
-                            headers.push(t('Distance'));
-                        }
-                        headers.push(t('Detailed Data'));
-
-                        const csvRows = [];
-
-                        // 添加表头
-                        csvRows.push(headers.join(','));
-
-                        // 添加数据行
-                        exportData.forEach(row => {
-                            const csvRow = [
-                                new Date(row.time * 1000).toLocaleString(),
-                                `"${row.id || ''}"`,
-                                `"${row.name || ''}"`,
-                                `"${row.type || ''}"`,
-                                `"${row.obj_id || ''}"`,
-                                `"${row.obj_name || ''}"`,
-                                row.pos_x,
-                                row.pos_y,
-                                row.pos_z,
-                                `"${row.world || ''}"`
-                            ];
-
-                            if (showDistanceColumn.value && row.distance !== undefined) {
-                                csvRow.push(row.distance || '');
-                            }
-
-                            csvRow.push(`"${(row.data || '').replace(/"/g, '""')}"`); // 处理引号转义
-                            csvRows.push(csvRow.join(','));
-                        });
-
-                        const csvContent = csvRows.join('\n');
-                        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = `tianyan_${startPage}_${endPage}_${new Date().toISOString().slice(0, 10)}.csv`;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-
-                        ElementPlus.ElMessage.success(
-                            `${t('Export successful! Total exported')} ${exportData.length} ${t('records, from page')} ${startPage} ${t('to page')} ${endPage}`
-                        );
-                    } else {
-                        ElementPlus.ElMessage.error(t('Export failed: server returned incorrect data format'));
-                    }
-                } catch (e) {
-                    if (e.code === 'ECONNABORTED') {
-                        ElementPlus.ElMessage.error(t('Export timeout, please reduce page range'));
-                    } else {
-                        ElementPlus.ElMessage.error(t('Export error') + ': ' + (e.response?.data?.detail || e.message));
-                    }
-                } finally {
-                    exporting.value = false;
-                    loading.value = false;
-                }
+            const resetFilters = () => {
+                filters.preset = 'recent_activity';
+                filters.playerName = '';
+                filters.actionType = '';
+                filters.targetName = '';
+                filters.targetId = '';
+                filters.world = 'all';
+                filters.centerX = '';
+                filters.centerY = '';
+                filters.centerZ = '';
+                filters.radius = '';
+                filters.exportLimit = 5000;
+                applyQuickRange(12);
+                clearResults();
             };
 
-            const showDbInfo = async () => {
-                try {
-                    loading.value = true;
-                    loadingProgress.value = t('Getting database information...');
-                    const res = await axios.get(`${API_BASE.value}/db_info`);
-
-                    let message = `${t('Database Information')}：\n`;
-                    message += `- ${t('Total rows')}: ${res.data.total_rows}\n`;
-                    message += `- ${t('Number of indexes')}: ${res.data.indexes.length}\n`;
-                    message += `- ${t('Number of fields')}: ${res.data.columns.length}\n\n`;
-
-                    ElementPlus.ElMessageBox.alert(message, t('Database Information'), {
-                        confirmButtonText: t('OK'),
-                        customClass: 'db-info-alert',
-                        showClose: false
-                    });
-                } catch (e) {
-                    ElementPlus.ElMessage.error(t('Failed to get database information') + ': ' + (e.response?.data?.detail || e.message));
-                } finally {
-                    loading.value = false;
-                }
+            const formatTime = (unixSeconds) => {
+                if (!unixSeconds) return '-';
+                return new Date(unixSeconds * 1000).toLocaleString();
             };
 
-            // 调试：检查当前显示的数据
-            const debugCheckData = () => {
-                console.group(t('Debug data'));
-                console.log(t('Logs array length') + ':', logs.value.length);
-                console.log('hasQueryResults:', hasQueryResults.value);
-                console.log('showDistanceColumn:', showDistanceColumn.value);
-                console.log('tableVersion:', tableVersion.value);
-                console.log(t('Current query conditions') + ':', {
-                    filterType: queryForm.filterType,
-                    filterValue: queryForm.filterValue,
-                    center_x: queryForm.center_x,
-                    center_y: queryForm.center_y,
-                    center_z: queryForm.center_z,
-                    radius: queryForm.radius,
-                    dimension: queryForm.dimension
+            const formatPosition = (row) => {
+                const values = [row.pos_x, row.pos_y, row.pos_z].map(value => {
+                    if (typeof value !== 'number') return value ?? '-';
+                    return Number(value).toFixed(1);
                 });
-
-                if (logs.value.length > 0) {
-                    // 统计不同类型的数据
-                    const typeCount = {};
-                    const idCount = {};
-
-                    logs.value.forEach(record => {
-                        const type = record.type || t('Unknown');
-                        const id = record.id || t('Unknown');
-
-                        typeCount[type] = (typeCount[type] || 0) + 1;
-                        idCount[id] = (idCount[id] || 0) + 1;
-                    });
-
-                    console.log(t('Record type distribution') + ':', typeCount);
-                    console.log(t('ID distribution') + ':', idCount);
-
-                    // 检查是否有不符合当前查询条件的记录
-                    if (queryForm.filterType && queryForm.filterValue) {
-                        const invalidRecords = logs.value.filter(record => {
-                            const fieldValue = record[queryForm.filterType];
-                            return !fieldValue || !fieldValue.includes(queryForm.filterValue);
-                        });
-
-                        if (invalidRecords.length > 0) {
-                            console.warn(`Found ${invalidRecords.length} records that do not match query conditions`);
-                            console.warn('Invalid record example:', invalidRecords[0]);
-                        } else {
-                            console.log('All records match current query conditions');
-                        }
-                    }
-                } else {
-                    console.log(t('No data currently displayed'));
-                }
-                console.groupEnd();
+                return `${values.join(', ')} / ${row.world || '-'}`;
             };
+
+            const actionLabel = (value) => actionMap.value[value] || value || '-';
+
+            watch(() => filters.playerName, (newValue) => {
+                if (playerSuggestTimer.value) {
+                    clearTimeout(playerSuggestTimer.value);
+                }
+                if (!newValue || newValue.length < 1) {
+                    playerSuggestions.value = [];
+                    return;
+                }
+                playerSuggestTimer.value = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/api/players?q=${encodeURIComponent(newValue)}`);
+                        const data = await response.json();
+                        if (response.ok) {
+                            playerSuggestions.value = data.players || [];
+                        }
+                    } catch (_) {
+                        playerSuggestions.value = [];
+                    }
+                }, 220);
+            });
 
             onMounted(async () => {
-                // 首先加载可用语言
-                await loadAvailableLanguages();
-                await fetchStats();
-                resetSearch();
-
-                // 添加调试按钮（仅开发环境）
-                if (isDebugMode.value) {
-                    setTimeout(() => {
-                        const debugBtn = document.createElement('button');
-                        debugBtn.id = 'debug-btn';
-                        debugBtn.textContent = t('Debug data');
-                        debugBtn.addEventListener('click', debugCheckData);
-                        document.body.appendChild(debugBtn);
-                    }, 1000);
+                applyQuickRange(12);
+                try {
+                    await loadOptions();
+                } catch (error) {
+                    setFeedback(error.message || '初始化失败', 'error');
                 }
             });
 
             return {
-                apiBase, stats, logs, queryForm, tempCoord, pagination,
-                loading, tableLoading, loadingProgress, lastQueryTime, hasQueryResults,
+                quickRanges,
+                presets,
+                actions,
+                worlds,
+                playerSuggestions,
+                filters,
+                query,
+                feedback,
+                results,
+                stats,
                 statsLoading,
-                exportDialogVisible, exportOption, exportStartPage, exportEndPage, exporting,
-                hasActiveCoordQuery, showDistanceColumn, isDebugMode,
-                currentLanguage, availableLanguages, translations,
-                t, // 导出翻译函数
-                fetchStats, fetchLogs, applyCoordQuery, clearCoordQuery,
-                resetSearch, handlePageChange, handlePageSizeChange,
-                showExportDialog, handleExportConfirm, showDbInfo, debugCheckData,
-                getRowKey, tableKey, changeLanguage
+                exportLoading,
+                activeRange,
+                activeFilters,
+                defaultWindowLabel,
+                applyQuickRange,
+                runQuery,
+                exportCsv,
+                resetFilters,
+                clearResults,
+                refreshStats,
+                formatTime,
+                formatPosition,
+                actionLabel
             };
         }
-    });
-
-    app.use(ElementPlus);
-
-    if (window.ElementPlusIconsVue) {
-        for (const [name, component] of Object.entries(window.ElementPlusIconsVue)) {
-            app.component(name, component);
-        }
-    }
-
-    app.mount("#app");
+    }).mount('#app');
 </script>
 </body>
 </html>

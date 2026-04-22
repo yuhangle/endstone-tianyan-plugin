@@ -5,6 +5,17 @@
 #include "event_listener.h"
 #include "tianyan_protect.h"
 
+namespace {
+bool shouldIgnoreUnnamedMob(const endstone::Actor& actor) {
+    return actor.getNameTag().empty() &&
+           ranges::find(no_log_mobs, actor.getType()) != no_log_mobs.end();
+}
+
+bool shouldIgnoreTriggeredBlock(const std::string& block_id) {
+    return ranges::find(no_log_blocks, block_id) != no_log_blocks.end();
+}
+}  // namespace
+
 // 检查是否允许触发事件
 bool EventListener::canTriggerEvent(const string& playername) {
     const auto now = std::chrono::steady_clock::now();
@@ -73,20 +84,22 @@ void EventListener::onBlockPlace(const endstone::BlockPlaceEvent& event){
 }
 
 void EventListener::onActorDamage(const endstone::ActorDamageEvent& event){
-    //无名的烂大街生物无需在意
-    if (event.getActor().getNameTag().empty() && ranges::find(no_log_mobs, event.getActor().getType()) != no_log_mobs.end()) {
+    if (shouldIgnoreUnnamedMob(event.getActor())) {
         return;
     }
     TianyanCore::LogData logData;
     logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
 
-    //实体造成伤害
-    if (event.getDamageSource().getActor()) {
-        logData.id = event.getDamageSource().getActor()->getType();
-        logData.name = event.getDamageSource().getActor()->getName();
+    // 优先记录真正造成伤害的实体，投射物等间接伤害会更准确。
+    if (auto* damaging_actor = event.getDamageSource().getDamagingActor()) {
+        logData.id = damaging_actor->getType();
+        logData.name = damaging_actor->getName();
+        logData.type = "entity_damage";
+    } else if (auto* source_actor = event.getDamageSource().getActor()) {
+        logData.id = source_actor->getType();
+        logData.name = source_actor->getName();
         logData.type = "entity_damage";
     }
-    //其余伤害
     else {
         logData.id = event.getDamageSource().getType();
         logData.type = "damage";
@@ -102,7 +115,8 @@ void EventListener::onActorDamage(const endstone::ActorDamageEvent& event){
         logData.status = "canceled";
     }
     auto damage = event.getDamage();
-    logData.data = fmt::format("{}", damage);
+    logData.data = fmt::format("damage={},source={},indirect={}", damage, event.getDamageSource().getType(),
+                               event.getDamageSource().isIndirect());
     {
         std::lock_guard lock(cacheMutex);
         logDataCache.push_back(logData);
@@ -117,7 +131,7 @@ void EventListener::onPlayerRightClickBlock(const endstone::PlayerInteractEvent&
 
     // 配置屏蔽的方块不记录（例如铁活板门）
     const auto block_id = event.getBlock()->getType();
-    if (ranges::find(no_log_blocks, block_id) != no_log_blocks.end()) {
+    if (shouldIgnoreTriggeredBlock(block_id)) {
         return;
     }
 
@@ -174,8 +188,7 @@ void EventListener::onPlayerRightClickBlock(const endstone::PlayerInteractEvent&
 }
 
 void EventListener::onPlayerRightClickActor(const endstone::PlayerInteractActorEvent& event){
-    //无名的烂大街生物无需在意
-    if (event.getActor().getNameTag().empty() && ranges::find(no_log_mobs, event.getActor().getType()) != no_log_mobs.end()) {
+    if (shouldIgnoreUnnamedMob(event.getActor())) {
         return;
     }
     TianyanCore::LogData logData;
@@ -256,6 +269,9 @@ void EventListener::onActorBomb(const endstone::ActorExplodeEvent& event) {
 }
 
 void EventListener::onPistonExtend(const endstone::BlockPistonExtendEvent&event) {
+    if (shouldIgnoreTriggeredBlock(event.getBlock().getType())) {
+        return;
+    }
     TianyanCore::LogData logData;
     logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
     logData.id = event.getBlock().getType();
@@ -293,6 +309,9 @@ void EventListener::onPistonExtend(const endstone::BlockPistonExtendEvent&event)
 }
 
 void EventListener::onPistonRetract(const endstone::BlockPistonRetractEvent&event) {
+    if (shouldIgnoreTriggeredBlock(event.getBlock().getType())) {
+        return;
+    }
     TianyanCore::LogData logData;
     logData.uuid = yuhangle::Database::generate_uuid_v4(); // 生成UUID
     logData.id = event.getBlock().getType();
@@ -329,8 +348,7 @@ void EventListener::onPistonRetract(const endstone::BlockPistonRetractEvent&even
 }
 
 void EventListener::onActorDie(const endstone::ActorDeathEvent&event) {
-    //无名的烂大街生物无需在意
-    if (event.getActor().getNameTag().empty() && ranges::find(no_log_mobs, event.getActor().getType()) != no_log_mobs.end()) {
+    if (shouldIgnoreUnnamedMob(event.getActor())) {
         return;
     }
     TianyanCore::LogData logData;

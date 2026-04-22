@@ -1,6 +1,11 @@
 name: Build Endstone Tianyan
 
 on:
+  push:
+    branches:
+      - master
+      - 'codex/**'
+  pull_request:
   workflow_dispatch:
     inputs:
       publish_release:
@@ -24,6 +29,8 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    env:
+      RELEASE_TYPE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type || 'development' }}
     strategy:
       matrix:
         os: [ubuntu-22.04, windows-latest]
@@ -48,7 +55,7 @@ jobs:
       - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
         run: |
-          if [ "${{ github.event.inputs.release_type }}" = "release" ]; then
+          if [ "${RELEASE_TYPE}" = "release" ]; then
             cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DRELEASE_VERSION=1 \
                   -DCMAKE_C_COMPILER=clang-19 \
                   -DCMAKE_CXX_COMPILER=clang++-19 \
@@ -81,7 +88,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          if ("${{ github.event.inputs.release_type }}" -eq "release") {
+          if ("${env:RELEASE_TYPE}" -eq "release") {
             cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DRELEASE_VERSION=1 `
               -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
               -DVCPKG_TARGET_TRIPLET=x64-windows-static
@@ -131,6 +138,18 @@ jobs:
             cp "$SO_FILE" build/endstone_tianyan.so
           fi
 
+      - name: Prepare deployable package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          PACKAGE_DIR=build/package/plugins/tianyan_data
+          mkdir -p "${PACKAGE_DIR}/language"
+          cp build/endstone_tianyan.so build/package/plugins/endstone_tianyan.so
+          cp -r language/* "${PACKAGE_DIR}/language/"
+          cp -r WebUI "${PACKAGE_DIR}/"
+          cd build/package
+          zip -r ../../tianyan-linux-package.zip plugins
+          cd ../..
+
       # ===== Upload plugin artifact =====
       - name: Upload plugin artifact (Linux)
         if: runner.os == 'Linux'
@@ -138,6 +157,13 @@ jobs:
         with:
           name: tianyan-linux-plugin
           path: build/endstone_tianyan.so
+
+      - name: Upload deployable package (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tianyan-linux-package
+          path: tianyan-linux-package.zip
 
       - name: Upload plugin artifact (Windows)
         if: runner.os == 'Windows'
@@ -147,11 +173,31 @@ jobs:
           path: |
             ${{ github.workspace }}\build\endstone_tianyan.dll
 
+      - name: Prepare deployable package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $packageDir = "${{ github.workspace }}\\build\\package\\plugins\\tianyan_data"
+          New-Item -ItemType Directory -Force -Path "$packageDir\\language" | Out-Null
+          Copy-Item "${{ github.workspace }}\\build\\endstone_tianyan.dll" "${{ github.workspace }}\\build\\package\\plugins\\endstone_tianyan.dll" -Force
+          Copy-Item "${{ github.workspace }}\\language\\*" "$packageDir\\language" -Recurse -Force
+          Copy-Item "${{ github.workspace }}\\WebUI" "$packageDir" -Recurse -Force
+          Compress-Archive -Path "${{ github.workspace }}\\build\\package\\plugins" -DestinationPath "${{ github.workspace }}\\tianyan-windows-package.zip" -Force
+
+      - name: Upload deployable package (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tianyan-windows-package
+          path: tianyan-windows-package.zip
+
   release:
     name: Publish Release
     needs: build
-    if: ${{ github.event.inputs.publish_release == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true' }}
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TYPE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type || 'development' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -165,7 +211,7 @@ jobs:
           # 假设 CMakeLists.txt 中有一行 set(BASE_VERSION "1.2.0")
           FILE_BASE_VERSION=$(grep -o 'set(BASE_VERSION "[^"]*")' CMakeLists.txt | cut -d'"' -f2)
           
-          if [ "${{ github.event.inputs.release_type }}" = "release" ]; then
+          if [ "${RELEASE_TYPE}" = "release" ]; then
             # === 正式发布 ===
             PROJECT_VERSION="${FILE_BASE_VERSION}"
             TAG_VERSION="v${FILE_BASE_VERSION}"
@@ -238,7 +284,7 @@ jobs:
           tag_name: ${{ steps.get_version.outputs.TAG_VERSION }}
           name: ${{ steps.get_version.outputs.RELEASE_TITLE }}
           draft: false
-          prerelease: ${{ github.event.inputs.release_type == 'development' }}
+          prerelease: ${{ env.RELEASE_TYPE == 'development' }}
           files: artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

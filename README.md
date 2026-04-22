@@ -68,6 +68,8 @@ WebUI使用插件主配置文件 `config.json` 中的配置启动（无需单独
 
 运行WebUI需要以下pip包：`fastapi` `uvicorn` `pymysql`, WebUI在运行时会自动安装pip包。
 
+新版 WebUI 采用按需加载，不会在页面打开时立即执行全库统计；查询使用预设场景、时间范围、玩家、类型和范围过滤组合，并改为轻量翻页，降低大库场景下的读取压力。
+
 你可以通过`服务器IP:WebUI端口`访问WebUI面板,例如，默认端口为8098，访问地址为`http://127.0.0.1:8098`。
 
 ## 🚀 安装 & 配置 & 使用方法
@@ -100,13 +102,26 @@ WebUI使用插件主配置文件 `config.json` 中的配置启动（无需单独
     "mysql_password": "root",
     "mysql_database": "tianyan",
     "no_log_mobs": [
-        "minecraft:zombie",
-        "minecraft:skeleton",
-        "minecraft:bogged",
+        "minecraft:zombie_pigman",
+        "minecraft:zombified_piglin",
         "minecraft:iron_golem"
     ],
     "no_log_blocks": [
-        "minecraft:iron_trapdoor"
+        "minecraft:iron_trapdoor",
+        "minecraft:oak_trapdoor",
+        "minecraft:spruce_trapdoor",
+        "minecraft:birch_trapdoor",
+        "minecraft:jungle_trapdoor",
+        "minecraft:acacia_trapdoor",
+        "minecraft:dark_oak_trapdoor",
+        "minecraft:mangrove_trapdoor",
+        "minecraft:cherry_trapdoor",
+        "minecraft:bamboo_trapdoor",
+        "minecraft:crimson_trapdoor",
+        "minecraft:warped_trapdoor",
+        "minecraft:pale_oak_trapdoor",
+        "minecraft:piston",
+        "minecraft:sticky_piston"
     ]
 }
 ```
@@ -118,8 +133,8 @@ WebUI使用插件主配置文件 `config.json` 中的配置启动（无需单独
 - `web_backend_port`: WebUI 端口
 - `language`: 插件语言
 - `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: MySQL数据库连接配置
-- `no_log_mobs`: 不被记录的实体列表
-- `no_log_blocks`: 不被记录的方块交互列表（作用于 `player_right_click_block`）
+- `no_log_mobs`: 不被记录的实体列表。默认只屏蔽猪人、僵尸猪灵、铁傀儡等你不关心的实体；旧配置若仍是历史上的大范围默认值，会自动迁移到新默认值，避免打怪记录被整批吞掉。
+- `no_log_blocks`: 不被记录的触发型方块列表，作用于 `player_right_click_block`、`piston_extend`、`piston_retract`。可在这里自定义活塞、活板门等不想记录的触发事件。
 
 > 在涉及实体事件中，除非使用命名牌，否则不会记录 `no_log_mobs` 中的实体。
 

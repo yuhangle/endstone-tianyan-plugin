@@ -12,7 +12,7 @@ public:
     explicit Menu(endstone::Plugin &plugin) : plugin_(plugin) {}
     
     //日志展示菜单
-    static void showLogMenu(endstone::Player &player, const std::vector<TianyanCore::LogData>& logDatas, int page = 0);
+    static void showLogMenu(endstone::Player &player, std::vector<TianyanCore::LogData> logDatas, int page = 0);
 
     //tyback菜单
     static void tybackMenu(const endstone::Player &sender);
