@@ -530,9 +530,9 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
             return false;
         }
         sender.sendMessage(endstone::ColorFormat::Yellow + Tran.getLocal("Searching logs in the background. Please wait"));
-        getServer().getScheduler().runTaskAsync(*this, [this, player_name, query_task = std::move(query_task),
-                                                        search_key_type = std::move(search_key_type),
-                                                        search_key = std::move(search_key)]() mutable {
+        std::thread query_thread([this, player_name, query_task = std::move(query_task),
+                                  search_key_type = std::move(search_key_type),
+                                  search_key = std::move(search_key)]() mutable {
             PendingLogQueryResult result;
             result.player_name = player_name;
             result.search_key = search_key;
@@ -549,6 +549,7 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
             std::lock_guard lock(completed_log_query_mutex_);
             completed_log_query_results_.push_back(std::move(result));
         });
+        query_thread.detach();
         return true;
     };
 
