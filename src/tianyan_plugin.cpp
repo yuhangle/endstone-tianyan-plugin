@@ -336,7 +336,7 @@ void TianyanPlugin::onLoad()
     }
     //获取服务器语言
     const string sever_lang = getServer().getLanguage().getLocale();
-    TianyanCore::language_file = TianyanCore::dataPath + "/language/"+sever_lang+".json";
+    TianyanCore::language_file = string(TianyanCore::dataPath) + "/language/"+sever_lang+".json";
     Tran = std::make_unique<translate>(TianyanCore::language_file);
     //加载语言
     const auto [fst, snd] = Tran->loadLanguage();
