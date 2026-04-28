@@ -87,7 +87,6 @@
   "Reason: {}": "理由: {}",
   "Dimension": "维度",
   "Console not support this command": "控制台不支持此命令",
-  "Too many logs, please narrow the search range,display only 10,000 logs": "过多的日志，请缩小搜索范围，只展示10000条日志",
   "Database clean over": "数据库清理完成",
   "Database clean error": "数据库清理错误",
   "Time elapsed: ": "耗时: ",
@@ -120,5 +119,7 @@
   "Success: ": "成功: ",
   "Failed: ": "失败: ",
   "Background log loading completed. You may now resume your operation": "后台日志加载完成，现在可以继续操作",
-  "Too many logs. Loading in the background to avoid lag — please wait": "日志过多，正在后台加载以避免延迟，请稍候"
+  "Too many logs. Loading in the background to avoid lag — please wait": "日志过多，正在后台加载以避免延迟，请稍候",
+  "A background operation is in progress. Please wait for it to complete": "后台操作正在进行中，请等待完成",
+  "Searching in the background, please wait": "正在后台搜索，请稍候"
 }

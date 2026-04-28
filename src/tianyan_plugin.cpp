@@ -401,8 +401,8 @@ void TianyanPlugin::onEnable()
     getServer().getScheduler().runTaskTimer(*this, [&]() {logsCacheWrite();},0,60);
     //数据库清理后台检查
     getServer().getScheduler().runTaskTimer(*this,[&](){checkDatabaseCleanStatus();},0,20);
-    //tyback命令后台检查
-    getServer().getScheduler().runTaskTimer(*this,[&](){checkTybackSearchThread();},0,20);
+    //后台查询任务检查
+    getServer().getScheduler().runTaskTimer(*this,[&](){checkAsyncTasks();},0,20);
     //完成外部类初始化
     protect_ = std::make_unique<TianyanProtect>(this, Tran.get());
     eventListener_ = std::make_unique<EventListener>(this, Tran.get());
@@ -500,65 +500,46 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double x = sender.asPlayer()->getLocation().getX();
                 const double y = sender.asPlayer()->getLocation().getY();
                 const double z = sender.asPlayer()->getLocation().getZ();
-                if (const auto searchData = tyCore->searchLog({"",time},x, y, z, r, world); searchData.empty()) {
-                    sender.sendErrorMessage(Tran->getLocal("No log found"));
-                } else {
-                    if (!search_key_type.empty() && !search_key.empty()) {
-                        vector<TianyanCore::LogData> key_logData;
-                        if (search_key_type == "source_id") {
-                            for (auto &logData : searchData) {
-                                if (logData.id == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "source_name") {
-                            for (auto &logData : searchData) {
-                                if (logData.name == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "target_id") {
-                            for (auto &logData : searchData) {
-                                if (logData.obj_id == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "target_name") {
-                            for (auto &logData : searchData) {
-                                if (logData.obj_name == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "action") {
-                            for (auto &logData : searchData) {
-                                if (logData.type == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        }
-                        if (!key_logData.empty()) {
-                            menu_->showLogMenu(*sender.asPlayer(), key_logData);
-                            sender.sendMessage(endstone::ColorFormat::Yellow+Tran->getLocal("Display all logs about")+"` "+search_key+" `");
-                            //提示数据过大
-                            if (searchData.size() > 9999) {
-                                sender.sendErrorMessage(Tran->getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
-                            }
-                        }
-                        else {
-                            sender.sendErrorMessage(Tran->getLocal("No log found"));
-                        }
-                    } else {
-                        menu_->showLogMenu(*sender.asPlayer(), searchData);
-                        sender.sendMessage(endstone::ColorFormat::Yellow+Tran->getLocal("Display all logs"));
-                        //提示数据过大
-                        if (searchData.size() > 9999) {
-                            sender.sendErrorMessage(Tran->getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
+
+                // 提交后台查询任务
+                {
+                    std::lock_guard lock(async_tasks_mutex_);
+                    for (const auto& t : async_tasks_) {
+                        if (t.player_name == sender.getName() && t.is_running) {
+                            sender.sendErrorMessage(Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
+                            return false;
                         }
                     }
+                    AsyncQueryTask task;
+                    task.type = AsyncQueryTask::Type::Ty;
+                    task.player_name = sender.getName();
+                    task.is_running = true;
+                    task.hours = time;
+                    task.r = r;
+                    task.world = world;
+                    task.x = x;
+                    task.y = y;
+                    task.z = z;
+                    task.key_type = search_key_type;
+                    task.key = search_key;
+                    async_tasks_.push_back(std::move(task));
                 }
 
+                sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
+
+                std::thread([this, player_name = sender.getName(), hours = time, r, world, x, y, z]() {
+                    auto results = tyCore->searchLog({"", hours}, x, y, z, r, world);
+                    std::lock_guard lock(async_tasks_mutex_);
+                    for (auto& t : async_tasks_) {
+                        if (t.player_name == player_name && t.is_running) {
+                            t.results = std::move(results);
+                            t.is_complete = true;
+                            break;
+                        }
+                    }
+                }).detach();
+
             } catch (const std::exception &e) {
-                //返回错误给玩家
                 sender.sendErrorMessage(e.what());
             }
         }
@@ -573,16 +554,21 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
             }
             menu_->tybackMenu(*sender.asPlayer());
         }
-        else if (args.size() >=2) {
+        else if (args.size() >= 2) {
             if (!sender.asPlayer()) {
                 sender.sendErrorMessage(Tran->getLocal("Console not support this command"));
                 return false;
             }
             try {
-                //玩家有后台tyback操作未完成阻止使用
-                if (tyback_cache.player_name == sender.getName() && tyback_cache.status == false) {
-                    sender.sendErrorMessage(Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
-                    return false;
+                // 检查是否有进行中的后台任务
+                {
+                    std::lock_guard lock(async_tasks_mutex_);
+                    for (const auto& t : async_tasks_) {
+                        if (t.player_name == sender.getName() && t.is_running) {
+                            sender.sendErrorMessage(Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
+                            return false;
+                        }
+                    }
                 }
                 const double r = stod(args[0]);
                 if (r > 100) {
@@ -596,160 +582,40 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double x = sender.asPlayer()->getLocation().getX();
                 const double y = sender.asPlayer()->getLocation().getY();
                 const double z = sender.asPlayer()->getLocation().getZ();
-                if (auto searchData = tyCore->searchLog({"",time},x, y, z, r, world); searchData.empty()) {
-                    sender.sendErrorMessage(Tran->getLocal("No log found"));
-                } else {
-                    //数据过大，启动后台模式
-                    if (searchData.size() > 9999 && tyback_cache.status == false) {
-                        sender.sendMessage(Tran->getLocal("Too many logs. Loading in the background to avoid lag — please wait"));
-                        //不允许多个后台任务
-                        if (tyback_cache.is_running) {
-                            sender.sendErrorMessage(Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
-                            return false;
-                        }
-                        tyback_cache.player_name = sender.asPlayer()->getName();
-                        tyback_cache.time = time;tyback_cache.r = r;
-                        std::thread tyback_thread( [this,time, x, y, z, r, world]() {
-                            tyback_cache.is_running = true;
-                            const auto searchData_ = tyCore->searchLog({"",time},x, y, z, r, world, true);
-                            tyback_cache.logDatas = searchData_;
-                            tyback_cache.status = true;
-                        });
-                        tyback_thread.detach();
-                        return true;
-                    }
-                    if (tyback_cache.status == true) {
-                        searchData = tyback_cache.logDatas;
-                    }
-                    //回溯逻辑
-                    int success_times = 0;int failed_times = 0;
-                    for (auto& logData : std::ranges::reverse_view(searchData)) {
-                        //跳过取消掉和已回溯的事件
-                        if (logData.status == "canceled" || logData.status == "reverted") {
-                            continue;
-                        }
-                        //输入了查找指定源
-                        if (!source_key_type.empty() && !source_key.empty()) {
-                            //查询ID而事件非源ID
-                            if (source_key_type == "source_id" && logData.id != source_key) {
-                                continue;
-                            }
-                            //查询名称而事件非源名称
-                            if (source_key_type == "source_name" && logData.name != source_key) {
-                                continue;
-                            }
-                            //查询ID而事件非目标ID
-                            if (source_key_type == "target_id" && logData.obj_id != source_key) {
-                                continue;
-                            }
-                            //查询名称而事件非目标名称
-                            if (source_key_type == "target_name" && logData.obj_name != source_key) {
-                                continue;
-                            }
-                            //查询类型而事件非指定类型
-                            if (source_key_type == "action" && logData.type != source_key) {
-                                continue;
-                            }
-                        }
-                        endstone::CommandSenderWrapper wrapper_sender(sender,
-                        [](const endstone::Message &) {},
-                        [](const endstone::Message &) {}
-                        );
-                        //破坏和爆炸方块的恢复
-                        if (logData.type == "block_break" || logData.type == "block_break_bomb" || (logData.type == "actor_bomb" && logData.id == "minecraft:tnt")) {
-                            string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
-                            std::ostringstream cmd;
-                            cmd << "setblock " << pos << " " << logData.obj_id << logData.data;
-                            // 将已回溯的事件UUID和状态添加到缓存中
-                            if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
-                                TianyanCore::revertStatusCache.emplace_back(logData.uuid, "reverted");
-                                success_times++;
-                            } else
-                            {
-                                failed_times++;
-                            }
-                        }
-                        //对玩家右键方块的状态复原
-                        else if (logData.type == "player_right_click_block") {
-                            //右键方块存在状态
-                            if (auto hand_block = yuhangle::Database::splitString(logData.data); hand_block[1] != "[]") {
-                                //跳过内部存在数据的方块
-                                static const std::vector<std::string> skipKeywords = {
-                                    "chest", "sign", "command", "shulker_box",
-                                    "dispenser", "dropper", "hopper", "barrel",
-                                    "furnace","smoker","frame","shelf"
-                                };
 
-                                auto containsKeyword = [&logData](const std::string& kw) {
-                                    return logData.obj_id.find(kw) != std::string::npos;
-                                };
-
-                                if (ranges::any_of(skipKeywords, containsKeyword)) {
-                                    continue;
-                                }
-                                string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
-                                std::ostringstream cmd;
-                                cmd << "setblock " << pos << " " << logData.obj_id << hand_block[1];
-                                if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
-                                    TianyanCore::revertStatusCache.emplace_back(logData.uuid, "reverted");
-                                    success_times++;
-                                } else
-                                {
-                                    failed_times++;
-                                }
-                            }
-                        }
-                        //放置方块的恢复
-                        else if (logData.type == "block_place") {
-                            string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
-                            std::ostringstream cmd;
-                            cmd << "setblock " << pos << " minecraft:air";
-                            if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
-                                TianyanCore::revertStatusCache.emplace_back(logData.uuid, "reverted");
-                                success_times++;
-                            } else
-                            {
-                                failed_times++;
-                            }
-                        }
-                        //复活吧我的生物
-                        else if (logData.type == "entity_die") {
-                            string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
-                            std::string obj_id = logData.obj_id;
-                            if (size_t vpos = obj_id.find("villager_v2"); vpos != std::string::npos) {
-                                obj_id.replace(vpos, 11, "villager");
-                            }
-                            // 人被杀，就会死
-                            if (obj_id == "minecraft:player") {
-                                continue;
-                            }
-                            std::ostringstream cmd;
-                            cmd << "summon " << obj_id << " " << pos;
-                            if (getServer().dispatchCommand(wrapper_sender,cmd.str())) {
-                                TianyanCore::revertStatusCache.emplace_back(logData.uuid, "reverted");
-                                success_times++;
-                            } else
-                            {
-                                failed_times++;
-                            }
-                        }
-                    }
-                    // 执行批量更新回溯状态
-                    updateRevertStatus();
-                    auto green = endstone::ColorFormat::Green;
-                    if (success_times > 0) {
-                        sender.sendMessage(green + Tran->getLocal("Revert times: ")+std::to_string(success_times+failed_times));
-                        sender.sendMessage(green + Tran->getLocal("Success: ")+std::to_string(success_times));
-                        sender.sendMessage(green + Tran->getLocal("Failed: ")+std::to_string(failed_times));
-                    } else {
-                        sender.sendMessage(green + Tran->getLocal("Nothing happened"));
-                        sender.sendMessage(green + Tran->getLocal("Failed: ")+std::to_string(failed_times));
-                    }
-                    //清理后台缓存
-                    tyback_cache = {false};
+                // 提交后台查询任务
+                {
+                    std::lock_guard lock(async_tasks_mutex_);
+                    AsyncQueryTask task;
+                    task.type = AsyncQueryTask::Type::Tyback;
+                    task.player_name = sender.getName();
+                    task.is_running = true;
+                    task.hours = time;
+                    task.r = r;
+                    task.world = world;
+                    task.x = x;
+                    task.y = y;
+                    task.z = z;
+                    task.key_type = source_key_type;
+                    task.key = source_key;
+                    async_tasks_.push_back(std::move(task));
                 }
+
+                sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
+
+                std::thread([this, player_name = sender.getName(), hours = time, r, world, x, y, z]() {
+                    auto results = tyCore->searchLog({"", hours}, x, y, z, r, world);
+                    std::lock_guard lock(async_tasks_mutex_);
+                    for (auto& t : async_tasks_) {
+                        if (t.player_name == player_name && t.is_running) {
+                            t.results = std::move(results);
+                            t.is_complete = true;
+                            break;
+                        }
+                    }
+                }).detach();
+
             } catch (const std::exception &e) {
-                //返回错误给玩家
                 sender.sendErrorMessage(e.what());
             }
         }
@@ -771,68 +637,43 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
             }
             try {
                 const double time = stod(args[0]);
-                const string search_key_type = args.size() > 1 ? args[1] : "";
-                const string search_key = args.size() > 2 ? args[2] : "";
-                const string world = sender.asPlayer()->getLocation().getDimension().getName();
-                if (const auto searchData = tyCore->searchLog({"",time}); searchData.empty()) {
-                    sender.sendErrorMessage(Tran->getLocal("No log found"));
-                } else {
-                    if (!search_key_type.empty() && !search_key.empty()) {
-                        vector<TianyanCore::LogData> key_logData;
-                        if (search_key_type == "source_id") {
-                            for (auto &logData : searchData) {
-                                if (logData.id == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "source_name") {
-                            for (auto &logData : searchData) {
-                                if (logData.name == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "target_id") {
-                            for (auto &logData : searchData) {
-                                if (logData.obj_id == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "target_name") {
-                            for (auto &logData : searchData) {
-                                if (logData.obj_name == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        } else if (search_key_type == "action") {
-                            for (auto &logData : searchData) {
-                                if (logData.type == search_key) {
-                                    key_logData.push_back(logData);
-                                }
-                            }
-                        }
-                        if (!key_logData.empty()) {
-                            menu_->showLogMenu(*sender.asPlayer(), key_logData);
-                            sender.sendMessage(endstone::ColorFormat::Yellow+Tran->getLocal("Display all logs about")+"` "+search_key+" `");
-                            //提示数据过大
-                            if (searchData.size() > 9999) {
-                                sender.sendErrorMessage(Tran->getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
-                            }
-                        }
-                        else {
-                            sender.sendErrorMessage(Tran->getLocal("No log found"));
-                        }
-                    } else {
-                        menu_->showLogMenu(*sender.asPlayer(), searchData);
-                        sender.sendMessage(endstone::ColorFormat::Yellow+Tran->getLocal("Display all logs"));
-                        //提示数据过大
-                        if (searchData.size() > 9999) {
-                            sender.sendErrorMessage(Tran->getLocal("Too many logs, please narrow the search range,display only 10,000 logs"));
+
+                // 提交后台查询任务
+                {
+                    const string search_key_type = args.size() > 1 ? args[1] : "";
+                    const string search_key = args.size() > 2 ? args[2] : "";
+                    std::lock_guard lock(async_tasks_mutex_);
+                    for (const auto& t : async_tasks_) {
+                        if (t.player_name == sender.getName() && t.is_running) {
+                            sender.sendErrorMessage(Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
+                            return false;
                         }
                     }
+                    AsyncQueryTask task;
+                    task.type = AsyncQueryTask::Type::Tys;
+                    task.player_name = sender.getName();
+                    task.is_running = true;
+                    task.hours = time;
+                    task.key_type = search_key_type;
+                    task.key = search_key;
+                    async_tasks_.push_back(std::move(task));
                 }
 
+                sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
+
+                std::thread([this, player_name = sender.getName(), hours = time]() {
+                    auto results = tyCore->searchLog({"", hours});
+                    std::lock_guard lock(async_tasks_mutex_);
+                    for (auto& t : async_tasks_) {
+                        if (t.player_name == player_name && t.is_running) {
+                            t.results = std::move(results);
+                            t.is_complete = true;
+                            break;
+                        }
+                    }
+                }).detach();
+
             } catch (const std::exception &e) {
-                //返回错误给玩家
                 sender.sendErrorMessage(e.what());
             }
         }
@@ -972,8 +813,8 @@ void TianyanPlugin::logsCacheWrite() const
     std::thread logsCacheWrite_thread ([this,localCache]() mutable {
         // 检查写入状态
         if (tyCore->recordLogs(localCache)) {
-            //超过10万仍无法写入，则清空缓存
-            if (localCache.size() > 100000) {
+            //超过100万仍无法写入，则清空缓存
+            if (localCache.size() > 1000000) {
                 std::cerr << "Unable to write a large volume of logs; cached logs will be discarded" << endl;
                 localCache.clear();
             } else {
@@ -1025,19 +866,162 @@ void TianyanPlugin::checkDatabaseCleanStatus() const {
     yuhangle::clean_data_message.clear();
 }
 
-//检查tyback后台
-void TianyanPlugin::checkTybackSearchThread() {
-    if (tyback_cache.status == false) {
-        return;
+//检查后台查询任务
+void TianyanPlugin::checkAsyncTasks() {
+    // 收集已完成的任务
+    vector<AsyncQueryTask> completed;
+    {
+        std::lock_guard lock(async_tasks_mutex_);
+        for (auto it = async_tasks_.begin(); it != async_tasks_.end();) {
+            if (it->is_complete) {
+                completed.push_back(std::move(*it));
+                it = async_tasks_.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
-    if (const auto player = getServer().getPlayer(tyback_cache.player_name)) {
-        player->sendMessage(endstone::ColorFormat::Green+Tran->getLocal("Background log loading completed. You may now resume your operation"));
-        std::ostringstream cmd;
-        cmd << "tyback " << tyback_cache.r << " " << tyback_cache.time;
-        tyback_cache.is_running = false;
-        (void)player->performCommand(cmd.str());
-    } else {
-        tyback_cache = {false};
+
+    // 在服务器线程上处理每个已完成任务
+    for (auto& task : completed) {
+        const auto player = getServer().getPlayer(task.player_name);
+        if (!player) continue;
+
+        if (task.type == AsyncQueryTask::Type::Ty || task.type == AsyncQueryTask::Type::Tys) {
+            if (task.results.empty()) {
+                player->sendErrorMessage(Tran->getLocal("No log found"));
+                continue;
+            }
+
+            if (!task.key_type.empty() && !task.key.empty()) {
+                vector<TianyanCore::LogData> filtered;
+                if (task.key_type == "source_id") {
+                    for (auto& log : task.results) {
+                        if (log.id == task.key) filtered.push_back(log);
+                    }
+                } else if (task.key_type == "source_name") {
+                    for (auto& log : task.results) {
+                        if (log.name == task.key) filtered.push_back(log);
+                    }
+                } else if (task.key_type == "target_id") {
+                    for (auto& log : task.results) {
+                        if (log.obj_id == task.key) filtered.push_back(log);
+                    }
+                } else if (task.key_type == "target_name") {
+                    for (auto& log : task.results) {
+                        if (log.obj_name == task.key) filtered.push_back(log);
+                    }
+                } else if (task.key_type == "action") {
+                    for (auto& log : task.results) {
+                        if (log.type == task.key) filtered.push_back(log);
+                    }
+                }
+
+                if (!filtered.empty()) {
+                    menu_->showLogMenu(*player, filtered);
+                    player->sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Display all logs about") + "` " + task.key + " `");
+                } else {
+                    player->sendErrorMessage(Tran->getLocal("No log found"));
+                }
+            } else {
+                menu_->showLogMenu(*player, task.results);
+                player->sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Display all logs"));
+            }
+        } else if (task.type == AsyncQueryTask::Type::Tyback) {
+            if (task.results.empty()) {
+                player->sendErrorMessage(Tran->getLocal("No log found"));
+                continue;
+            }
+
+            int success_times = 0;
+            int failed_times = 0;
+            for (auto& logData : std::ranges::reverse_view(task.results)) {
+                if (logData.status == "canceled" || logData.status == "reverted") {
+                    continue;
+                }
+                if (!task.key_type.empty() && !task.key.empty()) {
+                    if (task.key_type == "source_id" && logData.id != task.key) continue;
+                    if (task.key_type == "source_name" && logData.name != task.key) continue;
+                    if (task.key_type == "target_id" && logData.obj_id != task.key) continue;
+                    if (task.key_type == "target_name" && logData.obj_name != task.key) continue;
+                    if (task.key_type == "action" && logData.type != task.key) continue;
+                }
+                endstone::CommandSenderWrapper wrapper_sender(*player,
+                    [](const endstone::Message&) {},
+                    [](const endstone::Message&) {}
+                );
+                if (logData.type == "block_break" || logData.type == "block_break_bomb" || (logData.type == "actor_bomb" && logData.id == "minecraft:tnt")) {
+                    string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
+                    std::ostringstream cmd;
+                    cmd << "setblock " << pos << " " << logData.obj_id << logData.data;
+                    if (getServer().dispatchCommand(wrapper_sender, cmd.str())) {
+                        TianyanCore::revertStatusCache.emplace_back(logData.uuid, "reverted");
+                        success_times++;
+                    } else {
+                        failed_times++;
+                    }
+                } else if (logData.type == "player_right_click_block") {
+                    if (auto hand_block = yuhangle::Database::splitString(logData.data); hand_block[1] != "[]") {
+                        static constexpr std::array<std::string_view, 12> skipKeywords = {
+                            "chest", "sign", "command", "shulker_box",
+                            "dispenser", "dropper", "hopper", "barrel",
+                            "furnace", "smoker", "frame", "shelf"
+                        };
+                        auto containsKeyword = [&logData](const std::string_view kw) {
+                            return logData.obj_id.find(kw) != std::string::npos;
+                        };
+                        if (ranges::any_of(skipKeywords, containsKeyword)) {
+                            continue;
+                        }
+                        string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
+                        std::ostringstream cmd;
+                        cmd << "setblock " << pos << " " << logData.obj_id << hand_block[1];
+                        if (getServer().dispatchCommand(wrapper_sender, cmd.str())) {
+                            TianyanCore::revertStatusCache.emplace_back(logData.uuid, "reverted");
+                            success_times++;
+                        } else {
+                            failed_times++;
+                        }
+                    }
+                } else if (logData.type == "block_place") {
+                    string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
+                    std::ostringstream cmd;
+                    cmd << "setblock " << pos << " minecraft:air";
+                    if (getServer().dispatchCommand(wrapper_sender, cmd.str())) {
+                        TianyanCore::revertStatusCache.emplace_back(logData.uuid, "reverted");
+                        success_times++;
+                    } else {
+                        failed_times++;
+                    }
+                } else if (logData.type == "entity_die") {
+                    string pos = std::to_string(logData.pos_x) + " " + std::to_string(logData.pos_y) + " " + std::to_string(logData.pos_z);
+                    string obj_id = logData.obj_id;
+                    if (size_t vpos = obj_id.find("villager_v2"); vpos != std::string::npos) {
+                        obj_id.replace(vpos, 11, "villager");
+                    }
+                    if (obj_id == "minecraft:player") {
+                        continue;
+                    }
+                    std::ostringstream cmd;
+                    cmd << "summon " << obj_id << " " << pos;
+                    if (getServer().dispatchCommand(wrapper_sender, cmd.str())) {
+                        TianyanCore::revertStatusCache.emplace_back(logData.uuid, "reverted");
+                        success_times++;
+                    } else {
+                        failed_times++;
+                    }
+                }
+            }
+            updateRevertStatus();
+            if (success_times > 0) {
+                player->sendMessage(endstone::ColorFormat::Green + Tran->getLocal("Revert times: ") + std::to_string(success_times + failed_times));
+                player->sendMessage(endstone::ColorFormat::Green + Tran->getLocal("Success: ") + std::to_string(success_times));
+                player->sendMessage(endstone::ColorFormat::Green + Tran->getLocal("Failed: ") + std::to_string(failed_times));
+            } else {
+                player->sendMessage(endstone::ColorFormat::Green + Tran->getLocal("Nothing happened"));
+                player->sendMessage(endstone::ColorFormat::Green + Tran->getLocal("Failed: ") + std::to_string(failed_times));
+            }
+        }
     }
 }
 
@@ -1059,7 +1043,7 @@ void TianyanPlugin::updateRevertStatus() const
     std::thread updateRevertStatus_thread ([this,localCache]()mutable {
         if (!Database->updateStatusesByUUIDs(localCache)) {
             std::cerr << "Update revert status failed" << std::endl;
-            if (localCache.size() > 100000) {
+            if (localCache.size() > 1000000) {
                 std::cerr << "Unable to write a large volume of logs; cached logs will be discarded" << endl;
                 localCache.clear();
             } else {

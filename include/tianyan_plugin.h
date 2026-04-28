@@ -6,6 +6,7 @@
 #include <endstone/plugin/plugin.h>
 #include <string>
 #include <fstream>
+#include <mutex>
 #include "database.hpp"
 #include "tianyan_protect.h"
 #include "event_listener.h"
@@ -49,8 +50,8 @@ public:
     //检查异步的数据库清理状态
     void checkDatabaseCleanStatus() const;
 
-    //检查tyback后台
-    void checkTybackSearchThread();
+    //检查后台查询任务
+    void checkAsyncTasks();
 
     // 批量更新回溯状态
     void updateRevertStatus() const;
@@ -65,6 +66,22 @@ public:
     [[nodiscard]] std::vector<tianyan::LogData> getLogDataSync(double hours, int limit) const;
 
 private:
+    struct AsyncQueryTask {
+        enum class Type { Ty, Tys, Tyback };
+        Type type;
+        std::string player_name;
+        bool is_running = false;
+        bool is_complete = false;
+        std::vector<TianyanCore::LogData> results;
+
+        double r = 0;
+        double hours = 0;
+        std::string world;
+        double x = 0, y = 0, z = 0;
+        std::string key_type;
+        std::string key;
+    };
+
     //初始化其它实例
     std::unique_ptr<yuhangle::Database> Database;
     std::unique_ptr<TianyanCore> tyCore;
@@ -72,14 +89,8 @@ private:
     std::unique_ptr<EventListener> eventListener_;
     std::unique_ptr<Menu> menu_;
     string clean_data_sender_name;
-    struct TybackCache {
-        bool status = false;
-        bool is_running = false;
-        string player_name;
-        vector<TianyanCore::LogData> logDatas;
-        double r,time;
-    };
-    TybackCache tyback_cache = {false};
+    std::vector<AsyncQueryTask> async_tasks_;
+    std::mutex async_tasks_mutex_;
     shared_ptr<endstone::Task> windows_print_webui_log;
 #ifdef _WIN32
     void dump_webui_log_once() const;

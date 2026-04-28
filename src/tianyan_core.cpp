@@ -90,13 +90,9 @@ vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& 
     return LogDatas;
 }
 
-vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& key, const double x, const double y, const double z, const double r, const string& world, bool if_max) const {
+vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& key, const double x, const double y, const double z, const double r, const string& world) const {
     std::vector<std::map<std::string, std::string>> result;
-    if (if_max) {
-        Database.searchLog(result, key, x, y, z, r, world,if_max);
-    } else {
-        Database.searchLog(result, key, x, y, z, r, world);
-    }
+    Database.searchLog(result, key, x, y, z, r, world);
     if (result.empty()) {
         return {};
     }

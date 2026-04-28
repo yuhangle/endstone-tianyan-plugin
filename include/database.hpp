@@ -605,7 +605,7 @@ namespace yuhangle {
 
         int getAllLog(std::vector<std::map<std::string, std::string>> &result) const {
             // 获取所有数据
-            const std::string sql = "SELECT * FROM LOGDATA;";
+            constexpr std::string sql = "SELECT * FROM LOGDATA;";
 
             // 调用 querySQL 函数执行查询，并将结果存储到 result 中
             return querySQL(sql, result);
@@ -625,7 +625,7 @@ namespace yuhangle {
             const long long timeThreshold = currentTime - static_cast<long long>(searchCriteria.second * 3600);
 
             // 使用参数化查询防止SQL注入
-            const std::string sql = "SELECT * FROM LOGDATA WHERE (name LIKE ? OR type LIKE ? OR data LIKE ?) AND time >= ? LIMIT 10000;";
+            const std::string sql = "SELECT * FROM LOGDATA WHERE (name LIKE ? OR type LIKE ? OR data LIKE ?) AND time >= ?";
 
             sqlite3_stmt* stmt;
             int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
@@ -666,7 +666,7 @@ namespace yuhangle {
         // 新增带坐标和世界过滤的搜索函数
         int searchLog(std::vector<std::map<std::string, std::string>> &result,
                       const std::pair<std::string, double>& searchCriteria,
-                      const double x, const double y, const double z, const double r, const std::string& world, bool if_max = false) const {
+                      const double x, const double y, const double z, const double r, const std::string& world) const {
             auto& pool = ConnectionPool::getInstance(db_filename);
             const auto conn = pool.getConnection();
             sqlite3* db = conn->get();
@@ -679,19 +679,10 @@ namespace yuhangle {
             const long long timeThreshold = currentTime - static_cast<long long>(searchCriteria.second * 3600);
 
             // 使用参数化查询防止SQL注入
-            std::string sql;
-            if (if_max) {
-                sql = "SELECT * FROM LOGDATA WHERE "
-                      "(name LIKE ? OR type LIKE ? OR data LIKE ?) AND time >= ? "
-                      "AND world = ? "
-                      "AND ((pos_x - ?)*(pos_x - ?) + (pos_y - ?)*(pos_y - ?) + (pos_z - ?)*(pos_z - ?)) <= ?;";
-            } else {
-                sql = "SELECT * FROM LOGDATA WHERE "
-                           "(name LIKE ? OR type LIKE ? OR data LIKE ?) AND time >= ? "
-                           "AND world = ? "
-                           "AND ((pos_x - ?)*(pos_x - ?) + (pos_y - ?)*(pos_y - ?) + (pos_z - ?)*(pos_z - ?)) <= ? "
-                           "LIMIT 10000;";
-            }
+            const std::string sql = "SELECT * FROM LOGDATA WHERE "
+                  "(name LIKE ? OR type LIKE ? OR data LIKE ?) AND time >= ? "
+                  "AND world = ? "
+                  "AND ((pos_x - ?)*(pos_x - ?) + (pos_y - ?)*(pos_y - ?) + (pos_z - ?)*(pos_z - ?)) <= ?";
 
             sqlite3_stmt* stmt;
             int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);

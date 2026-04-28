@@ -14,7 +14,7 @@ class TianyanCore {
 public:
     explicit TianyanCore(yuhangle::Database database);
     //文件目录
-    static inline const string dataPath = "plugins/tianyan_data";
+    static constexpr string dataPath = "plugins/tianyan_data";
     static inline const string language_path = "plugins/tianyan_data/language/";
     static inline const string dbPath = "plugins/tianyan_data/ty_data.db";
     static inline const string config_path = "plugins/tianyan_data/config.json";
@@ -86,7 +86,7 @@ public:
     [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key) const;
     
     //查询日志并在指定世界和坐标范围内筛选
-    [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key, double x, double y, double z, double r, const string& world, bool if_max = false) const;
+    [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key, double x, double y, double z, double r, const string& world) const;
 
     // 记录玩家发送了一条消息（自动清理过期记录）
     static int recordPlayerSendMSG(const string& player_name);
