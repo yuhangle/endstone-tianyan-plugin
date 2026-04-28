@@ -2,6 +2,7 @@
 /.idea/
 /*.zip
 /WebUI/.idea/
+/WebUI/.venv/
 /CloudflareWorker/node_modules/
 /CloudflareWorker/.dev.vars
 /CloudflareWorker/.wrangler/

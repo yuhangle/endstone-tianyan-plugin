@@ -10,15 +10,48 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("tianyan_plugin")
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+VENV_DIR = os.path.join(BASE_DIR, ".venv")
+VENV_PYTHON = (
+    os.path.join(VENV_DIR, "Scripts", "python.exe")
+    if os.name == "nt"
+    else os.path.join(VENV_DIR, "bin", "python")
+)
+REQUIRED_PACKAGES = ["fastapi", "uvicorn", "pymysql"]
+
+
+def in_virtualenv() -> bool:
+    return sys.prefix != getattr(sys, "base_prefix", sys.prefix) or hasattr(sys, "real_prefix")
+
+
+def install_with_python(python_executable: str, missing_packages: List[str]) -> None:
+    requirements_file = os.path.join(BASE_DIR, "requirements.txt")
+    subprocess.check_call([python_executable, "-m", "pip", "install", "--upgrade", "pip"])
+    if os.path.exists(requirements_file):
+        subprocess.check_call([python_executable, "-m", "pip", "install", "-r", requirements_file])
+    else:
+        subprocess.check_call([python_executable, "-m", "pip", "install", *missing_packages])
+
 
 def install_dependencies() -> bool:
-    required_packages = ["fastapi", "uvicorn", "pymysql"]
-    missing_packages = [package for package in required_packages if importlib.util.find_spec(package) is None]
+    missing_packages = [package for package in REQUIRED_PACKAGES if importlib.util.find_spec(package) is None]
     if not missing_packages:
         return True
 
     print(f"Missing dependencies found: {missing_packages}")
     print("Attempting automatic installation...")
+
+    if not in_virtualenv():
+        try:
+            if not os.path.exists(VENV_PYTHON):
+                print(f"Creating isolated Python environment: {VENV_DIR}")
+                subprocess.check_call([sys.executable, "-m", "venv", VENV_DIR])
+            install_with_python(VENV_PYTHON, missing_packages)
+            print("Dependencies installed in isolated environment. Restarting Web API...")
+            os.execv(VENV_PYTHON, [VENV_PYTHON, *sys.argv])
+        except Exception as error:
+            print(f"Failed to prepare isolated dependencies: {error}")
+            return False
 
     try:
         import pip
@@ -35,13 +68,7 @@ def install_dependencies() -> bool:
             return False
 
     try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
-        requirements_file = os.path.join(os.path.dirname(__file__), "requirements.txt")
-        if os.path.exists(requirements_file):
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", requirements_file])
-        else:
-            for package in missing_packages:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+        install_with_python(sys.executable, missing_packages)
         print("Dependencies installed successfully!")
         return True
     except Exception as error:
@@ -50,9 +77,8 @@ def install_dependencies() -> bool:
 
 
 def verify_dependencies() -> bool:
-    required_packages = ["fastapi", "uvicorn", "pymysql"]
     missing_packages = []
-    for package in required_packages:
+    for package in REQUIRED_PACKAGES:
         try:
             importlib.import_module(package)
         except ImportError as error:
@@ -82,7 +108,6 @@ except ImportError as error:
     sys.exit(1)
 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 os.chdir(BASE_DIR)
 
 PLUGIN_CONFIG_PATH = "../config.json"
