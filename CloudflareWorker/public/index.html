@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>天眼日志检索</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <h1>天眼日志检索</h1>
+        <span id="statusText" class="status-text">API 检查中</span>
+      </div>
+      <div class="top-actions">
+        <button id="refreshStats" class="button" type="button">刷新状态</button>
+        <button id="resetFilters" class="button" type="button">重置</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="filter-panel" aria-label="检索条件">
+        <div class="section-title">
+          <h2>条件</h2>
+          <span id="windowLabel">12 小时</span>
+        </div>
+
+        <div id="presetRow" class="segmented" aria-label="预设"></div>
+        <div id="rangeRow" class="segmented range-row" aria-label="时间范围"></div>
+
+        <form id="queryForm" class="query-form">
+          <label class="wide-field">
+            <span>开始时间</span>
+            <input id="startTime" type="datetime-local">
+          </label>
+          <label class="wide-field">
+            <span>结束时间</span>
+            <input id="endTime" type="datetime-local">
+          </label>
+          <label>
+            <span>玩家</span>
+            <input id="playerName" type="text" list="playerSuggestions" autocomplete="off">
+            <datalist id="playerSuggestions"></datalist>
+          </label>
+          <label>
+            <span>行为</span>
+            <select id="actionType"></select>
+          </label>
+          <label>
+            <span>维度</span>
+            <select id="world"></select>
+          </label>
+          <label>
+            <span>目标名称</span>
+            <input id="targetName" type="text" autocomplete="off">
+          </label>
+          <label>
+            <span>目标 ID</span>
+            <input id="targetId" type="text" autocomplete="off">
+          </label>
+          <label>
+            <span>导出上限</span>
+            <input id="exportLimit" type="number" min="100" max="20000" step="100" value="5000">
+          </label>
+
+          <details class="range-filter">
+            <summary>范围过滤</summary>
+            <div class="coord-grid">
+              <label>
+                <span>中心 X</span>
+                <input id="centerX" type="number" step="0.01">
+              </label>
+              <label>
+                <span>中心 Y</span>
+                <input id="centerY" type="number" step="0.01">
+              </label>
+              <label>
+                <span>中心 Z</span>
+                <input id="centerZ" type="number" step="0.01">
+              </label>
+              <label>
+                <span>半径</span>
+                <input id="radius" type="number" min="1" step="1">
+              </label>
+            </div>
+          </details>
+        </form>
+
+        <div class="command-row">
+          <button id="runQuery" class="button primary" type="button">查询</button>
+          <button id="exportCsv" class="button" type="button">导出 CSV</button>
+          <button id="clearResults" class="button danger-soft" type="button">清空</button>
+        </div>
+
+        <div id="activeFilters" class="active-filters" aria-live="polite"></div>
+        <div id="feedback" class="feedback" hidden></div>
+      </section>
+
+      <section class="result-panel" aria-label="查询结果">
+        <div class="result-head">
+          <div>
+            <h2>结果</h2>
+            <span id="resultMeta">尚未查询</span>
+          </div>
+          <button id="loadMore" class="button" type="button" disabled>加载更多</button>
+        </div>
+
+        <div id="emptyState" class="empty-state">选择条件后查询</div>
+
+        <div id="tableWrap" class="table-wrap" hidden>
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>来源</th>
+                <th>行为</th>
+                <th>目标</th>
+                <th>位置</th>
+                <th>详情</th>
+              </tr>
+            </thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+
+        <div id="cardList" class="card-list" hidden></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

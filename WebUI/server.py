@@ -12,7 +12,7 @@ logger = logging.getLogger("tianyan_plugin")
 
 
 def install_dependencies() -> bool:
-    required_packages = ["fastapi", "uvicorn", "pydantic", "pymysql"]
+    required_packages = ["fastapi", "uvicorn", "pymysql"]
     missing_packages = [package for package in required_packages if importlib.util.find_spec(package) is None]
     if not missing_packages:
         return True
@@ -50,7 +50,7 @@ def install_dependencies() -> bool:
 
 
 def verify_dependencies() -> bool:
-    required_packages = ["fastapi", "uvicorn", "pydantic", "pymysql"]
+    required_packages = ["fastapi", "uvicorn", "pymysql"]
     missing_packages = []
     for package in required_packages:
         try:
@@ -73,15 +73,12 @@ try:
     import uvicorn
     from fastapi import FastAPI, HTTPException, Query
     from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.responses import FileResponse
-    from fastapi.staticfiles import StaticFiles
-    from pydantic import BaseModel
     import pymysql
     from pymysql.cursors import DictCursor
 except ImportError as error:
     print(f"Failed to import third-party libraries: {error}")
     print("Please ensure all dependencies are installed:")
-    print("pip install fastapi uvicorn pydantic pymysql")
+    print("pip install fastapi uvicorn pymysql")
     sys.exit(1)
 
 
@@ -91,7 +88,6 @@ os.chdir(BASE_DIR)
 PLUGIN_CONFIG_PATH = "../config.json"
 LEGACY_WEB_CONFIG_PATH = "../web_config.json"
 LOG_PATH = "../logs/webui.log"
-LANGUAGES_DIR = "languages"
 READY_FILE = "ready"
 
 DEFAULT_WINDOW_HOURS = 12
@@ -230,18 +226,6 @@ def get_db_connection(dict_cursor: bool = False):
         write_timeout=15,
         cursorclass=cursor_class,
     )
-
-
-def load_language(lang_code: str = "zh_CN"):
-    lang_file = os.path.join(BASE_DIR, LANGUAGES_DIR, f"{lang_code}.json")
-    if not os.path.exists(lang_file):
-        lang_file = os.path.join(BASE_DIR, LANGUAGES_DIR, "en_US.json")
-    try:
-        with open(lang_file, "r", encoding="utf-8") as lang_input:
-            return json.load(lang_input)
-    except Exception as error:
-        logger.error(f"Failed to load language file {lang_file}: {error}")
-        return {}
 
 
 def setup_logging() -> None:
@@ -695,64 +679,17 @@ def get_cached_metadata(force_refresh: bool = False) -> Dict[str, Any]:
         conn.close()
 
 
-class LogQueryResponse(BaseModel):
-    data: List[Dict[str, Any]]
-    count: int
-    limit: int
-    has_more: bool
-    next_cursor: Optional[Dict[str, Any]]
-    query_time_ms: float
-    start_time: int
-    end_time: int
-
-
 setup_logging()
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-app.mount("/assets", StaticFiles(directory=os.path.join(BASE_DIR, "assets")), name="assets")
 
 
-@app.get("/api/health")
-async def health():
-    return {"ok": True, "server_time": int(time.time())}
-
-
-@app.get("/api/languages")
-async def get_languages():
-    languages = []
-    if os.path.exists(LANGUAGES_DIR):
-        for file_name in os.listdir(LANGUAGES_DIR):
-            if file_name.endswith(".json"):
-                languages.append(file_name.replace(".json", ""))
-    if "en_US" not in languages:
-        languages.append("en_US")
-    if "zh_CN" not in languages:
-        languages.append("zh_CN")
-    return {"languages": sorted(set(languages)), "default": "zh_CN"}
-
-
-@app.get("/api/language/{lang_code}")
-async def get_language(lang_code: str):
-    return load_language(lang_code)
-
-
-@app.get("/api/options")
-async def get_options():
-    try:
-        return get_cached_metadata()
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=f"获取选项失败: {error}") from error
-
-
-@app.get("/api/players")
-async def get_player_suggestions(
-    q: str = Query("", description="玩家名前缀"),
-    limit: int = Query(PLAYER_SUGGESTION_LIMIT, ge=1, le=PLAYER_SUGGESTION_LIMIT),
-):
+def get_player_suggestions(q: str, limit: int) -> Dict[str, Any]:
     query_text = normalize_text(q)
     if not query_text or len(query_text) < 1:
         return {"players": []}
+    suggestion_limit = min(max(limit, 1), PLAYER_SUGGESTION_LIMIT)
 
     conn = get_db_connection(dict_cursor=True)
     try:
@@ -766,7 +703,7 @@ async def get_player_suggestions(
                 ORDER BY last_seen DESC
                 LIMIT %s
                 """,
-                (f"{query_text}%", limit),
+                (f"{query_text}%", suggestion_limit),
             )
             rows = cursor.fetchall()
         return {"players": [row["name"] for row in rows if row.get("name")]}
@@ -776,32 +713,24 @@ async def get_player_suggestions(
         conn.close()
 
 
-@app.get("/api/stats")
-async def get_stats(force_refresh: bool = Query(False, description="是否强制刷新统计缓存")):
-    try:
-        return get_cached_stats(force_refresh=force_refresh)
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=f"获取状态失败: {error}") from error
-
-
-@app.get("/api/logs", response_model=LogQueryResponse)
-async def get_logs(
-    limit: int = Query(DEFAULT_QUERY_LIMIT, ge=1, le=MAX_QUERY_LIMIT, description="每次返回条数"),
-    preset: str = Query("recent_activity", description="预设检索"),
-    start_time: Optional[int] = Query(None, description="开始时间（Unix 时间戳）"),
-    end_time: Optional[int] = Query(None, description="结束时间（Unix 时间戳）"),
-    player_name: Optional[str] = Query(None, description="玩家名"),
-    action_type: Optional[str] = Query(None, description="行为类型"),
-    target_name: Optional[str] = Query(None, description="目标名称"),
-    target_id: Optional[str] = Query(None, description="目标 ID"),
-    world: Optional[str] = Query(None, description="维度"),
-    center_x: Optional[float] = Query(None, description="中心点 X"),
-    center_y: Optional[float] = Query(None, description="中心点 Y"),
-    center_z: Optional[float] = Query(None, description="中心点 Z"),
-    radius: Optional[float] = Query(None, description="半径"),
-    cursor_time: Optional[int] = Query(None, description="下一页时间游标"),
-    cursor_uuid: Optional[str] = Query(None, description="下一页 UUID 游标"),
-):
+def get_logs(
+    *,
+    limit: int,
+    preset: str,
+    start_time: Optional[int],
+    end_time: Optional[int],
+    player_name: Optional[str],
+    action_type: Optional[str],
+    target_name: Optional[str],
+    target_id: Optional[str],
+    world: Optional[str],
+    center_x: Optional[float],
+    center_y: Optional[float],
+    center_z: Optional[float],
+    radius: Optional[float],
+    cursor_time: Optional[int],
+    cursor_uuid: Optional[str],
+) -> Dict[str, Any]:
     conn = get_db_connection(dict_cursor=True)
     try:
         with conn.cursor() as cursor:
@@ -829,22 +758,22 @@ async def get_logs(
         conn.close()
 
 
-@app.get("/api/export")
-async def export_logs(
-    max_records: int = Query(5000, ge=1, le=MAX_EXPORT_RECORDS, description="最多导出条数"),
-    preset: str = Query("recent_activity", description="预设检索"),
-    start_time: Optional[int] = Query(None, description="开始时间（Unix 时间戳）"),
-    end_time: Optional[int] = Query(None, description="结束时间（Unix 时间戳）"),
-    player_name: Optional[str] = Query(None, description="玩家名"),
-    action_type: Optional[str] = Query(None, description="行为类型"),
-    target_name: Optional[str] = Query(None, description="目标名称"),
-    target_id: Optional[str] = Query(None, description="目标 ID"),
-    world: Optional[str] = Query(None, description="维度"),
-    center_x: Optional[float] = Query(None, description="中心点 X"),
-    center_y: Optional[float] = Query(None, description="中心点 Y"),
-    center_z: Optional[float] = Query(None, description="中心点 Z"),
-    radius: Optional[float] = Query(None, description="半径"),
-):
+def export_logs(
+    *,
+    max_records: int,
+    preset: str,
+    start_time: Optional[int],
+    end_time: Optional[int],
+    player_name: Optional[str],
+    action_type: Optional[str],
+    target_name: Optional[str],
+    target_id: Optional[str],
+    world: Optional[str],
+    center_x: Optional[float],
+    center_y: Optional[float],
+    center_z: Optional[float],
+    radius: Optional[float],
+) -> Dict[str, Any]:
     conn = get_db_connection(dict_cursor=True)
     try:
         all_rows: List[Dict[str, Any]] = []
@@ -891,56 +820,79 @@ async def export_logs(
         conn.close()
 
 
-@app.get("/api/db_info")
-async def get_db_info():
-    config = mysql_settings()
-    conn = get_db_connection(dict_cursor=True)
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SHOW INDEX FROM LOGDATA")
-            index_rows = cursor.fetchall()
-            indexes = sorted({row.get("Key_name", "") for row in index_rows if row.get("Key_name")})
+@app.get("/api/query")
+async def query(
+    mode: str = Query("health", description="health/options/players/stats/logs/export"),
+    limit: int = Query(DEFAULT_QUERY_LIMIT, ge=1, le=MAX_QUERY_LIMIT, description="每次返回条数"),
+    max_records: int = Query(5000, ge=1, le=MAX_EXPORT_RECORDS, description="最多导出条数"),
+    force_refresh: bool = Query(False, description="是否强制刷新统计缓存"),
+    q: str = Query("", description="玩家名前缀"),
+    preset: str = Query("recent_activity", description="预设检索"),
+    start_time: Optional[int] = Query(None, description="开始时间（Unix 时间戳）"),
+    end_time: Optional[int] = Query(None, description="结束时间（Unix 时间戳）"),
+    player_name: Optional[str] = Query(None, description="玩家名"),
+    action_type: Optional[str] = Query(None, description="行为类型"),
+    target_name: Optional[str] = Query(None, description="目标名称"),
+    target_id: Optional[str] = Query(None, description="目标 ID"),
+    world: Optional[str] = Query(None, description="维度"),
+    center_x: Optional[float] = Query(None, description="中心点 X"),
+    center_y: Optional[float] = Query(None, description="中心点 Y"),
+    center_z: Optional[float] = Query(None, description="中心点 Z"),
+    radius: Optional[float] = Query(None, description="半径"),
+    cursor_time: Optional[int] = Query(None, description="下一页时间游标"),
+    cursor_uuid: Optional[str] = Query(None, description="下一页 UUID 游标"),
+):
+    mode_value = normalize_text(mode)
+    if mode_value == "health":
+        return {"ok": True, "server_time": int(time.time())}
+    if mode_value == "options":
+        try:
+            return get_cached_metadata()
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=f"获取选项失败: {error}") from error
+    if mode_value == "players":
+        return get_player_suggestions(q=q, limit=limit)
+    if mode_value == "stats":
+        try:
+            return get_cached_stats(force_refresh=force_refresh)
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=f"获取状态失败: {error}") from error
+    if mode_value == "logs":
+        return get_logs(
+            limit=limit,
+            preset=preset,
+            start_time=start_time,
+            end_time=end_time,
+            player_name=player_name,
+            action_type=action_type,
+            target_name=target_name,
+            target_id=target_id,
+            world=world,
+            center_x=center_x,
+            center_y=center_y,
+            center_z=center_z,
+            radius=radius,
+            cursor_time=cursor_time,
+            cursor_uuid=cursor_uuid,
+        )
+    if mode_value == "export":
+        return export_logs(
+            max_records=max_records,
+            preset=preset,
+            start_time=start_time,
+            end_time=end_time,
+            player_name=player_name,
+            action_type=action_type,
+            target_name=target_name,
+            target_id=target_id,
+            world=world,
+            center_x=center_x,
+            center_y=center_y,
+            center_z=center_z,
+            radius=radius,
+        )
 
-            cursor.execute("SHOW COLUMNS FROM LOGDATA")
-            column_rows = cursor.fetchall()
-            columns = [
-                {
-                    "name": row.get("Field"),
-                    "type": row.get("Type"),
-                    "notnull": 1 if row.get("Null") == "NO" else 0,
-                    "pk": 1 if row.get("Key") == "PRI" else 0,
-                }
-                for row in column_rows
-            ]
-
-            cursor.execute(
-                """
-                SELECT
-                    COALESCE(table_rows, 0) AS approx_rows,
-                    COALESCE(data_length + index_length, 0) AS size_bytes
-                FROM information_schema.tables
-                WHERE table_schema = %s AND table_name = 'LOGDATA'
-                """,
-                (config["database"],),
-            )
-            table_info = cursor.fetchone() or {"approx_rows": 0, "size_bytes": 0}
-
-        return {
-            "database": config["database"],
-            "indexes": indexes,
-            "columns": columns,
-            "approx_rows": int(table_info.get("approx_rows") or 0),
-            "db_size": format_size(int(table_info.get("size_bytes") or 0)),
-        }
-    except pymysql.MySQLError as error:
-        raise HTTPException(status_code=500, detail=f"获取数据库信息失败: {error}") from error
-    finally:
-        conn.close()
-
-
-@app.get("/")
-async def get_index():
-    return FileResponse(os.path.join(BASE_DIR, "index.html"))
+    raise HTTPException(status_code=400, detail=f"未知查询模式: {mode_value}")
 
 
 if __name__ == "__main__":

@@ -52,9 +52,9 @@ The Tianyan plugin supports viewing item information in online players' inventor
 
 #### 🌐 WebUI Panel
 
-The Tianyan plugin provides a WebUI panel that can be accessed through a browser to view behavior records. To enable the WebUI feature, set "enable_web_ui" to true in the configuration file.
+Tianyan Web search is now split into two parts: the plugin starts an API-only backend, and Cloudflare Worker serves the browser frontend. To enable the query API, set `"enable_web_ui"` to `true` in the configuration file.
 
-WebUI now reads from the main plugin config `config.json` (no separate Web password):
+The plugin API backend reads from the main plugin config `config.json` (no separate Web password):
 ```json
 {
     "web_backend_port": 8098,
@@ -65,12 +65,23 @@ WebUI now reads from the main plugin config `config.json` (no separate Web passw
     "mysql_database": "tianyan"
 }
 ```
-- `web_backend_port`: WebUI port
-- `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: MySQL settings shared by plugin and WebUI
+- `web_backend_port`: Web query API backend port
+- `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: MySQL settings shared by the plugin and API backend
 
-Running the WebUI requires the following pip packages: `fastapi`, `uvicorn`, `pymysql`. These packages will be automatically installed when the WebUI runs.
+Running the Web query API requires the following pip packages: `fastapi`, `uvicorn`, `pymysql`. Missing packages are installed automatically at runtime.
 
-You can access the WebUI panel via `server_IP:WebUI_port`. For example, with the default port 8098, the access URL is `http://127.0.0.1:8098`.
+The backend keeps only one endpoint: `GET /api/query`. Use `mode=health|options|players|stats|logs|export` for health checks, options, player suggestions, status, paged queries, and exports.
+
+The frontend project is in `CloudflareWorker/` and is configured to bind Cloudflare Worker to `ty.buhe.li/*` by default. Deploy the frontend with:
+
+```bash
+cd CloudflareWorker
+npm ci
+npm run check
+npx wrangler deploy
+```
+
+Cloudflare Worker serves the page on the same hostname and proxies `/api/query` to the plugin API origin. The browser entrypoint is `https://ty.buhe.li/`.
 
 ## 🚀 Installation, Configuration & Usage
 
@@ -116,8 +127,8 @@ Default configuration:
 Configuration item descriptions:
 - `10s_command_max`: Maximum number of commands players can use within 10 seconds
 - `10s_message_max`: Maximum number of messages players can send within 10 seconds
-- `enable_web_ui`: Enable WebUI
-- `web_backend_port`: WebUI port
+- `enable_web_ui`: Enable the Web query API backend
+- `web_backend_port`: Web query API backend port
 - `language`: Plugin language
 - `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: MySQL connection settings
 - `no_log_mobs`: List of entities not to be logged

@@ -1,0 +1,14 @@
+name = "tianyan-web"
+main = "src/index.js"
+compatibility_date = "2026-04-28"
+workers_dev = false
+
+[[routes]]
+pattern = "ty.buhe.li/*"
+zone_name = "buhe.li"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "single-page-application"

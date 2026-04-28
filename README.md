@@ -51,8 +51,9 @@
 天眼插件支持查看在线玩家的物品栏内的物品信息。
 
 ### 🌐 WebUI面板
-天眼插件提供了 WebUI 面板，可以在浏览器中访问面板，查看行为记录。 启用WebUI功能需要在配置文件中修改"enable_web_ui"为true。
-WebUI使用插件主配置文件 `config.json` 中的配置启动（无需单独Web密码）：
+天眼 Web 查询现在拆分为两部分：插件侧只启动 API 后端，Cloudflare Worker 提供浏览器前端。启用查询 API 需要在配置文件中修改 `"enable_web_ui"` 为 `true`。
+
+插件 API 后端使用主配置文件 `config.json` 中的配置启动（无需单独 Web 密码）：
 ```json
 {
     "web_backend_port": 8098,
@@ -63,14 +64,23 @@ WebUI使用插件主配置文件 `config.json` 中的配置启动（无需单独
     "mysql_database": "tianyan"
 }
 ```
-- `web_backend_port`: WebUI 端口
-- `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: WebUI与插件共用的 MySQL 连接配置
+- `web_backend_port`: Web 查询 API 后端端口
+- `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: API 后端与插件共用的 MySQL 连接配置
 
-运行WebUI需要以下pip包：`fastapi` `uvicorn` `pymysql`, WebUI在运行时会自动安装pip包。
+运行 Web 查询 API 需要以下 pip 包：`fastapi` `uvicorn` `pymysql`，运行时会自动安装缺失依赖。
 
-新版 WebUI 采用按需加载，不会在页面打开时立即执行全库统计；查询使用预设场景、时间范围、玩家、类型和范围过滤组合，并改为轻量翻页，降低大库场景下的读取压力。
+后端只保留一个接口：`GET /api/query`。通过 `mode=health|options|players|stats|logs|export` 区分健康检查、选项、玩家建议、状态、分页查询和导出。
 
-你可以通过`服务器IP:WebUI端口`访问WebUI面板,例如，默认端口为8098，访问地址为`http://127.0.0.1:8098`。
+前端工程位于 `CloudflareWorker/`，默认通过 Cloudflare Worker 路由绑定到 `ty.buhe.li/*`。部署前端：
+
+```bash
+cd CloudflareWorker
+npm ci
+npm run check
+npx wrangler deploy
+```
+
+Cloudflare Worker 会在同域名下提供网页，并将 `/api/query` 透传回插件 API 源站。浏览器访问地址为 `https://ty.buhe.li/`。
 
 ## 🚀 安装 & 配置 & 使用方法
 
@@ -129,8 +139,8 @@ WebUI使用插件主配置文件 `config.json` 中的配置启动（无需单独
 配置项说明：
 - `10s_command_max`: 10秒内玩家可使用命令的最大次数
 - `10s_message_max`: 10秒内玩家可发送消息的最大次数
-- `enable_web_ui`: 是否启用 WebUI
-- `web_backend_port`: WebUI 端口
+- `enable_web_ui`: 是否启用 Web 查询 API 后端
+- `web_backend_port`: Web 查询 API 后端端口
 - `language`: 插件语言
 - `mysql_host/mysql_port/mysql_user/mysql_password/mysql_database`: MySQL数据库连接配置
 - `no_log_mobs`: 不被记录的实体列表。默认只屏蔽猪人、僵尸猪灵、铁傀儡等你不关心的实体；旧配置若仍是历史上的大范围默认值，会自动迁移到新默认值，避免打怪记录被整批吞掉。
