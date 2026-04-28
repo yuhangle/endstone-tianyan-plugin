@@ -36,8 +36,8 @@ jobs:
       RELEASE_TYPE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type || 'development' }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-latest]
-        # 只保留 os 维度
+        os: [ubuntu-22.04]
+        # NAS deployment uses the Linux plugin artifact built by GitHub Actions.
 
     steps:
       - name: Checkout repository
@@ -221,7 +221,10 @@ jobs:
       - name: Prepare and Package All
         run: |
           VERSION=${{ steps.get_version.outputs.VERSION }}
-          OS_LIST=(linux windows)
+          OS_LIST=(linux)
+          if [[ -d artifacts/tianyan-windows-plugin ]]; then
+            OS_LIST+=(windows)
+          fi
           for OS in "${OS_LIST[@]}"; do
             if [[ "$OS" == "linux" ]]; then
               PLUGIN_PATH=$(find artifacts/tianyan-linux-plugin -name "endstone_tianyan.so" | head -n 1)
