@@ -304,12 +304,12 @@ void stop_web_server() {
 #ifdef _WIN32
 void TianyanPlugin::dump_webui_log_once() const
 {
-    const string ready_file = TianyanCore::dataPath + "/WebUI/ready";
+    const string ready_file = string(TianyanCore::dataPath) + "/WebUI/ready";
     if (!filesystem::exists(ready_file))
     {
         return;
     }
-    const string log_path = TianyanCore::dataPath + "/logs/webui.log";
+    const string log_path = string(TianyanCore::dataPath) + "/logs/webui.log";
     std::ifstream file(log_path);
     if (!file.is_open()) {
         std::cerr << "[Tianyan] webui.log not found." << std::endl;
