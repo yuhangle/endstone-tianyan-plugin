@@ -6,7 +6,11 @@
 #include "version.h"
 #include <thread>
 #include "global.h"
-#include  "tianyan_core.h"
+#include "tianyan_core.h"
+#include "database_util.h"
+#include "sqlite_backend.h"
+#include "mysql_backend.h"
+#include <endstone_mysql_api/mysql_api.h>
 
 // 为了方便在宏里调用，定义一个短函数
 inline std::string T(const std::string& key) {
@@ -97,6 +101,7 @@ void TianyanPlugin::datafile_check() const {
     json df_config = {
         {"language","zh_CN"},
         {"enable_web_ui",false},
+        {"database_type", "sqlite"},
         {"10s_message_max", 6},
         {"10s_command_max", 12},
         {"no_log_mobs", {"minecraft:zombie_pigman","minecraft:zombie","minecraft:skeleton","minecraft:bogged","minecraft:slime"}}
@@ -341,41 +346,63 @@ void TianyanPlugin::onLoad()
     //加载语言
     const auto [fst, snd] = Tran->loadLanguage();
     getLogger().info(snd);
-#ifdef __linux__
-    namespace fs = std::filesystem;
-    try {
-        // 获取当前路径
-        const fs::path currentPath = fs::current_path();
-
-        // 子目录路径
-        const fs::path subdir = TianyanCore::dbPath;
-
-        // 拼接路径
-        const fs::path fullPath = currentPath / subdir;
-
-        // 如果需要将最终路径转换为 string 类型
-        const std::string finalPathStr = fullPath.string();
-
-        // 使用完整路径重新初始化Database
-        Database = std::make_unique<yuhangle::Database>(finalPathStr);
-        tyCore = std::make_unique<TianyanCore>(*Database);
-    }
-    catch (const fs::filesystem_error& e) {
-        std::cerr << "Filesystem error: " << e.what() << std::endl;
-    }
-    catch (const std::exception& e) {
-        std::cerr << "General error: " << e.what() << std::endl;
-    }
-#endif
 }
 
 void TianyanPlugin::onEnable()
 {
     getLogger().info("onEnable is called");
-    (void)Database->init_database();
+
+    // 确保目录和配置文件存在
     datafile_check();
-    //进行一个配置文件的读取
+
+    // 读取配置文件选择数据库后端
     json json_msg = read_config();
+    string db_type = "sqlite";
+    try {
+        if (json_msg.contains("database_type")) {
+            db_type = json_msg["database_type"].get<std::string>();
+        }
+    } catch (const std::exception&) {}
+
+    // 创建数据库后端
+    if (db_type == "mysql") {
+        if (auto* mysql_plugin = getServer().getPluginManager().getPlugin("mysql_api"); mysql_plugin && mysql_plugin->isEnabled()) {
+            if (auto mysql_service = getServer().getServiceManager().load<mysql_api::MySQLAPI>("MySQLAPI"); mysql_service && mysql_service->is_connected()) {
+                db_backend_ = std::make_unique<MysqlBackend>(mysql_service);
+                getLogger().info("Using MySQL database backend");
+            } else {
+                getLogger().warning("MySQLAPI is not connected, falling back to SQLite");
+            }
+        } else {
+            getLogger().warning("MySQLAPI plugin not found, falling back to SQLite");
+        }
+    }
+
+    if (!db_backend_) {
+        // 默认使用 SQLite
+        namespace fs = std::filesystem;
+        try {
+            const fs::path currentPath = fs::current_path();
+            const fs::path fullPath = currentPath / TianyanCore::dbPath;
+            db_backend_ = std::make_unique<SqliteBackend>(fullPath.string());
+        } catch (const std::exception& e) {
+            getLogger().error("Failed to create SQLite backend: {}", e.what());
+            getServer().getPluginManager().disablePlugin(*this);
+            return;
+        }
+    }
+
+    // 初始化数据库
+    if (db_backend_->init_database() != 0) {
+        getLogger().error("Database initialization failed!");
+        getServer().getPluginManager().disablePlugin(*this);
+        return;
+    }
+
+    // 创建核心逻辑层
+    tyCore = std::make_unique<TianyanCore>(*db_backend_);
+
+    // 读取剩余配置
     //预先设置默认值
     TianyanCore::max_message_in_10s = 6;
     TianyanCore::max_command_in_10s = 12;
@@ -731,11 +758,11 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 sender.sendErrorMessage(Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
                 return false;
             }
-            int hours = yuhangle::Database::stringToInt(args[0]);
+            int hours = db_util::stringToInt(args[0]);
             clean_data_sender_name = sender.getName();
             sender.sendMessage(endstone::ColorFormat::Yellow+Tran->tr(Tran->getLocal("Start cleaning logs older than {} hours"), args[0]));
             std::thread clean_thread([this,hours]() {
-                (void)Database->cleanDataBase(hours);
+                (void)db_backend_->cleanDataBase(hours);
             });
             clean_thread.detach();
         }
@@ -758,7 +785,7 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
         if (!sender.asPlayer()) {
             int size = 20;
             if (!args.empty()) {
-                size = yuhangle::Database::stringToInt(args[0]);
+                size = db_util::stringToInt(args[0]);
             }
             if (auto result = TianyanProtect::calculateEntityDensity(getServer(), size);result.dim.has_value()) {
                 std::string content = fmt::format(
@@ -782,7 +809,7 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
             if (args.empty()) {
                 menu_->findHighDensityRegion(*sender.asPlayer());
             } else {
-                int size = yuhangle::Database::stringToInt(args[0]);
+                int size = db_util::stringToInt(args[0]);
                 menu_->findHighDensityRegion(*sender.asPlayer(), size);
             }
         }
@@ -961,7 +988,7 @@ void TianyanPlugin::checkAsyncTasks() {
                         failed_times++;
                     }
                 } else if (logData.type == "player_right_click_block") {
-                    if (auto hand_block = yuhangle::Database::splitString(logData.data); hand_block[1] != "[]") {
+                    if (auto hand_block = db_util::splitString(logData.data); hand_block[1] != "[]") {
                         static constexpr std::array<std::string_view, 12> skipKeywords = {
                             "chest", "sign", "command", "shulker_box",
                             "dispenser", "dropper", "hopper", "barrel",
@@ -1041,7 +1068,7 @@ void TianyanPlugin::updateRevertStatus() const
     }
     //异步写入
     std::thread updateRevertStatus_thread ([this,localCache]()mutable {
-        if (!Database->updateStatusesByUUIDs(localCache)) {
+        if (!db_backend_->updateStatusesByUUIDs(localCache)) {
             std::cerr << "Update revert status failed" << std::endl;
             if (localCache.size() > 1000000) {
                 std::cerr << "Unable to write a large volume of logs; cached logs will be discarded" << endl;

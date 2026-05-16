@@ -27,6 +27,24 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+# endstone-mysql-api (header-only interface for MySQL backend)
+FetchContent_Declare(
+    endstone_mysql_api
+    GIT_REPOSITORY https://github.com/yuhangle/endstone-mysql-api.git
+    GIT_TAG main
+)
+
+# FetchContent doesn't add_subdirectory automatically for single-project repos;
+# we must do so explicitly so the INTERFACE target is available.
+FetchContent_GetProperties(endstone_mysql_api)
+if (NOT endstone_mysql_api_POPULATED)
+    FetchContent_Populate(endstone_mysql_api)
+    add_subdirectory(
+        ${endstone_mysql_api_SOURCE_DIR}
+        ${endstone_mysql_api_BINARY_DIR}
+    )
+endif()
+
 # SQLite3
 find_package(SQLite3 REQUIRED)
 
@@ -53,6 +71,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         nlohmann_json::nlohmann_json
         SQLite::SQLite3
         fmt::fmt-header-only
+        endstone_mysql_api
 )
 
 find_package(Git QUIET)

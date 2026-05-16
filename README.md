@@ -89,6 +89,7 @@ WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config
 {
     "10s_command_max": 12,
     "10s_message_max": 6,
+    "database_type": "sqlite",
     "enable_web_ui": false,
     "language": "zh_CN",
     "no_log_mobs": [
@@ -104,6 +105,7 @@ WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config
 配置项说明：
 - `10s_command_max`: 10秒内玩家可使用命令的最大次数
 - `10s_message_max`: 10秒内玩家可发送消息的最大次数
+- `database_type`: 数据库类型，可选 `sqlite`（默认）或 `mysql`
 - `enable_web_ui`: 是否启用 WebUI
 - `language`: 插件语言
 - `no_log_mobs`: 不被记录的实体列表
@@ -113,6 +115,22 @@ WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config
 插件配置默认使用中文，可以通过修改 `config.json` 中的 `language` 项更改语言。支持的语言可在 [language](language/zh_CN.json) 文件夹查看。
 
 示例：要修改为英文时，修改 `language` 项为 `"en_US"`。
+
+### MySQL 数据库支持
+
+天眼插件支持使用 MySQL 作为日志存储后端，依赖 [endstone-mysql-api](https://github.com/yuhangle/endstone-mysql-api) 插件提供的 Service 接口与 MySQL 交互。
+
+使用 MySQL 前，请确保已安装 `endstone-mysql-api` 插件并正确配置了 MySQL 连接（参考其文档）。然后修改天眼插件配置 `plugins/tianyan_data/config.json`：
+
+```json
+{
+    "database_type": "mysql"
+}
+```
+
+注意：
+- 若 `database_type` 设置为 `mysql` 但 `endstone-mysql-api` 插件未加载或连接失败，天眼插件将自动回退使用 SQLite
+- 切换数据库类型不会自动迁移已有数据，请手动备份或自行迁移
 
 ## 📜 插件命令使用方法
 

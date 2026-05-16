@@ -7,7 +7,7 @@
 #include <string>
 #include <fstream>
 #include <mutex>
-#include "database.hpp"
+#include "database_backend.h"
 #include "tianyan_protect.h"
 #include "event_listener.h"
 #include "menu.h"
@@ -83,7 +83,7 @@ private:
     };
 
     //初始化其它实例
-    std::unique_ptr<yuhangle::Database> Database;
+    std::unique_ptr<IDatabaseBackend> db_backend_;
     std::unique_ptr<TianyanCore> tyCore;
     std::unique_ptr<TianyanProtect> protect_;
     std::unique_ptr<EventListener> eventListener_;

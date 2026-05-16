@@ -4,15 +4,20 @@
 
 #ifndef TIANYAN_TIANYANCORE_H
 #define TIANYAN_TIANYANCORE_H
-#include "database.hpp"
+#include "database_backend.h"
+#include <chrono>
+#include <optional>
 #include <unordered_map>
+#include <vector>
 
 using namespace std;
 using TimePoint = std::chrono::steady_clock::time_point;
 
+class IDatabaseBackend;
+
 class TianyanCore {
 public:
-    explicit TianyanCore(yuhangle::Database database);
+    explicit TianyanCore(IDatabaseBackend& db);
     //文件目录
     static constexpr std::string_view dataPath = "plugins/tianyan_data";
     static inline const string language_path = "plugins/tianyan_data/language/";
@@ -100,7 +105,7 @@ public:
     // 检查玩家在10秒内是否发送消息超过6条（即 ≥7 条）
     static bool checkPlayerSendCMD(const string& player_name);
 private:
-    yuhangle::Database Database;
+    IDatabaseBackend& db_backend_;
 };
 
 

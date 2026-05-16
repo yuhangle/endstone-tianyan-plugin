@@ -6,6 +6,7 @@
 #include "tianyan_protect.h"
 #include <tianyan_plugin.h>
 #include <translate.hpp>
+#include "database_util.h"
 
 Menu::Menu(TianyanPlugin* tianyan, translate* tran)
     :plugin_(*tianyan), tran_(tran)
@@ -78,7 +79,7 @@ void Menu::showLogMenu(endstone::Player &player, const std::vector<TianyanCore::
             if (!logData.data.empty()){
                 //对手持物品交互进行处理
                 if (logData.type == "player_right_click_block") {
-                    auto hand_block = yuhangle::Database::splitString(logData.data);
+                    auto hand_block = db_util::splitString(logData.data);
                     logFields.emplace_back(tran_->getLocal("Item in Hand"), tran_->getLocal(hand_block[0]));
                     if (hand_block[1] != "[]") {
                         logFields.emplace_back(tran_->getLocal("Data"), hand_block[1]);
