@@ -4,10 +4,23 @@
 
 #include <endstone_mysql_api/mysql_api.h>
 #include <chrono>
+#include <iostream>
 
-int MysqlBackend::init_database() {
+// ========== pybind11 exception safety ==========
+// Every call through the pybind11 bridge can throw pybind11::error_already_set
+// (a std::exception subclass).  Catch at every public method boundary so no
+// Python exception ever escapes into C++ code that cannot handle it.
+#define MYSQL_TRY  try
+#define MYSQL_CATCH(return_value)                               \
+    catch (const std::exception& e) {                           \
+        std::cerr << "[Tianyan][MySQL] " << __func__            \
+                  << ": " << e.what() << std::endl;             \
+        return return_value;                                    \
+    }
+
+int MysqlBackend::init_database() MYSQL_TRY {
     return mysql_->init_logdata_table();
-}
+} MYSQL_CATCH(-1)
 
 int MysqlBackend::addLog(const std::string& uuid,
                          const std::string& id,
@@ -19,12 +32,12 @@ int MysqlBackend::addLog(const std::string& uuid,
                          const long long time,
                          const std::string& type,
                          const std::string& data,
-                         const std::string& status) {
+                         const std::string& status) MYSQL_TRY {
     return mysql_->add_log(uuid, id, name, pos_x, pos_y, pos_z, world,
                            obj_id, obj_name, time, type, data, status);
-}
+} MYSQL_CATCH(-1)
 
-int MysqlBackend::addLogs(const std::vector<DatabaseLogEntry>& entries) {
+int MysqlBackend::addLogs(const std::vector<DatabaseLogEntry>& entries) MYSQL_TRY {
     if (entries.empty()) {
         return 0;
     }
@@ -50,11 +63,11 @@ int MysqlBackend::addLogs(const std::vector<DatabaseLogEntry>& entries) {
     }
 
     return mysql_->add_logs(mysql_entries);
-}
+} MYSQL_CATCH(-1)
 
 int MysqlBackend::searchLog(std::vector<std::map<std::string, std::string>>& result,
                             const std::pair<std::string, double>& key,
-                            std::atomic<bool>* cancel) {
+                            std::atomic<bool>* cancel) MYSQL_TRY {
     if (cancel && *cancel) return -1;
     auto qr = cancel
         ? mysql_->search_logs_with_cancel(key.first, key.second, [cancel]() { return cancel->load(); })
@@ -66,13 +79,13 @@ int MysqlBackend::searchLog(std::vector<std::map<std::string, std::string>>& res
         result.push_back(std::move(static_cast<std::map<std::string, std::string>&>(row)));
     }
     return 0;
-}
+} MYSQL_CATCH(-1)
 
 int MysqlBackend::searchLog(std::vector<std::map<std::string, std::string>>& result,
                             const std::pair<std::string, double>& key,
                             const double x, const double y, const double z, const double r,
                             const std::string& world,
-                            std::atomic<bool>* cancel) {
+                            std::atomic<bool>* cancel) MYSQL_TRY {
     if (cancel && *cancel) return -1;
     auto qr = cancel
         ? mysql_->search_logs_by_pos_with_cancel(key.first, key.second, x, y, z, r, world,
@@ -85,14 +98,14 @@ int MysqlBackend::searchLog(std::vector<std::map<std::string, std::string>>& res
         result.push_back(std::move(static_cast<std::map<std::string, std::string>&>(row)));
     }
     return 0;
-}
+} MYSQL_CATCH(-1)
 
 bool MysqlBackend::updateStatusesByUUIDs(
-    const std::vector<std::pair<std::string, std::string>>& pairs) {
+    const std::vector<std::pair<std::string, std::string>>& pairs) MYSQL_TRY {
     return mysql_->update_statuses_by_uuids(pairs);
-}
+} MYSQL_CATCH(false)
 
-bool MysqlBackend::cleanDataBase(const double hours) {
+bool MysqlBackend::cleanDataBase(const double hours) MYSQL_TRY {
     yuhangle::clean_data_status = 2;
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -137,16 +150,16 @@ bool MysqlBackend::cleanDataBase(const double hours) {
 
     yuhangle::clean_data_status = 1;
     return true;
-}
+} MYSQL_CATCH(false)
 
-std::string MysqlBackend::generateUuid() {
+std::string MysqlBackend::generateUuid() MYSQL_TRY {
     return mysql_->generate_uuid();
-}
+} MYSQL_CATCH("")
 
-int MysqlBackend::executeSQL(const std::string& sql) {
+int MysqlBackend::executeSQL(const std::string& sql) MYSQL_TRY {
     int affected = mysql_->execute(sql, {});
     return affected >= 0 ? 0 : affected;
-}
+} MYSQL_CATCH(-1)
 
 int MysqlBackend::querySQL(const std::string& sql,
                            std::vector<std::map<std::string, std::string>>& result) {
@@ -155,15 +168,15 @@ int MysqlBackend::querySQL(const std::string& sql,
 
 int MysqlBackend::updateSQL(const std::string& table,
                             const std::string& set_clause,
-                            const std::string& where_clause) {
+                            const std::string& where_clause) MYSQL_TRY {
     const std::string sql = "UPDATE " + table + " SET " + set_clause + " WHERE " + where_clause;
     int affected = mysql_->execute(sql, {});
     return affected >= 0 ? 0 : affected;
-}
+} MYSQL_CATCH(-1)
 
 bool MysqlBackend::isValueExists(const std::string& tableName,
                                  const std::string& columnName,
-                                 const std::string& value) {
+                                 const std::string& value) MYSQL_TRY {
     auto qr = mysql_->query(
         "SELECT COUNT(*) AS cnt FROM " + tableName + " WHERE " + columnName + " = ?",
         {value});
@@ -174,24 +187,24 @@ bool MysqlBackend::isValueExists(const std::string& tableName,
         }
     }
     return false;
-}
+} MYSQL_CATCH(false)
 
 bool MysqlBackend::updateValue(const std::string& tableName,
                                const std::string& targetColumn,
                                const std::string& newValue,
                                const std::string& conditionColumn,
-                               const std::string& conditionValue) {
+                               const std::string& conditionValue) MYSQL_TRY {
     const std::string sql = "UPDATE " + tableName +
                             " SET " + targetColumn + " = ?" +
                             " WHERE " + conditionColumn + " = ?";
     int affected = mysql_->execute(sql, {newValue, conditionValue});
     return affected > 0;
-}
+} MYSQL_CATCH(false)
 
 bool MysqlBackend::updateStatusByUUID(const std::string& uuid,
-                                      const std::string& newStatus) {
+                                      const std::string& newStatus) MYSQL_TRY {
     return mysql_->update_status_by_uuid(uuid, newStatus);
-}
+} MYSQL_CATCH(false)
 
 int MysqlBackend::getAllLog(std::vector<std::map<std::string, std::string>>& result) {
     return queryResultToMaps(result, "", {});
@@ -200,7 +213,7 @@ int MysqlBackend::getAllLog(std::vector<std::map<std::string, std::string>>& res
 int MysqlBackend::queryResultToMaps(
     std::vector<std::map<std::string, std::string>>& result,
     const std::string& sql,
-    const std::vector<std::string>& params) const
+    const std::vector<std::string>& params) const MYSQL_TRY
 {
     auto qr = mysql_->query(sql, params);
     result.clear();
@@ -209,4 +222,4 @@ int MysqlBackend::queryResultToMaps(
         result.push_back(std::move(static_cast<std::map<std::string, std::string>&>(row)));
     }
     return 0;
-}
+} MYSQL_CATCH(-1)
