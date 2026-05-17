@@ -107,6 +107,12 @@ namespace yuhangle {
 
         std::shared_ptr<DatabaseConnection> createConnection() {
             if (auto conn = std::make_shared<DatabaseConnection>(db_filename); conn->open()) {
+                sqlite3* db = conn->get();
+                sqlite3_exec(db, "PRAGMA journal_mode=WAL", nullptr, nullptr, nullptr);
+                sqlite3_exec(db, "PRAGMA synchronous=NORMAL", nullptr, nullptr, nullptr);
+                sqlite3_exec(db, "PRAGMA cache_size=-64000", nullptr, nullptr, nullptr);
+                sqlite3_exec(db, "PRAGMA busy_timeout=5000", nullptr, nullptr, nullptr);
+                sqlite3_exec(db, "PRAGMA temp_store=MEMORY", nullptr, nullptr, nullptr);
                 return conn;
             }
             return nullptr;
@@ -688,6 +694,9 @@ namespace yuhangle {
             const std::string sql = "SELECT * FROM LOGDATA WHERE "
                   "(name LIKE ? OR type LIKE ? OR data LIKE ?) AND time >= ? "
                   "AND world = ? "
+                  "AND pos_x >= ? AND pos_x <= ? "
+                  "AND pos_y >= ? AND pos_y <= ? "
+                  "AND pos_z >= ? AND pos_z <= ? "
                   "AND ((pos_x - ?)*(pos_x - ?) + (pos_y - ?)*(pos_y - ?) + (pos_z - ?)*(pos_z - ?)) <= ?";
 
             sqlite3_stmt* stmt;
@@ -701,18 +710,25 @@ namespace yuhangle {
             const std::string searchPattern = "%" + searchCriteria.first + "%";
 
             // 绑定参数
-            sqlite3_bind_text(stmt, 1, searchPattern.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_text(stmt, 2, searchPattern.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_text(stmt, 3, searchPattern.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_int64(stmt, 4, timeThreshold);
-            sqlite3_bind_text(stmt, 5, world.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_double(stmt, 6, x);
-            sqlite3_bind_double(stmt, 7, x);
-            sqlite3_bind_double(stmt, 8, y);
-            sqlite3_bind_double(stmt, 9, y);
-            sqlite3_bind_double(stmt, 10, z);
-            sqlite3_bind_double(stmt, 11, z);
-            sqlite3_bind_double(stmt, 12, r*r);
+            int idx = 1;
+            sqlite3_bind_text(stmt, idx++, searchPattern.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, idx++, searchPattern.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, idx++, searchPattern.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_int64(stmt, idx++, timeThreshold);
+            sqlite3_bind_text(stmt, idx++, world.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_double(stmt, idx++, x - r);
+            sqlite3_bind_double(stmt, idx++, x + r);
+            sqlite3_bind_double(stmt, idx++, y - r);
+            sqlite3_bind_double(stmt, idx++, y + r);
+            sqlite3_bind_double(stmt, idx++, z - r);
+            sqlite3_bind_double(stmt, idx++, z + r);
+            sqlite3_bind_double(stmt, idx++, x);
+            sqlite3_bind_double(stmt, idx++, x);
+            sqlite3_bind_double(stmt, idx++, y);
+            sqlite3_bind_double(stmt, idx++, y);
+            sqlite3_bind_double(stmt, idx++, z);
+            sqlite3_bind_double(stmt, idx++, z);
+            sqlite3_bind_double(stmt, idx, r * r);
 
             // 执行查询并处理结果
             while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
