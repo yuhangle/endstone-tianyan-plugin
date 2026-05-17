@@ -69,9 +69,11 @@ private:
     struct AsyncQueryTask {
         enum class Type { Ty, Tys, Tyback };
         Type type;
+        uint64_t id = 0;
         std::string player_name;
         bool is_running = false;
         bool is_complete = false;
+        bool cancelled = false;
         std::vector<TianyanCore::LogData> results;
 
         double r = 0;
@@ -91,6 +93,7 @@ private:
     string clean_data_sender_name;
     std::vector<AsyncQueryTask> async_tasks_;
     std::mutex async_tasks_mutex_;
+    uint64_t next_task_id_ = 1;
     shared_ptr<endstone::Task> windows_print_webui_log;
 #ifdef _WIN32
     void dump_webui_log_once() const;

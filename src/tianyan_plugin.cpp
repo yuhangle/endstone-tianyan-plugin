@@ -529,15 +529,19 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double z = sender.asPlayer()->getLocation().getZ();
 
                 // 提交后台查询任务
+                uint64_t task_id;
                 {
                     std::lock_guard lock(async_tasks_mutex_);
-                    for (const auto& t : async_tasks_) {
-                        if (t.player_name == sender.getName() && t.is_running) {
-                            sender.sendErrorMessage(Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
-                            return false;
+                    // 取消该玩家之前的后台任务
+                    for (auto& t : async_tasks_) {
+                        if (t.player_name == sender.getName() && t.is_running && !t.cancelled) {
+                            t.cancelled = true;
+                            sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
                         }
                     }
+                    task_id = next_task_id_++;
                     AsyncQueryTask task;
+                    task.id = task_id;
                     task.type = AsyncQueryTask::Type::Ty;
                     task.player_name = sender.getName();
                     task.is_running = true;
@@ -554,11 +558,11 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
 
                 sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
 
-                std::thread([this, player_name = sender.getName(), hours = time, r, world, x, y, z]() {
+                std::thread([this, task_id, hours = time, r, world, x, y, z]() {
                     auto results = tyCore->searchLog({"", hours}, x, y, z, r, world);
                     std::lock_guard lock(async_tasks_mutex_);
                     for (auto& t : async_tasks_) {
-                        if (t.player_name == player_name && t.is_running) {
+                        if (t.id == task_id) {
                             t.results = std::move(results);
                             t.is_complete = true;
                             break;
@@ -587,16 +591,6 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 return false;
             }
             try {
-                // 检查是否有进行中的后台任务
-                {
-                    std::lock_guard lock(async_tasks_mutex_);
-                    for (const auto& t : async_tasks_) {
-                        if (t.player_name == sender.getName() && t.is_running) {
-                            sender.sendErrorMessage(Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
-                            return false;
-                        }
-                    }
-                }
                 const double r = stod(args[0]);
                 if (r > 100) {
                     sender.sendErrorMessage(Tran->getLocal("The radius cannot be greater than 100"));
@@ -611,9 +605,19 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double z = sender.asPlayer()->getLocation().getZ();
 
                 // 提交后台查询任务
+                uint64_t task_id;
                 {
                     std::lock_guard lock(async_tasks_mutex_);
+                    // 取消该玩家之前的后台任务
+                    for (auto& t : async_tasks_) {
+                        if (t.player_name == sender.getName() && t.is_running && !t.cancelled) {
+                            t.cancelled = true;
+                            sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
+                        }
+                    }
+                    task_id = next_task_id_++;
                     AsyncQueryTask task;
+                    task.id = task_id;
                     task.type = AsyncQueryTask::Type::Tyback;
                     task.player_name = sender.getName();
                     task.is_running = true;
@@ -630,11 +634,11 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
 
                 sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
 
-                std::thread([this, player_name = sender.getName(), hours = time, r, world, x, y, z]() {
+                std::thread([this, task_id, hours = time, r, world, x, y, z]() {
                     auto results = tyCore->searchLog({"", hours}, x, y, z, r, world);
                     std::lock_guard lock(async_tasks_mutex_);
                     for (auto& t : async_tasks_) {
-                        if (t.player_name == player_name && t.is_running) {
+                        if (t.id == task_id) {
                             t.results = std::move(results);
                             t.is_complete = true;
                             break;
@@ -669,36 +673,42 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 {
                     const string search_key_type = args.size() > 1 ? args[1] : "";
                     const string search_key = args.size() > 2 ? args[2] : "";
-                    std::lock_guard lock(async_tasks_mutex_);
-                    for (const auto& t : async_tasks_) {
-                        if (t.player_name == sender.getName() && t.is_running) {
-                            sender.sendErrorMessage(Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
-                            return false;
+                    uint64_t task_id;
+                    {
+                        std::lock_guard lock(async_tasks_mutex_);
+                        // 取消该玩家之前的后台任务
+                        for (auto& t : async_tasks_) {
+                            if (t.player_name == sender.getName() && t.is_running && !t.cancelled) {
+                                t.cancelled = true;
+                                sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
+                            }
                         }
+                        task_id = next_task_id_++;
+                        AsyncQueryTask task;
+                        task.id = task_id;
+                        task.type = AsyncQueryTask::Type::Tys;
+                        task.player_name = sender.getName();
+                        task.is_running = true;
+                        task.hours = time;
+                        task.key_type = search_key_type;
+                        task.key = search_key;
+                        async_tasks_.push_back(std::move(task));
                     }
-                    AsyncQueryTask task;
-                    task.type = AsyncQueryTask::Type::Tys;
-                    task.player_name = sender.getName();
-                    task.is_running = true;
-                    task.hours = time;
-                    task.key_type = search_key_type;
-                    task.key = search_key;
-                    async_tasks_.push_back(std::move(task));
+
+                    sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
+
+                    std::thread([this, task_id, hours = time]() {
+                        auto results = tyCore->searchLog({"", hours});
+                        std::lock_guard lock(async_tasks_mutex_);
+                        for (auto& t : async_tasks_) {
+                            if (t.id == task_id) {
+                                t.results = std::move(results);
+                                t.is_complete = true;
+                                break;
+                            }
+                        }
+                    }).detach();
                 }
-
-                sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
-
-                std::thread([this, player_name = sender.getName(), hours = time]() {
-                    auto results = tyCore->searchLog({"", hours});
-                    std::lock_guard lock(async_tasks_mutex_);
-                    for (auto& t : async_tasks_) {
-                        if (t.player_name == player_name && t.is_running) {
-                            t.results = std::move(results);
-                            t.is_complete = true;
-                            break;
-                        }
-                    }
-                }).detach();
 
             } catch (const std::exception &e) {
                 sender.sendErrorMessage(e.what());
@@ -900,7 +910,9 @@ void TianyanPlugin::checkAsyncTasks() {
     {
         std::lock_guard lock(async_tasks_mutex_);
         for (auto it = async_tasks_.begin(); it != async_tasks_.end();) {
-            if (it->is_complete) {
+            if (it->cancelled) {
+                it = async_tasks_.erase(it);
+            } else if (it->is_complete) {
                 completed.push_back(std::move(*it));
                 it = async_tasks_.erase(it);
             } else {
