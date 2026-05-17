@@ -120,5 +120,6 @@
   "Background log loading completed. You may now resume your operation": "Background log loading completed. You may now resume your operation",
   "Too many logs. Loading in the background to avoid lag — please wait": "Too many logs. Loading in the background to avoid lag — please wait",
   "A background operation is in progress. Please wait for it to complete": "A background operation is in progress. Please wait for it to complete",
-  "Searching in the background, please wait": "Searching in the background, please wait"
+  "Searching in the background, please wait": "Searching in the background, please wait",
+  "Previous query cancelled, starting a new one": "Previous query cancelled, starting a new one"
 }

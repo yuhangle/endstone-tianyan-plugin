@@ -1,6 +1,7 @@
 #pragma once
 
 #include "database_backend.h"
+#include <atomic>
 #include <condition_variable>
 #include "database.hpp"
 #include "database_util.h"
@@ -27,12 +28,14 @@ public:
     int addLogs(const std::vector<DatabaseLogEntry>& entries) override;
 
     int searchLog(std::vector<std::map<std::string, std::string>>& result,
-                  const std::pair<std::string, double>& key) override;
+                  const std::pair<std::string, double>& key,
+                  std::atomic<bool>* cancel = nullptr) override;
 
     int searchLog(std::vector<std::map<std::string, std::string>>& result,
                   const std::pair<std::string, double>& key,
                   double x, double y, double z, double r,
-                  const std::string& world) override;
+                  const std::string& world,
+                  std::atomic<bool>* cancel = nullptr) override;
 
     bool updateStatusesByUUIDs(
         const std::vector<std::pair<std::string, std::string>>& pairs) override;

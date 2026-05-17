@@ -74,6 +74,7 @@ private:
         bool is_running = false;
         bool is_complete = false;
         bool cancelled = false;
+        std::shared_ptr<std::atomic<bool>> cancel_flag;
         std::vector<TianyanCore::LogData> results;
 
         double r = 0;

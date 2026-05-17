@@ -55,9 +55,11 @@ int TianyanCore::recordLogs(const std::vector<LogData>& logDatas) const {
     return db_backend_.addLogs(entries);
 }
 
-vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& key) const {
+vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& key, atomic<bool>* cancel) const {
     std::vector<std::map<std::string, std::string>> result;
-    db_backend_.searchLog(result, key);
+    if (cancel && *cancel) return {};
+    if (db_backend_.searchLog(result, key, cancel) != 0) return {};
+    if (cancel && *cancel) return {};
     if (result.empty()) {
         return {};
     }
@@ -84,9 +86,12 @@ vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& 
 
 vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& key,
                                                      const double x, const double y, const double z,
-                                                     const double r, const string& world) const {
+                                                     const double r, const string& world,
+                                                     atomic<bool>* cancel) const {
     std::vector<std::map<std::string, std::string>> result;
-    db_backend_.searchLog(result, key, x, y, z, r, world);
+    if (cancel && *cancel) return {};
+    if (db_backend_.searchLog(result, key, x, y, z, r, world, cancel) != 0) return {};
+    if (cancel && *cancel) return {};
     if (result.empty()) {
         return {};
     }

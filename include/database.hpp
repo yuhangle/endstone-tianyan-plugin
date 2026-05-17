@@ -17,6 +17,7 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <atomic>
 #include <queue>
 
 namespace yuhangle {
@@ -624,7 +625,8 @@ namespace yuhangle {
         }
 
         int searchLog(std::vector<std::map<std::string, std::string>> &result,
-                      const std::pair<std::string, double>& searchCriteria) const {
+                      const std::pair<std::string, double>& searchCriteria,
+                      std::atomic<bool>* cancel = nullptr) const {
             auto& pool = ConnectionPool::getInstance(db_filename);
             const auto conn = pool.getConnection();
             sqlite3* db = conn->get();
@@ -655,6 +657,13 @@ namespace yuhangle {
             sqlite3_bind_text(stmt, 3, searchPattern.c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_int64(stmt, 4, timeThreshold);
 
+            // 注册取消回调，每 250 条 VM 指令检查一次
+            if (cancel) {
+                sqlite3_progress_handler(db, 250, [](void* arg) {
+                    return static_cast<std::atomic<bool>*>(arg)->load() ? 1 : 0;
+                }, cancel);
+            }
+
             // 执行查询并处理结果
             while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
                 std::map<std::string, std::string> row;
@@ -664,6 +673,17 @@ namespace yuhangle {
                     row[colName] = colValue ? colValue : "NULL";
                 }
                 result.push_back(row);
+            }
+
+            if (cancel) {
+                sqlite3_progress_handler(db, 0, nullptr, nullptr);
+            }
+
+            if (rc == SQLITE_ABORT) {
+                std::cerr << "SQL 查询被取消" << std::endl;
+                sqlite3_finalize(stmt);
+                pool.returnConnection(conn);
+                return rc;
             }
 
             if (rc != SQLITE_DONE) {
@@ -678,7 +698,8 @@ namespace yuhangle {
         // 新增带坐标和世界过滤的搜索函数
         int searchLog(std::vector<std::map<std::string, std::string>> &result,
                       const std::pair<std::string, double>& searchCriteria,
-                      const double x, const double y, const double z, const double r, const std::string& world) const {
+                      const double x, const double y, const double z, const double r, const std::string& world,
+                      std::atomic<bool>* cancel = nullptr) const {
             auto& pool = ConnectionPool::getInstance(db_filename);
             const auto conn = pool.getConnection();
             sqlite3* db = conn->get();
@@ -730,6 +751,13 @@ namespace yuhangle {
             sqlite3_bind_double(stmt, idx++, z);
             sqlite3_bind_double(stmt, idx, r * r);
 
+            // 注册取消回调，每 250 条 VM 指令检查一次
+            if (cancel) {
+                sqlite3_progress_handler(db, 250, [](void* arg) {
+                    return static_cast<std::atomic<bool>*>(arg)->load() ? 1 : 0;
+                }, cancel);
+            }
+
             // 执行查询并处理结果
             while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
                 std::map<std::string, std::string> row;
@@ -739,6 +767,17 @@ namespace yuhangle {
                     row[colName] = colValue ? colValue : "NULL";
                 }
                 result.push_back(row);
+            }
+
+            if (cancel) {
+                sqlite3_progress_handler(db, 0, nullptr, nullptr);
+            }
+
+            if (rc == SQLITE_ABORT) {
+                std::cerr << "SQL 查询被取消" << std::endl;
+                sqlite3_finalize(stmt);
+                pool.returnConnection(conn);
+                return rc;
             }
 
             if (rc != SQLITE_DONE) {

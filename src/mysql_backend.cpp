@@ -53,8 +53,11 @@ int MysqlBackend::addLogs(const std::vector<DatabaseLogEntry>& entries) {
 }
 
 int MysqlBackend::searchLog(std::vector<std::map<std::string, std::string>>& result,
-                            const std::pair<std::string, double>& key) {
+                            const std::pair<std::string, double>& key,
+                            std::atomic<bool>* cancel) {
+    if (cancel && *cancel) return -1;
     auto qr = mysql_->search_logs(key.first, key.second);
+    if (cancel && *cancel) return -1;
     result.clear();
     result.reserve(qr.rows.size());
     for (auto& row : qr.rows) {
@@ -66,8 +69,11 @@ int MysqlBackend::searchLog(std::vector<std::map<std::string, std::string>>& res
 int MysqlBackend::searchLog(std::vector<std::map<std::string, std::string>>& result,
                             const std::pair<std::string, double>& key,
                             const double x, const double y, const double z, const double r,
-                            const std::string& world) {
+                            const std::string& world,
+                            std::atomic<bool>* cancel) {
+    if (cancel && *cancel) return -1;
     auto qr = mysql_->search_logs_by_pos(key.first, key.second, x, y, z, r, world);
+    if (cancel && *cancel) return -1;
     result.clear();
     result.reserve(qr.rows.size());
     for (auto& row : qr.rows) {

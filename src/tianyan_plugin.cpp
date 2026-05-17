@@ -529,6 +529,7 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                 const double z = sender.asPlayer()->getLocation().getZ();
 
                 // 提交后台查询任务
+                auto cancel_flag = std::make_shared<std::atomic<bool>>(false);
                 uint64_t task_id;
                 {
                     std::lock_guard lock(async_tasks_mutex_);
@@ -536,11 +537,13 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                     for (auto& t : async_tasks_) {
                         if (t.player_name == sender.getName() && t.is_running && !t.cancelled) {
                             t.cancelled = true;
-                            sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
+                            if (t.cancel_flag) *t.cancel_flag = true;
+                            sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Previous query cancelled, starting a new one"));
                         }
                     }
                     task_id = next_task_id_++;
                     AsyncQueryTask task;
+                    task.cancel_flag = cancel_flag;
                     task.id = task_id;
                     task.type = AsyncQueryTask::Type::Ty;
                     task.player_name = sender.getName();
@@ -558,8 +561,10 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
 
                 sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
 
-                std::thread([this, task_id, hours = time, r, world, x, y, z]() {
-                    auto results = tyCore->searchLog({"", hours}, x, y, z, r, world);
+                std::thread([this, task_id, cancel_flag, hours = time, r, world, x, y, z]() {
+                    if (cancel_flag->load()) return;
+                    auto results = tyCore->searchLog({"", hours}, x, y, z, r, world, cancel_flag.get());
+                    if (cancel_flag->load()) return;
                     std::lock_guard lock(async_tasks_mutex_);
                     for (auto& t : async_tasks_) {
                         if (t.id == task_id) {
@@ -606,18 +611,21 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
 
                 // 提交后台查询任务
                 uint64_t task_id;
+                auto cancel_flag = std::make_shared<std::atomic<bool>>(false);
                 {
                     std::lock_guard lock(async_tasks_mutex_);
                     // 取消该玩家之前的后台任务
                     for (auto& t : async_tasks_) {
                         if (t.player_name == sender.getName() && t.is_running && !t.cancelled) {
                             t.cancelled = true;
-                            sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
+                            if (t.cancel_flag) *t.cancel_flag = true;
+                            sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Previous query cancelled, starting a new one"));
                         }
                     }
                     task_id = next_task_id_++;
                     AsyncQueryTask task;
                     task.id = task_id;
+                    task.cancel_flag = cancel_flag;
                     task.type = AsyncQueryTask::Type::Tyback;
                     task.player_name = sender.getName();
                     task.is_running = true;
@@ -634,8 +642,10 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
 
                 sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
 
-                std::thread([this, task_id, hours = time, r, world, x, y, z]() {
-                    auto results = tyCore->searchLog({"", hours}, x, y, z, r, world);
+                std::thread([this, task_id, cancel_flag, hours = time, r, world, x, y, z]() {
+                    if (cancel_flag->load()) return;
+                    auto results = tyCore->searchLog({"", hours}, x, y, z, r, world, cancel_flag.get());
+                    if (cancel_flag->load()) return;
                     std::lock_guard lock(async_tasks_mutex_);
                     for (auto& t : async_tasks_) {
                         if (t.id == task_id) {
@@ -674,18 +684,21 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
                     const string search_key_type = args.size() > 1 ? args[1] : "";
                     const string search_key = args.size() > 2 ? args[2] : "";
                     uint64_t task_id;
+                    auto cancel_flag = std::make_shared<std::atomic<bool>>(false);
                     {
                         std::lock_guard lock(async_tasks_mutex_);
                         // 取消该玩家之前的后台任务
                         for (auto& t : async_tasks_) {
                             if (t.player_name == sender.getName() && t.is_running && !t.cancelled) {
+                            if (t.cancel_flag) *t.cancel_flag = true;
                                 t.cancelled = true;
-                                sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("A background operation is in progress. Please wait for it to complete"));
+                                sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Previous query cancelled, starting a new one"));
                             }
                         }
                         task_id = next_task_id_++;
                         AsyncQueryTask task;
                         task.id = task_id;
+                        task.cancel_flag = cancel_flag;
                         task.type = AsyncQueryTask::Type::Tys;
                         task.player_name = sender.getName();
                         task.is_running = true;
@@ -697,8 +710,10 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
 
                     sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
 
-                    std::thread([this, task_id, hours = time]() {
-                        auto results = tyCore->searchLog({"", hours});
+                    std::thread([this, task_id, cancel_flag, hours = time]() {
+                        if (cancel_flag->load()) return;
+                        auto results = tyCore->searchLog({"", hours}, cancel_flag.get());
+                        if (cancel_flag->load()) return;
                         std::lock_guard lock(async_tasks_mutex_);
                         for (auto& t : async_tasks_) {
                             if (t.id == task_id) {

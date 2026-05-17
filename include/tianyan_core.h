@@ -88,10 +88,10 @@ public:
     [[nodiscard]] int recordLogs(const std::vector<LogData>& logDatas) const;
 
     //查询日志
-    [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key) const;
-    
+    [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key, atomic<bool>* cancel = nullptr) const;
+
     //查询日志并在指定世界和坐标范围内筛选
-    [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key, double x, double y, double z, double r, const string& world) const;
+    [[nodiscard]] vector<LogData> searchLog(const pair<string,double>& key, double x, double y, double z, double r, const string& world, atomic<bool>* cancel = nullptr) const;
 
     // 记录玩家发送了一条消息（自动清理过期记录）
     static int recordPlayerSendMSG(const string& player_name);

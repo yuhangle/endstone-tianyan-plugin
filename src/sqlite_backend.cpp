@@ -35,15 +35,17 @@ int SqliteBackend::addLogs(const std::vector<DatabaseLogEntry>& entries) {
 }
 
 int SqliteBackend::searchLog(std::vector<std::map<std::string, std::string>>& result,
-                             const std::pair<std::string, double>& key) {
-    return db_.searchLog(result, key);
+                             const std::pair<std::string, double>& key,
+                             std::atomic<bool>* cancel) {
+    return db_.searchLog(result, key, cancel);
 }
 
 int SqliteBackend::searchLog(std::vector<std::map<std::string, std::string>>& result,
                              const std::pair<std::string, double>& key,
                              const double x, const double y, const double z, const double r,
-                             const std::string& world) {
-    return db_.searchLog(result, key, x, y, z, r, world);
+                             const std::string& world,
+                             std::atomic<bool>* cancel) {
+    return db_.searchLog(result, key, x, y, z, r, world, cancel);
 }
 
 bool SqliteBackend::updateStatusesByUUIDs(

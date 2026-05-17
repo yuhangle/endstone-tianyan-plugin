@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <map>
 #include <string>
 #include <vector>
@@ -41,12 +42,14 @@ public:
     virtual int addLogs(const std::vector<DatabaseLogEntry>& entries) = 0;
 
     virtual int searchLog(std::vector<std::map<std::string, std::string>>& result,
-                          const std::pair<std::string, double>& key) = 0;
+                          const std::pair<std::string, double>& key,
+                          std::atomic<bool>* cancel = nullptr) = 0;
 
     virtual int searchLog(std::vector<std::map<std::string, std::string>>& result,
                           const std::pair<std::string, double>& key,
                           double x, double y, double z, double r,
-                          const std::string& world) = 0;
+                          const std::string& world,
+                          std::atomic<bool>* cancel = nullptr) = 0;
 
     virtual bool updateStatusesByUUIDs(
         const std::vector<std::pair<std::string, std::string>>& pairs) = 0;
