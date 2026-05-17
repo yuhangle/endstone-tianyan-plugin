@@ -7,6 +7,7 @@
 #include <string>
 #include <fstream>
 #include <mutex>
+#include <unordered_set>
 #include "database_backend.h"
 #include "tianyan_protect.h"
 #include "event_listener.h"

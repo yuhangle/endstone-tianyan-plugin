@@ -989,9 +989,26 @@ void TianyanPlugin::checkAsyncTasks() {
 
             int success_times = 0;
             int failed_times = 0;
+
+            // 收集 block_place 的位置，跳过该位置上冗余的 player_right_click_block
+            std::unordered_set<std::string> placed_positions;
+            for (const auto& ld : task.results) {
+                if (ld.type == "block_place") {
+                    placed_positions.insert(std::to_string(ld.pos_x) + "," +
+                                            std::to_string(ld.pos_y) + "," +
+                                            std::to_string(ld.pos_z));
+                }
+            }
+
             for (auto& logData : std::ranges::reverse_view(task.results)) {
                 if (logData.status == "canceled" || logData.status == "reverted") {
                     continue;
+                }
+                if (logData.type == "player_right_click_block") {
+                    string p = std::to_string(logData.pos_x) + "," +
+                               std::to_string(logData.pos_y) + "," +
+                               std::to_string(logData.pos_z);
+                    if (placed_positions.contains(p)) continue;
                 }
                 if (!task.key_type.empty() && !task.key.empty()) {
                     if (task.key_type == "source_id" && logData.id != task.key) continue;
