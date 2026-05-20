@@ -349,6 +349,7 @@ void TianyanPlugin::default_init_sqlite_() {
         getServer().getPluginManager().disablePlugin(*this);
         return;
     }
+    tyCore = std::make_unique<TianyanCore>(*db_backend_);
     is_db_over = true;
 }
 
@@ -399,9 +400,9 @@ void TianyanPlugin::onEnable()
                         getServer().getPluginManager().disablePlugin(*this);
                         return;
                     }
-                    is_db_over = true;
                     //重载核心
                     tyCore = std::make_unique<TianyanCore>(*db_backend_);
+                    is_db_over = true;
                     getServer().getScheduler().cancelTask(mysql_get_->getTaskId());
                 } else {
                     getLogger().warning("MySQLAPI is not connected, falling back to SQLite");

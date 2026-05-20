@@ -15,6 +15,6 @@ inline vector<TianyanCore::BanIDPlayer> BanIDPlayers;
 //缓存锁
 inline std::mutex cacheMutex;
 //数据库状态
-inline bool is_db_over = false;
+inline std::atomic is_db_over = false;
 
 #endif //TIANYAN_GLOBAL_H
