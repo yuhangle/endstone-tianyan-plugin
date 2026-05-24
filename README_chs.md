@@ -128,7 +128,7 @@ WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config
 
 ### MySQL 数据库支持
 
-天眼插件支持使用 MySQL 作为日志存储后端。MySQL 客户端使用纯 Rust 实现内置于插件中，无需额外安装依赖。
+天眼插件支持使用 MySQL 作为日志存储后端。MySQL 客户端使用 Rust 实现内置于插件中，无需额外安装依赖。
 
 启用 MySQL 需要修改 `plugins/tianyan_data/config.json`：
 
