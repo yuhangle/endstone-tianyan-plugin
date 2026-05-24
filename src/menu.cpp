@@ -425,11 +425,11 @@ void Menu::setInventoryUIService(std::shared_ptr<inventoryui::InventoryUI> servi
     inventory_ui_service_ = std::move(service);
 }
 
-//可视化物品栏展示（使用 inventoryui）
+//可视化物品栏展示
 bool Menu::showPlayerInventoryUI(endstone::Player &sender, endstone::Player &target) {
     if (!inventory_ui_service_) {
-        if (const auto* inv_ui_plugin = plugin_.getServer().getPluginManager().getPlugin("inventoryui"); inv_ui_plugin && inv_ui_plugin->isEnabled()) {
-            inventory_ui_service_ = plugin_.getServer().getServiceManager().load<inventoryui::InventoryUI>("InventoryUI");
+        if (const auto* inv_ui_plugin = plugin_.getServer().getPluginManager().getPlugin("inventoryui_api"); inv_ui_plugin && inv_ui_plugin->isEnabled()) {
+            inventory_ui_service_ = plugin_.getServer().getServiceManager().load<inventoryui::InventoryUI>("InventoryUIAPI");
         }
         if (!inventory_ui_service_) return false;
     }

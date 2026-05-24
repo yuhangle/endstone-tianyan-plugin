@@ -36,24 +36,26 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(endstone_mysql_api)
 
-# endstone-inventoryui (header-only interface for visual inventory UI)
-FetchContent_Declare(
-    endstone_inventoryui
-    GIT_REPOSITORY https://github.com/yuhangle/endstone-inventoryui.git
-    GIT_TAG main
-)
-FetchContent_MakeAvailable(endstone_inventoryui)
-
-# SQLite3
-find_package(SQLite3 REQUIRED)
-
-# fmt (header-only or static)
+# fmt (header-only) — must be defined before endstone_inventoryui
+set(FMT_HEADER_ONLY ON CACHE BOOL "fmt header-only" FORCE)
 FetchContent_Declare(
         fmt
         GIT_REPOSITORY https://github.com/fmtlib/fmt.git
         GIT_TAG 11.2.0
 )
 FetchContent_MakeAvailable(fmt)
+
+# endstone-inventoryui (static linking for embedded visual inventory UI)
+set(INVENTORYUI_BUILD_AS_STATIC ON)
+FetchContent_Declare(
+    endstone_inventoryui
+    GIT_REPOSITORY https://github.com/yuhangle/endstone-inventoryui-api.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(endstone_inventoryui)
+
+# SQLite3
+find_package(SQLite3 REQUIRED)
 
 file(GLOB PLUGIN_SOURCES
         CONFIGURE_DEPENDS

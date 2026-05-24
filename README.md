@@ -48,7 +48,7 @@ Automatic ban rules:
 The Tianyan plugin supports restoring player-directly caused block destruction, block placement, and explosion damage. The principle is simply using the setblock command to restore blocks from the database, but it does not currently support restoring details such as chest contents.
 
 #### View Online Player Inventory Function
-The Tianyan plugin supports viewing item information in online players' inventories. By default, it displays items in a text form. If the optional [endstone-inventoryui](https://github.com/yuhangle/endstone-inventoryui) plugin is installed, `/tyo` will show the inventory in a visual chest GUI with enchantment glints and custom names rendered correctly.
+The Tianyan plugin supports viewing item information in online players' inventories. Use `/tyo` to view a player's inventory read-only through a built-in visual chest GUI.
 
 #### 🌐 WebUI Panel
 
@@ -189,7 +189,7 @@ Example: Search for player block placement behaviors within 2 hours
 ```
 /tyo <player name>
 ```
-Displays in a text form by default. If the optional [endstone-inventoryui](https://github.com/yuhangle/endstone-inventoryui) plugin is installed, opens a visual chest GUI instead. Note: item tooltips on hover are limited by the client and won't show enchantment details.
+Opens a visual chest GUI to view the player's inventory read-only.
 
 ### `/ban-id` - Add device to blacklist
 ```

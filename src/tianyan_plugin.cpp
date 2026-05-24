@@ -11,6 +11,7 @@
 #include "sqlite_backend.h"
 #include "mysql_backend.h"
 #include <endstone_mysql_api/mysql_api.h>
+#include <inventoryui_init.h>
 
 // 为了方便在宏里调用，定义一个短函数
 inline std::string T(const std::string& key) {
@@ -23,6 +24,7 @@ ENDSTONE_PLUGIN("tianyan_plugin", TIANYAN_PLUGIN_VERSION, TianyanPlugin)
     description = "A plugin for endstone to record behavior";
     website = "https://github.com/yuhangle/endstone-tianyan-plugin";
     authors = {"yuhangle"};
+    depend = {"mysql_api"};
 
 
         command("ty")
@@ -496,14 +498,15 @@ _____   _
         windows_print_webui_log = getServer().getScheduler().runTaskTimer(*this, [&]() {dump_webui_log_once();},0,20);
 #endif
     }
-    // 尝试加载 inventoryui 服务（用于可视化物品栏展示，非必需）
+
+    //初始化物品栏ui
+    inventoryui::initialize(*this);
+
+    // 加载 inventoryui 服务
     {
-        std::shared_ptr<inventoryui::InventoryUI> inv_ui_service;
-        if (const auto* inv_ui_plugin = getServer().getPluginManager().getPlugin("inventoryui"); inv_ui_plugin && inv_ui_plugin->isEnabled()) {
-            inv_ui_service = getServer().getServiceManager().load<inventoryui::InventoryUI>("InventoryUI");
-            if (inv_ui_service) {
-                getLogger().info("InventoryUI service loaded for visual inventory display");
-            }
+        auto inv_ui_service = getServer().getServiceManager().load<inventoryui::InventoryUI>("InventoryUIAPI");
+        if (inv_ui_service) {
+            getLogger().info("InventoryUI service loaded for visual inventory display");
         }
         menu_->setInventoryUIService(std::move(inv_ui_service));
     }
@@ -516,6 +519,7 @@ _____   _
 
 void TianyanPlugin::onDisable()
 {
+    inventoryui::shutdown();
     getLogger().info("onDisable is called");
     logsCacheWrite();
     if (TianyanCore::enable_web_ui)
