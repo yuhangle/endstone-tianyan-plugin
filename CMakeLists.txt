@@ -36,8 +36,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(endstone_mysql_api)
 
-# fmt (header-only) — must be defined before endstone_inventoryui
-set(FMT_HEADER_ONLY ON CACHE BOOL "fmt header-only" FORCE)
+# fmt (header-only or static)
 FetchContent_Declare(
         fmt
         GIT_REPOSITORY https://github.com/fmtlib/fmt.git
