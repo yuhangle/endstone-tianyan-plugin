@@ -131,7 +131,7 @@ Example: To change to English, modify the `language` item to `"en_US"`.
 
 ### MySQL Database Support
 
-The Tianyan plugin supports using MySQL as the log storage backend. The MySQL client is built into the plugin using a pure Rust implementation (no additional dependencies required).
+The Tianyan plugin supports using MySQL as the log storage backend. The MySQL client is built into the plugin using a Rust implementation (no additional dependencies required).
 
 To enable MySQL, modify `plugins/tianyan_data/config.json`:
 

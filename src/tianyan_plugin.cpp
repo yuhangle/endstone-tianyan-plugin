@@ -91,7 +91,7 @@ ENDSTONE_PLUGIN("tianyan_plugin", TIANYAN_PLUGIN_VERSION, TianyanPlugin)
 
         command("tymigrate")
             .description(T("Migrate database between SQLite and MySQL"))
-            .usages("/tymigrate <sqlite|mysql> <sqlite|mysql>"
+            .usages("/tymigrate (sqlite|mysql)<opt_tym1> (sqlite|mysql)<opt_tym2>"
                     )
             .permissions("ty.command.op");
 
@@ -272,9 +272,9 @@ void start_web_server(const std::string& pluginDir) {
 
     // 构造命令
 #ifdef _WIN32
-    std::string cmd = "python \"" + py_script.string() + "\"";
+    const std::string cmd = "python \"" + py_script.string() + "\"";
 #else
-    std::string cmd = "python3 " + py_script.string();
+    const std::string cmd = "python3 " + py_script.string();
 #endif
 
 #ifdef _WIN32
