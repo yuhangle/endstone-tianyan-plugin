@@ -4,6 +4,7 @@
 
 #include "tianyan_plugin.h"
 #include "version.h"
+#include "world_inspector.h"
 #include <thread>
 #include "global.h"
 #include "tianyan_core.h"
@@ -242,6 +243,13 @@ void TianyanPlugin::migrateOldBanData()
         };
         return error_value;
     }
+}
+
+// 获取 BDS 服务端根目录
+std::string TianyanPlugin::getServerRoot() {
+    const auto data_folder = std::filesystem::absolute(TianyanCore::dataPath.data()).string();
+    auto server_root = std::filesystem::path(data_folder).parent_path().parent_path().string();
+    return server_root;
 }
 
 
@@ -507,17 +515,8 @@ _____   _
 #endif
     }
 
-    //初始化物品栏ui
-    inventoryui::initialize(*this);
-
-    // 加载 inventoryui 服务
-    {
-        auto inv_ui_service = getServer().getServiceManager().load<inventoryui::InventoryUI>("InventoryUIAPI");
-        if (inv_ui_service) {
-            getLogger().info("InventoryUI service loaded for visual inventory display");
-        }
-        menu_->setInventoryUIService(std::move(inv_ui_service));
-    }
+    //初始化内嵌物品栏ui
+    inventoryui::initialize_embedded(*this);
     //注册api
     const auto api_ptr = std::shared_ptr<ITianyanAPI>(this, [](ITianyanAPI*){
     });
@@ -854,14 +853,60 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
         }
         if (!args.empty()) {
             const string& player_name = args[0];
+            // 在线玩家查询
             if (auto player = getServer().getPlayer(player_name)) {
                 if (!menu_->showPlayerInventoryUI(*sender.asPlayer(), *player)) {
                     menu_->showOnlinePlayerBag(sender, *player);
                 }
-            } else {
-                sender.sendErrorMessage(Tran->tr(Tran->getLocal("Player {} not found"), player_name));
+                return true;
+            }
+
+            // 离线玩家查询
+            {
+                if (auto uuid = OfflineInventoryReader::findUUIDByName(player_name); !uuid) {
+                    sender.sendErrorMessage(Tran->tr(Tran->getLocal("Player {} not found (offline)"), player_name));
+                    sender.sendMessage(endstone::ColorFormat::Gray + Tran->getLocal("Tip: The player must have joined at least once to be cached."));
+                } else {
+                    // 提交后台查询任务
+                    AsyncOfflineQueryTask task;
+                    task.sender_name = sender.getName();
+                    task.target_name = player_name;
+                    task.player_uuid = *uuid;
+                    task.world_path = OfflineInventoryReader::resolveWorldPath(getServerRoot());
+                    task.is_running = true;
+                    size_t task_idx;
+                    {
+                        std::lock_guard lock(async_offline_mutex_);
+                        async_offline_tasks_.push_back(std::move(task));
+                        task_idx = async_offline_tasks_.size() - 1;
+                    }
+                    std::thread t([this, task_idx]() {
+                        std::string w_path, p_key;
+                        {
+                            std::lock_guard lock(async_offline_mutex_);
+                            if (task_idx >= async_offline_tasks_.size()) return;
+                            w_path = async_offline_tasks_[task_idx].world_path;
+                            p_key = async_offline_tasks_[task_idx].player_uuid;
+                        }
+                        auto* json = wi_get_inventory_json(w_path.c_str(), p_key.c_str());
+                        {
+                            std::lock_guard lock(async_offline_mutex_);
+                            if (task_idx < async_offline_tasks_.size()) {
+                                if (json) {
+                                    async_offline_tasks_[task_idx].result_json = json;
+                                    wi_free_string(json);
+                                }
+                                async_offline_tasks_[task_idx].is_running = false;
+                                async_offline_tasks_[task_idx].is_complete = true;
+                            }
+                        }
+                    });
+                    t.detach();
+                    sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Querying offline inventory..."));
+                }
             }
         }
+        return true;
     }
     else if (command.getName() == "density") {
         if (!sender.asPlayer()) {
@@ -1260,6 +1305,33 @@ void TianyanPlugin::checkAsyncTasks() {
     }
 
     // 在服务器线程上处理每个已完成任务
+
+    // 处理已完成的后台离线背包查询
+    vector<AsyncOfflineQueryTask> offline_completed;
+    {
+        std::lock_guard lock(async_offline_mutex_);
+        for (auto it = async_offline_tasks_.begin(); it != async_offline_tasks_.end();) {
+            if (it->is_complete) {
+                offline_completed.push_back(std::move(*it));
+                it = async_offline_tasks_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    for (auto& task : offline_completed) {
+        const auto player = getServer().getPlayer(task.sender_name);
+        if (!player) continue;
+
+        if (task.result_json.empty()) {
+            player->sendErrorMessage(Tran->tr(Tran->getLocal("Player {} not found (offline)"), task.target_name));
+            continue;
+        }
+
+        menu_->showOfflinePlayerInventoryEncoded(*player, task.target_name, task.world_path, task.player_uuid);
+    }
+
+    // 处理其他后台查询任务
     for (auto& task : completed) {
         const auto player = getServer().getPlayer(task.player_name);
         if (!player) continue;

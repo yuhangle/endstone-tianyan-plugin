@@ -40,10 +40,6 @@ jobs:
       - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
         run: |
-          git config --global --remove-section http || true
-          echo "machine github.com login x-access-token password ${{ secrets.PRIVATE_TOKEN }}" > ~/.netrc
-          chmod 600 ~/.netrc
-
           cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_C_COMPILER=clang-19 \
                 -DCMAKE_CXX_COMPILER=clang++-19 \
@@ -72,10 +68,6 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          git config --global --remove-section http 2>$null
-          $NetrcPath = Join-Path $HOME "_netrc"
-          "machine github.com login x-access-token password ${{ secrets.PRIVATE_TOKEN }}" | Out-File -FilePath $NetrcPath -Encoding ascii -Force
-
           cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows-static

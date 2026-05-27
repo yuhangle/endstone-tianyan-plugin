@@ -6,6 +6,7 @@
 #define TIANYAN_COMMANDS_H
 #include "global.h"
 #include <endstone/endstone.hpp>
+#include <array>
 
 #include "translate.hpp"
 #include <endstone_inventoryui/inventoryui.h>
@@ -35,8 +36,15 @@ public:
     //可视化物品栏展示（使用 inventoryui），失败返回 false
     bool showPlayerInventoryUI(endstone::Player &sender, endstone::Player &target);
 
-    //注入 inventoryui 服务
-    void setInventoryUIService(std::shared_ptr<inventoryui::InventoryUI> service);
+    //离线玩家可视化物品栏展示（使用 inventoryui），失败返回 false
+    bool showOfflinePlayerInventoryUI(endstone::Player &sender, const std::string& player_name,
+        const std::vector<std::optional<endstone::ItemStack>>& contents,
+        const std::array<std::optional<endstone::ItemStack>, 4>& armor,
+        const std::optional<endstone::ItemStack>& offhand);
+
+    //离线玩家可视化物品栏展示（从 world-inspector 编码数据），失败返回 false
+    bool showOfflinePlayerInventoryEncoded(endstone::Player &sender, const std::string& player_name,
+        const std::string& world_path, const std::string& player_uuid);
 
     //查找实体密度高区域
     void findHighDensityRegion(endstone::Player &player, int size = 20) const;
@@ -45,7 +53,6 @@ public:
 private:
     endstone::Plugin &plugin_;
     translate* tran_;
-    std::shared_ptr<inventoryui::InventoryUI> inventory_ui_service_;
     std::shared_ptr<inventoryui::Menu> last_inventory_menu_;
 };
 

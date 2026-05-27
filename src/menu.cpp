@@ -7,6 +7,8 @@
 #include <tianyan_plugin.h>
 #include <translate.hpp>
 #include "database_util.h"
+#include "world_inspector.h"
+#include <inventoryui_init.h>
 
 Menu::Menu(TianyanPlugin* tianyan, translate* tran)
     :plugin_(*tianyan), tran_(tran)
@@ -421,19 +423,8 @@ void Menu::showOnlinePlayerBag(const endstone::CommandSender &sender, const ends
     }
 }
 
-void Menu::setInventoryUIService(std::shared_ptr<inventoryui::InventoryUI> service) {
-    inventory_ui_service_ = std::move(service);
-}
-
 //可视化物品栏展示
 bool Menu::showPlayerInventoryUI(endstone::Player &sender, endstone::Player &target) {
-    if (!inventory_ui_service_) {
-        if (const auto* inv_ui_plugin = plugin_.getServer().getPluginManager().getPlugin("inventoryui_api"); inv_ui_plugin && inv_ui_plugin->isEnabled()) {
-            inventory_ui_service_ = plugin_.getServer().getServiceManager().load<inventoryui::InventoryUI>("InventoryUIAPI");
-        }
-        if (!inventory_ui_service_) return false;
-    }
-
     // 如果玩家已有打开的菜单，直接刷新物品
     if (last_inventory_menu_) {
         for (auto viewers = last_inventory_menu_->get_viewers(); auto& viewer : viewers) {
@@ -456,10 +447,11 @@ bool Menu::showPlayerInventoryUI(endstone::Player &sender, endstone::Player &tar
     }
 
     // 没有现成的菜单，创建新的
-    auto menu = inventory_ui_service_->create_menu(
+    auto menu = inventoryui::create_menu(
         inventoryui::MenuTypeId::DOUBLE_CHEST,
         tran_->tr("{0}'s Inventory", target.getName())
     );
+    if (!menu) return false;
     last_inventory_menu_ = menu;
     auto inv = menu->get_inventory();
 
@@ -477,7 +469,135 @@ bool Menu::showPlayerInventoryUI(endstone::Player &sender, endstone::Player &tar
         inv->set_item(49, *offhand);
     }
 
+    // 注册点击回调：复制物品到点击者背包
+    menu->set_listener([this](const endstone::Player &clicker, int,
+                              const endstone::ItemStack &item,
+                              inventoryui::UIInventory &) {
+        if (item.getType().getId() == "minecraft:air") return;
+        auto copy = item;
+        if (const auto leftover =
+                clicker.getInventory().addItem(std::move(copy));
+            leftover.empty()) {
+            clicker.sendMessage("§a" + tran_->tr("Copied to your inventory"));
+        } else {
+            clicker.sendMessage("§c" + tran_->tr("Inventory full, cannot copy item"));
+        }
+    });
+
     menu->send_to(sender);
+    return true;
+}
+
+bool Menu::showOfflinePlayerInventoryUI(endstone::Player &sender, const std::string& player_name,
+    const std::vector<std::optional<endstone::ItemStack>>& contents,
+    const std::array<std::optional<endstone::ItemStack>, 4>& armor,
+    const std::optional<endstone::ItemStack>& offhand)
+{
+    if (last_inventory_menu_) {
+        last_inventory_menu_->close_all();
+    }
+
+    const auto menu = inventoryui::create_menu(
+        inventoryui::MenuTypeId::DOUBLE_CHEST,
+        tran_->tr("{0}'s Inventory (Offline)", player_name)
+    );
+    last_inventory_menu_ = menu;
+    const auto inv = menu->get_inventory();
+
+    for (int i = 0; i < 36 && i < static_cast<int>(contents.size()); i++) {
+        if (contents[i]) inv->set_item(i, *contents[i]);
+    }
+
+    if (armor[0]) inv->set_item(45, *armor[0]);
+    if (armor[1]) inv->set_item(46, *armor[1]);
+    if (armor[2]) inv->set_item(47, *armor[2]);
+    if (armor[3]) inv->set_item(48, *armor[3]);
+    if (offhand) inv->set_item(49, *offhand);
+
+    // 注册点击回调：复制物品到点击者背包
+    menu->set_listener([this](const endstone::Player &clicker, int,
+                              const endstone::ItemStack &item,
+                              inventoryui::UIInventory &) {
+        if (item.getType().getId() == "minecraft:air") return;
+        auto copy = item;
+        if (const auto leftover =
+                clicker.getInventory().addItem(std::move(copy));
+            leftover.empty()) {
+            clicker.sendMessage("§a" + tran_->tr("Copied to your inventory"));
+        } else {
+            clicker.sendMessage("§c" + tran_->tr("Inventory full, cannot copy item"));
+        }
+    });
+
+    menu->send_to(sender);
+    return true;
+}
+
+bool Menu::showOfflinePlayerInventoryEncoded(endstone::Player &sender, const std::string& player_name,
+    const std::string& world_path, const std::string& player_uuid)
+{
+    auto* encoded = wi_get_encoded_inventory(world_path.c_str(), player_uuid.c_str());
+    if (!encoded) {
+        sender.sendErrorMessage(tran_->tr(tran_->getLocal("Player {} not found (offline)"), player_name));
+        return false;
+    }
+
+    // Try visual GUI with pre-encoded items
+    {
+        const auto menu = inventoryui::create_menu(
+            inventoryui::MenuTypeId::DOUBLE_CHEST,
+            tran_->tr("{0}'s Inventory (Offline)", player_name)
+        );
+        if (menu) {
+            last_inventory_menu_ = menu;
+            const auto inv = menu->get_inventory();
+
+            for (int i = 0; i < encoded->count; i++) {
+                auto& [slot, type_id, count, damage, nbt_bytes, nbt_len] = encoded->items[i];
+                std::vector<uint8_t> nbt(nbt_bytes, nbt_bytes + nbt_len);
+                inv->set_pre_encoded_item(slot, std::string(type_id), count, damage, nbt);
+            }
+
+            wi_free_encoded_inventory(encoded);
+
+            // 注册点击回调：复制物品到点击者背包
+            menu->set_listener([this](const endstone::Player &clicker, int,
+                                      const endstone::ItemStack &item,
+                                      inventoryui::UIInventory &) {
+                if (item.getType().getId() == "minecraft:air") return;
+                auto copy = item;
+                if (const auto leftover =
+                        clicker.getInventory().addItem(std::move(copy));
+                    leftover.empty()) {
+                    clicker.sendMessage("§a" + tran_->tr("Copied to your inventory"));
+                } else {
+                    clicker.sendMessage("§c" + tran_->tr("Inventory full, cannot copy item"));
+                }
+            });
+
+            menu->send_to(sender);
+            return true;
+        }
+    }
+
+    // Fallback: ActionForm text
+    plugin_.getLogger().info("[ty_debug] Falling back to ActionForm text for {}", player_name);
+    endstone::ActionForm form;
+    form.setTitle(tran_->tr("{0}'s Inventory (Offline)", player_name));
+    std::string content;
+    for (int i = 0; i < encoded->count; i++) {
+        auto& item = encoded->items[i];
+        content += fmt::format("Slot {}: {} x{} (damage: {})\n",
+            item.slot, item.type_id ? item.type_id : "?", item.count, item.damage);
+    }
+    wi_free_encoded_inventory(encoded);
+
+    if (content.empty()) {
+        content = tran_->getLocal("Inventory is empty");
+    }
+    form.setContent(content);
+    plugin_.getLogger().info("[ty_debug] Sending ActionForm to {}", player_name);
+    sender.sendForm(form);
     return true;
 }
 

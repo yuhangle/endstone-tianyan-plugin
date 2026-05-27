@@ -136,5 +136,12 @@
   "Migration failed": "Миграция не удалась",
   "Switching active database backend to {}": "Переключение активного БД-бэкенда на {}",
   "Active backend switched to {}": "Активный БД-бэкенд переключён на {}",
-  "Restarting WebUI for new database backend...": "Перезапуск WebUI для нового бэкенда БД..."
+  "Restarting WebUI for new database backend...": "Перезапуск WebUI для нового бэкенда БД...",
+  "{0}'s Inventory (Offline)": "Инвентарь {0} (оффлайн)",
+  "Player {} not found (offline)": "Игрок {} не найден (оффлайн)",
+  "Inventory is empty": "Инвентарь пуст",
+  "Querying offline inventory...": "Запрос оффлайн инвентаря...",
+  "Tip: The player must have joined at least once to be cached.": "Подсказка: Игрок должен хотя бы раз зайти на сервер, чтобы быть кэшированным.",
+  "Copied to your inventory": "Скопировано в ваш инвентарь",
+  "Inventory full, cannot copy item": "Инвентарь полон, невозможно скопировать предмет"
 }

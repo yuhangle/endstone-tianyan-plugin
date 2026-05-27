@@ -432,6 +432,13 @@ void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event)
 void EventListener::onPlayerJoin(const endstone::PlayerJoinEvent &event) {
     if (!event.getPlayer().asPlayer()) return;
     online_players_.insert(&event.getPlayer());
+
+    // 缓存玩家名→UUID 映射
+    OfflineInventoryReader::updatePlayerCache(
+        event.getPlayer().getName(),
+        event.getPlayer().getUniqueId().str()
+    );
+
     std::ostringstream out;
     out << endstone::ColorFormat::Yellow << tran_->getLocal("Player") << " " << event.getPlayer().getName() << " " << tran_->getLocal("joined server!")
     << " " <<tran_->getLocal("Device OS: ")<< event.getPlayer().getDeviceOS() << " " << tran_->getLocal("Device ID: ") << event.getPlayer().getDeviceId();

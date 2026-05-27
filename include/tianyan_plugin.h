@@ -11,6 +11,7 @@
 #include "event_listener.h"
 #include "menu.h"
 #include "translate.hpp"
+#include "offline_inventory.h"
 #include <tianyan/api.h>
 
 class StaticTranslate
@@ -52,6 +53,9 @@ public:
     // 批量更新回溯状态
     void updateRevertStatus() const;
 
+    // 获取 BDS 服务端根目录（从 dataFolder 上溯）
+    static std::string getServerRoot();
+
     //api
     int getApiVersion() const override {
         return tianyan::TIANYAN_API_VERSION;
@@ -63,6 +67,16 @@ public:
 
 private:
     std::vector<tianyan::LogData> getLogDataSyncImpl(double seconds, int limit) override;
+    struct AsyncOfflineQueryTask {
+        std::string sender_name;     // 命令发送者（在线玩家，用于回传 UI）
+        std::string target_name;     // 被查询的离线玩家（用于显示）
+        std::string world_path;
+        std::string player_uuid;
+        bool is_running = false;
+        bool is_complete = false;
+        std::string result_json;
+    };
+
     struct AsyncQueryTask {
         enum class Type { Ty, Tys, Tyback };
         Type type;
@@ -94,6 +108,8 @@ private:
     uint64_t next_task_id_ = 1;
     shared_ptr<endstone::Task> windows_print_webui_log;
     std::string db_type_ = "sqlite";
+    std::vector<AsyncOfflineQueryTask> async_offline_tasks_;
+    std::mutex async_offline_mutex_;
 #ifdef _WIN32
     void dump_webui_log_once() const;
 #endif

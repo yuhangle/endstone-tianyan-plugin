@@ -48,7 +48,7 @@ FetchContent_MakeAvailable(endstone_inventoryui)
 # ---- Rust MySQL static library (built via cargo) ----
 if (WIN32)
     set(RUST_MYSQL_LIB_NAME "rust_mysql.lib")
-    set(RUST_MYSQL_SYSTEM_LIBS ws2_32 ntdll userenv)
+    set(RUST_MYSQL_SYSTEM_LIBS ws2_32 ntdll userenv bcrypt)
 else()
     set(RUST_MYSQL_LIB_NAME "librust_mysql.a")
     set(RUST_MYSQL_SYSTEM_LIBS dl pthread rt m)
@@ -73,6 +73,32 @@ set_target_properties(rust_mysql PROPERTIES
     IMPORTED_LOCATION "${RUST_MYSQL_LIB_PATH}"
 )
 
+# ---- world-inspector Rust static library ----
+set(WI_SRC_DIR "${CMAKE_CURRENT_BINARY_DIR}/world_inspector/src/world_inspector_build")
+if(WIN32 AND NOT MINGW)
+    set(WI_LIB_PATH "${WI_SRC_DIR}/target/release/world_inspector.lib")
+else()
+    set(WI_LIB_PATH "${WI_SRC_DIR}/target/release/libworld_inspector.a")
+endif()
+
+ExternalProject_Add(world_inspector_build
+    GIT_REPOSITORY https://github.com/yuhangle/world-inspector.git
+    GIT_TAG main
+    PREFIX "${CMAKE_CURRENT_BINARY_DIR}/world_inspector"
+    BUILD_IN_SOURCE TRUE
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND cargo build --release --lib
+    INSTALL_COMMAND ""
+    BUILD_BYPRODUCTS "${WI_LIB_PATH}"
+    USES_TERMINAL_BUILD TRUE
+)
+
+add_library(world_inspector STATIC IMPORTED GLOBAL)
+add_dependencies(world_inspector world_inspector_build)
+set_target_properties(world_inspector PROPERTIES
+    IMPORTED_LOCATION "${WI_LIB_PATH}"
+)
+
 # SQLite3
 find_package(SQLite3 REQUIRED)
 
@@ -93,6 +119,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         fmt::fmt-header-only
         endstone_inventoryui
         rust_mysql
+        world_inspector
         ${RUST_MYSQL_SYSTEM_LIBS}
 )
 

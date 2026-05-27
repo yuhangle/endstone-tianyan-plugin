@@ -47,8 +47,8 @@ Automatic ban rules:
 #### Restore Player-Caused Block Destruction, Placement, and Explosion Damage Functions
 The Tianyan plugin supports restoring player-directly caused block destruction, block placement, and explosion damage. The principle is simply using the setblock command to restore blocks from the database, but it does not currently support restoring details such as chest contents.
 
-#### View Online Player Inventory Function
-The Tianyan plugin supports viewing item information in online players' inventories. Use `/tyo` to view a player's inventory read-only through a built-in visual chest GUI.
+#### View Player Inventory Function
+The Tianyan plugin supports viewing item information in both online and offline players' inventories. Use `/tyo` to view a player's inventory through a built-in visual chest GUI — click any item to copy it to your own inventory. For offline players, inventory data is read directly from the world save files. The player must have joined the server at least once (to cache their UUID) to be queried by name.
 
 #### 🌐 WebUI Panel
 
@@ -149,7 +149,7 @@ To enable MySQL, modify `plugins/tianyan_data/config.json`:
 Configuration notes:
 - The MySQL connection parameters use the defaults shown above; only change what you need
 - If MySQL connection fails, the plugin will automatically fall back to SQLite
-- Switching database types will not automatically migrate existing data; please back up manually or migrate on your own
+- Use the `/tymigrate` command to migrate data between databases
 
 ## 📜 Plugin Command Usage
 
@@ -201,11 +201,11 @@ Example: Search for player block placement behaviors within 2 hours
 /tys 2 action block_place
 ```
 
-### `/tyo` - View online player inventory (cannot be used from console)
+### `/tyo` - View player inventory (cannot be used from console)
 ```
 /tyo <player name>
 ```
-Opens a visual chest GUI to view the player's inventory read-only.
+Opens a visual chest GUI to view the player's inventory. Click an item to copy it to your own inventory.
 
 ### `/ban-id` - Add device to blacklist
 ```

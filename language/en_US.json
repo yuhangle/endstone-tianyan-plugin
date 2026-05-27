@@ -135,5 +135,12 @@
   "Migration failed": "Migration failed",
   "Switching active database backend to {}": "Switching active database backend to {}",
   "Active backend switched to {}": "Active backend switched to {}",
-  "Restarting WebUI for new database backend...": "Restarting WebUI for new database backend..."
+  "Restarting WebUI for new database backend...": "Restarting WebUI for new database backend...",
+  "{0}'s Inventory (Offline)": "{0}'s Inventory (Offline)",
+  "Player {} not found (offline)": "Player {} not found (offline)",
+  "Inventory is empty": "Inventory is empty",
+  "Querying offline inventory...": "Querying offline inventory...",
+  "Tip: The player must have joined at least once to be cached.": "Tip: The player must have joined at least once to be cached.",
+  "Copied to your inventory": "Copied to your inventory",
+  "Inventory full, cannot copy item": "Inventory full, cannot copy item"
 }
