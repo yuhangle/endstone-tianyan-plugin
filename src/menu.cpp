@@ -472,16 +472,18 @@ bool Menu::showPlayerInventoryUI(endstone::Player &sender, endstone::Player &tar
     // 注册点击回调：复制物品到点击者背包
     menu->set_listener([this](const endstone::Player &clicker, int,
                               const endstone::ItemStack &item,
-                              inventoryui::UIInventory &) {
-        if (item.getType().getId() == "minecraft:air") return;
-        auto copy = item;
-        if (const auto leftover =
-                clicker.getInventory().addItem(std::move(copy));
-            leftover.empty()) {
-            clicker.sendMessage("§a" + tran_->tr("Copied to your inventory"));
-        } else {
-            clicker.sendMessage("§c" + tran_->tr("Inventory full, cannot copy item"));
+                              inventoryui::UIInventory &) -> std::function<void()> {
+        if (item.getType().getId() != "minecraft:air") {
+            auto copy = item;
+            if (const auto leftover =
+                    clicker.getInventory().addItem(std::move(copy));
+                leftover.empty()) {
+                clicker.sendMessage("§a" + tran_->tr("Copied to your inventory"));
+            } else {
+                clicker.sendMessage("§c" + tran_->tr("Inventory full, cannot copy item"));
+            }
         }
+        return {};  // 保持UI打开
     });
 
     menu->send_to(sender);
@@ -517,16 +519,18 @@ bool Menu::showOfflinePlayerInventoryUI(endstone::Player &sender, const std::str
     // 注册点击回调：复制物品到点击者背包
     menu->set_listener([this](const endstone::Player &clicker, int,
                               const endstone::ItemStack &item,
-                              inventoryui::UIInventory &) {
-        if (item.getType().getId() == "minecraft:air") return;
-        auto copy = item;
-        if (const auto leftover =
-                clicker.getInventory().addItem(std::move(copy));
-            leftover.empty()) {
-            clicker.sendMessage("§a" + tran_->tr("Copied to your inventory"));
-        } else {
-            clicker.sendMessage("§c" + tran_->tr("Inventory full, cannot copy item"));
+                              inventoryui::UIInventory &) -> std::function<void()> {
+        if (item.getType().getId() != "minecraft:air") {
+            auto copy = item;
+            if (const auto leftover =
+                    clicker.getInventory().addItem(std::move(copy));
+                leftover.empty()) {
+                clicker.sendMessage("§a" + tran_->tr("Copied to your inventory"));
+            } else {
+                clicker.sendMessage("§c" + tran_->tr("Inventory full, cannot copy item"));
+            }
         }
+        return {};  // 保持UI打开
     });
 
     menu->send_to(sender);
@@ -563,16 +567,18 @@ bool Menu::showOfflinePlayerInventoryEncoded(endstone::Player &sender, const std
             // 注册点击回调：复制物品到点击者背包
             menu->set_listener([this](const endstone::Player &clicker, int,
                                       const endstone::ItemStack &item,
-                                      inventoryui::UIInventory &) {
-                if (item.getType().getId() == "minecraft:air") return;
-                auto copy = item;
-                if (const auto leftover =
-                        clicker.getInventory().addItem(std::move(copy));
-                    leftover.empty()) {
-                    clicker.sendMessage("§a" + tran_->tr("Copied to your inventory"));
-                } else {
-                    clicker.sendMessage("§c" + tran_->tr("Inventory full, cannot copy item"));
+                                      inventoryui::UIInventory &) -> std::function<void()> {
+                if (item.getType().getId() != "minecraft:air") {
+                    auto copy = item;
+                    if (const auto leftover =
+                            clicker.getInventory().addItem(std::move(copy));
+                        leftover.empty()) {
+                        clicker.sendMessage("§a" + tran_->tr("Copied to your inventory"));
+                    } else {
+                        clicker.sendMessage("§c" + tran_->tr("Inventory full, cannot copy item"));
+                    }
                 }
+                return {};  // 保持UI打开
             });
 
             menu->send_to(sender);
