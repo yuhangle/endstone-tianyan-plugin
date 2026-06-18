@@ -56,6 +56,8 @@ public:
 
     int deleteBatch(long long timestamp, int limit) override;
 
+    int64_t cleanupByRebuild(long long threshold) override;
+
     [[nodiscard]] bool isSqlite() const override { return false; }
 
     std::string generateUuid() override;

@@ -70,6 +70,10 @@ public:
 
     virtual int deleteBatch(long long timestamp, int limit) = 0;
 
+    // MySQL 表重建清理：CREATE INSERT RENAME DROP，替代逐行 DELETE
+    // 返回 -1 表示不支持（SQLite 不实现此方法）
+    virtual int64_t cleanupByRebuild(long long threshold) { return -1; }
+
     // 三阶段清理 API（SQLite 使用独立连接；MySQL 退化为 deleteBatch + no-op）
     virtual bool beginCleanup() { return true; }
 

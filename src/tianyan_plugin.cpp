@@ -1035,8 +1035,7 @@ void TianyanPlugin::runMigration(const std::string& source, const std::string& t
 
             // Verify source has LOGDATA table
             {
-                std::vector<std::map<std::string, std::string>> check;
-                if (src_backend->querySQL("SELECT COUNT(*) AS cnt FROM LOGDATA", check) != 0) {
+                if (std::vector<std::map<std::string, std::string>> check; src_backend->querySQL("SELECT COUNT(*) AS cnt FROM LOGDATA", check) != 0) {
                     yuhangle::migrate_message = {
                         "Source " + source + " database has no LOGDATA table. "
                         "Make sure the source has been used before migrating."
@@ -1046,59 +1045,125 @@ void TianyanPlugin::runMigration(const std::string& source, const std::string& t
                 }
             }
 
-            // Read all data from source
-            std::vector<std::map<std::string, std::string>> raw_data;
-            if (src_backend->getAllLog(raw_data) != 0) {
-                yuhangle::migrate_message = {"Failed to read data from source"};
-                yuhangle::migrate_status = -1;
-                return;
+            // Get total count for progress tracking
+            {
+                std::vector<std::map<std::string, std::string>> cnt;
+                if (src_backend->querySQL("SELECT COUNT(*) AS cnt FROM LOGDATA", cnt) != 0 || cnt.empty()) {
+                    yuhangle::migrate_message = {"Failed to count rows for migration"};
+                    yuhangle::migrate_status = -1;
+                    return;
+                }
+                yuhangle::migrate_total = std::stoi(cnt[0]["cnt"]);
             }
-
-            yuhangle::migrate_total = static_cast<int>(raw_data.size());
-            if (raw_data.empty()) {
+            if (yuhangle::migrate_total == 0) {
                 yuhangle::migrate_message = {"No data to migrate"};
                 yuhangle::migrate_status = 2;
                 return;
             }
 
-            // Convert to DatabaseLogEntry and batch insert
-            constexpr int BATCH_SIZE = 1000;
+            // MySQL 目标：先删二级索引，INSERT 阶段省去 B+Tree 实时维护
+            if (!dst_backend->isSqlite()) {
+                dst_backend->executeSQL("DROP INDEX uk_uuid ON LOGDATA");
+                dst_backend->executeSQL("DROP INDEX idx_logdata_time ON LOGDATA");
+                dst_backend->executeSQL("DROP INDEX idx_logdata_pos ON LOGDATA");
+            }
+
+            // Streaming migration: keyset pagination, no OFFSET tax
+            constexpr int WRITE_BATCH = 50000;
+            int64_t total_processed = 0;
+            int64_t last_rowid = 0;
             std::vector<DatabaseLogEntry> batch;
-            batch.reserve(BATCH_SIZE);
+            batch.reserve(WRITE_BATCH);
 
-            for (size_t i = 0; i < raw_data.size(); ++i) {
-                const auto& row = raw_data[i];
-                DatabaseLogEntry entry;
-                entry.uuid = row.at("uuid");
-                entry.id = row.at("id");
-                entry.name = row.at("name");
-                entry.pos_x = std::stod(row.at("pos_x"));
-                entry.pos_y = std::stod(row.at("pos_y"));
-                entry.pos_z = std::stod(row.at("pos_z"));
-                entry.world = row.at("world");
-                entry.obj_id = row.at("obj_id");
-                entry.obj_name = row.at("obj_name");
-                entry.time = std::stoll(row.at("time"));
-                entry.type = row.at("type");
-                entry.data = row.at("data");
-                entry.status = row.at("status");
-                batch.push_back(std::move(entry));
+            auto t_read_total = std::chrono::duration<double>::zero();
+            auto t_write_total = std::chrono::duration<double>::zero();
 
-                if (batch.size() >= BATCH_SIZE) {
+            while (true) {
+                constexpr int PAGE_SIZE = 100000;
+                std::vector<std::map<std::string, std::string>> page;
+                auto t0 = std::chrono::high_resolution_clock::now();
+                std::string page_sql = "SELECT *, rowid FROM LOGDATA WHERE rowid > " +
+                                       std::to_string(last_rowid) +
+                                       " ORDER BY rowid LIMIT " + std::to_string(PAGE_SIZE);
+                if (src_backend->querySQL(page_sql, page) != 0) {
+                    yuhangle::migrate_message = {"Failed to read data from source"};
+                    yuhangle::migrate_status = -1;
+                    return;
+                }
+                if (page.empty()) break;
+                t_read_total += std::chrono::high_resolution_clock::now() - t0;
+
+                last_rowid = std::stoll(page.back().at("rowid"));
+
+                auto t1 = std::chrono::high_resolution_clock::now();
+                for (const auto& row : page) {
+                    DatabaseLogEntry entry;
+                    entry.uuid = row.at("uuid");
+                    entry.id = row.at("id");
+                    entry.name = row.at("name");
+                    entry.pos_x = std::stod(row.at("pos_x"));
+                    entry.pos_y = std::stod(row.at("pos_y"));
+                    entry.pos_z = std::stod(row.at("pos_z"));
+                    entry.world = row.at("world");
+                    entry.obj_id = row.at("obj_id");
+                    entry.obj_name = row.at("obj_name");
+                    entry.time = std::stoll(row.at("time"));
+                    entry.type = row.at("type");
+                    entry.data = row.at("data");
+                    entry.status = row.at("status");
+                    batch.push_back(std::move(entry));
+
+                    if (batch.size() >= WRITE_BATCH) {
+                        if (dst_backend->addLogs(batch) != 0) {
+                            if (!dst_backend->isSqlite()) {
+                                dst_backend->executeSQL(
+                                    "ALTER TABLE LOGDATA "
+                                    "ADD UNIQUE KEY uk_uuid (uuid), "
+                                    "ADD KEY idx_logdata_time (time), "
+                                    "ADD KEY idx_logdata_pos (pos_x, pos_y, pos_z)");
+                            }
+                            yuhangle::migrate_message = {"Write to target failed at row " + std::to_string(total_processed + 1)};
+                            yuhangle::migrate_status = -1;
+                            return;
+                        }
+                        batch.clear();
+                    }
+                    total_processed++;
+                }
+
+                if (!batch.empty()) {
                     if (dst_backend->addLogs(batch) != 0) {
-                        yuhangle::migrate_message = {"Write to target failed at row " + std::to_string(i + 1)};
+                        if (!dst_backend->isSqlite()) {
+                            dst_backend->executeSQL(
+                                "ALTER TABLE LOGDATA "
+                                "ADD UNIQUE KEY uk_uuid (uuid), "
+                                "ADD KEY idx_logdata_time (time), "
+                                "ADD KEY idx_logdata_pos (pos_x, pos_y, pos_z)");
+                        }
+                        yuhangle::migrate_message = {"Write to target failed at row " + std::to_string(total_processed)};
                         yuhangle::migrate_status = -1;
                         return;
                     }
                     batch.clear();
-                    yuhangle::migrate_progress = static_cast<int>(i + 1);
                 }
+                t_write_total += std::chrono::high_resolution_clock::now() - t1;
+
+                yuhangle::migrate_progress = static_cast<int>(total_processed);
             }
 
-            // Last batch
-            if (!batch.empty()) {
-                if (dst_backend->addLogs(batch) != 0) {
-                    yuhangle::migrate_message = {"Write to target failed"};
+            double read_s = t_read_total.count();
+            double write_s = t_write_total.count();
+            getLogger().info("[Tianyan] Migrate timing - SQLite read: {}s, MySQL write: {}s, ratio: {}x",
+                             read_s, write_s, read_s > 0 ? write_s / read_s : 0);
+
+            // MySQL 目标：重建二级索引
+            if (!dst_backend->isSqlite()) {
+                if (dst_backend->executeSQL(
+                        "ALTER TABLE LOGDATA "
+                        "ADD UNIQUE KEY uk_uuid (uuid), "
+                        "ADD KEY idx_logdata_time (time), "
+                        "ADD KEY idx_logdata_pos (pos_x, pos_y, pos_z)") != 0) {
+                    yuhangle::migrate_message = {"Failed to rebuild indexes on target"};
                     yuhangle::migrate_status = -1;
                     return;
                 }
@@ -1286,7 +1351,26 @@ void TianyanPlugin::runCleanup(const double hours, const std::string& sender_nam
         yuhangle::clean_data_total = to_delete;
         const auto start_time = std::chrono::high_resolution_clock::now();
 
-        // 进入清理模式（SQLite 开独立连接，MySQL 退化为 pool）
+        // MySQL 模式：表重建策略
+        if (!db_backend_->isSqlite()) {
+            const int64_t kept = db_backend_->cleanupByRebuild(threshold);
+            if (kept < 0) {
+                yuhangle::clean_data_status = -1;
+                yuhangle::clean_data_message = {"MySQL rebuild cleanup failed"};
+                return;
+            }
+            const auto end_time = std::chrono::high_resolution_clock::now();
+            const double seconds = std::chrono::duration<double>(end_time - start_time).count();
+            getLogger().info("[Tianyan] MySQL rebuild kept: {} rows in {}s", kept, seconds);
+            yuhangle::clean_data_message = {
+                "Time elapsed: ", std::to_string(seconds),
+                "Number of cleaned logs: ", std::to_string(to_delete)
+            };
+            yuhangle::clean_data_status = 1;
+            return;
+        }
+
+        // SQLite 模式：独立连接 + 分批 DELETE
         if (!db_backend_->beginCleanup()) {
             yuhangle::clean_data_status = -1;
             yuhangle::clean_data_message = {"Failed to open cleanup connection"};
