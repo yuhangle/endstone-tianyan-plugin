@@ -5,6 +5,9 @@
 #include <chrono>
 #include <iostream>
 #include <vector>
+#ifdef __linux__
+#include <malloc.h>
+#endif
 
 // ============================================================
 // C FFI declarations (from librust_mysql.a)
@@ -185,7 +188,15 @@ int RustBackend::queryToMapsWithCancel(
         &cancel_callback, cancel);
 
     if (!qr) {
-        if (cancel->load()) return -1; // cancelled
+        if (cancel->load()) {
+            // After the Rust side freed the large rows Vec, call malloc_trim(0)
+            // to encourage glibc to return freed heap pages to the OS,
+            // reducing RSS after a cancelled large query.
+#ifdef __linux__
+            ::malloc_trim(0);
+#endif
+            return -1; // cancelled
+        }
         std::cerr << "[Tianyan][RustMySQL] cancel query failed: "
                   << lastError() << std::endl;
         return -1;
@@ -393,13 +404,14 @@ int RustBackend::searchLog(
     const std::pair<std::string, double>& key,
     std::atomic<bool>* cancel)
 {
+    // 行数上限SQL层
     const std::string sql =
         "SELECT * FROM LOGDATA WHERE "
         "(name LIKE ? OR type LIKE ? OR data LIKE ?) AND "
         "time >= UNIX_TIMESTAMP() - ? "
-        "ORDER BY time";
+        "ORDER BY time LIMIT 100000";
 
-    std::vector<std::string> params = {
+    const std::vector params = {
         "%" + key.first + "%",
         "%" + key.first + "%",
         "%" + key.first + "%",
@@ -415,7 +427,7 @@ int RustBackend::searchLog(
 int RustBackend::searchLog(
     std::vector<std::map<std::string, std::string>>& result,
     const std::pair<std::string, double>& key,
-    double x, double y, double z, double r,
+    const double x, const double y, const double z, const double r,
     const std::string& world,
     std::atomic<bool>* cancel)
 {
@@ -428,9 +440,9 @@ int RustBackend::searchLog(
         "pos_y >= ? AND pos_y <= ? AND "
         "pos_z >= ? AND pos_z <= ? AND "
         "(POW(pos_x - ?, 2) + POW(pos_y - ?, 2) + POW(pos_z - ?, 2)) <= ? "
-        "ORDER BY time";
+        "ORDER BY time LIMIT 100000";
 
-    std::vector<std::string> params = {
+    const std::vector params = {
         "%" + key.first + "%",
         "%" + key.first + "%",
         "%" + key.first + "%",
@@ -458,7 +470,7 @@ bool RustBackend::updateStatusesByUUIDs(
     rust_mysql_execute(handle_, "START TRANSACTION");
 
     for (const auto& [uuid, status] : pairs) {
-        std::vector<const char*> c_params = {status.c_str(), uuid.c_str()};
+        std::vector c_params = {status.c_str(), uuid.c_str()};
         if (rust_mysql_execute_params(
                 handle_,
                 "UPDATE LOGDATA SET status = ? WHERE uuid = ?",
@@ -514,7 +526,7 @@ int RustBackend::deleteBatch(const long long timestamp, const int limit) {
     return static_cast<int>(affected);
 }
 
-int64_t RustBackend::cleanupByRebuild(long long threshold) {
+int64_t RustBackend::cleanupByRebuild(const long long threshold) {
     if (!handle_) return -1;
 
     // Step 1: 创建新表（同结构，清空旧残留）

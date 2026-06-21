@@ -152,7 +152,17 @@ fn collect_rows(
 
 type CancelCb = unsafe extern "C" fn(*mut c_void) -> bool;
 
-/// Run a query in a separate thread, checking cancel between rows.
+/// Run a query with true cancellation support.
+///
+/// Executes the query in the current thread, streaming rows one at a time
+/// and checking the cancel callback between each row.
+///
+/// A watcher thread monitors the cancel flag while the main thread is
+/// blocked on I/O. If cancellation is requested, it sends `KILL QUERY`
+/// to the MySQL server via a separate connection, which:
+///   1. Interrupts the server-side query execution
+///   2. Causes the blocking `exec_iter` / `next()` to return an error
+///   3. Allows us to exit promptly instead of waiting for the query to finish
 fn query_with_cancel(
     pool: Pool,
     sql: String,
@@ -160,36 +170,118 @@ fn query_with_cancel(
     cancel_fn: Option<CancelCb>,
     cancel_ctx: *mut c_void,
 ) -> Result<OpaqueResult, String> {
-    use std::sync::mpsc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
     use std::time::Duration;
 
-    let (tx, rx) = mpsc::channel();
+    let is_cancelled = || -> bool {
+        cancel_fn.map_or(false, |cb| unsafe { cb(cancel_ctx) })
+    };
 
+    // Early check before any MySQL work
+    if is_cancelled() {
+        return Err("Cancelled".to_string());
+    }
+
+    let mut conn = pool.get_conn().map_err(|e| format!("conn: {}", e))?;
+    let conn_id: u32 = conn.connection_id();
+
+    // Shared flag so the watcher thread knows when the query completes
+    let complete = Arc::new(AtomicBool::new(false));
+    let complete_watcher = Arc::clone(&complete);
+
+    // Watcher thread: if cancellation is requested while the main thread
+    // is blocked on MySQL I/O (exec_iter / next()), send KILL QUERY to
+    // the MySQL server to interrupt the query at the server level.
+    let kill_pool = pool.clone();
+    let kill_id = conn_id;
+    let watch_cancel = cancel_fn;
+    let watch_ctx = cancel_ctx as usize;
     std::thread::spawn(move || {
-        let out = (|| -> Result<OpaqueResult, String> {
-            let mut conn = pool.get_conn().map_err(|e| format!("conn: {}", e))?;
-            let mut result = conn
-                .exec_iter(&sql, params)
-                .map_err(|e| format!("exec_iter: {}", e))?;
-            collect_rows(&mut result)
-        })();
-        tx.send(out).ok();
-    });
-
-    loop {
-        if let Some(cb) = cancel_fn {
-            unsafe {
-                if cb(cancel_ctx) {
-                    return Err("Cancelled".to_string());
+        loop {
+            if complete_watcher.load(Ordering::Acquire) {
+                break; // Query completed normally — watcher exits
+            }
+            std::thread::sleep(Duration::from_millis(100));
+            if watch_cancel.map_or(false, |cb| unsafe { cb(watch_ctx as *mut c_void) }) {
+                if let Ok(mut kill_conn) = kill_pool.get_conn() {
+                    let sql = format!("KILL QUERY {}", kill_id);
+                    let _ = kill_conn.exec_drop(sql, ());
                 }
+                break;
             }
         }
-        match rx.recv_timeout(Duration::from_millis(100)) {
-            Ok(r) => return r,
-            Err(mpsc::RecvTimeoutError::Timeout) => continue,
-            Err(_) => return Err("Channel error".to_string()),
+    });
+
+    // Execute query — this may block if the query is complex.
+    // The watcher thread can KILL QUERY to interrupt this.
+    let mut result = match conn.exec_iter(&sql, params) {
+        Ok(r) => r,
+        Err(e) => {
+            complete.store(true, Ordering::Release);
+            if is_cancelled() {
+                return Err("Cancelled".to_string());
+            }
+            return Err(format!("exec_iter: {}", e));
         }
+    };
+
+    // One more check after query starts
+    if is_cancelled() {
+        complete.store(true, Ordering::Release);
+        return Err("Cancelled".to_string());
     }
+
+    let columns = result.columns().as_ref().to_vec();
+    let cols: Vec<CString> = columns
+        .iter()
+        .map(|c| CString::new(c.name_str().as_bytes()).unwrap_or_default())
+        .collect();
+    let col_count = cols.len();
+
+    // Safety cap: never accumulate more than this many rows in memory.
+    // Prevents unbounded memory growth for extremely large result sets.
+    const MAX_ROWS: usize = 100_000;
+
+    let mut rows = Vec::new();
+
+    // Stream rows one at a time, checking cancel between each row.
+    // This lets us exit early on cancellation instead of pulling
+    // the entire result set into memory only to discard it.
+    for row_res in result.by_ref() {
+        if is_cancelled() {
+            complete.store(true, Ordering::Release);
+            return Err("Cancelled".to_string());
+        }
+
+        // Hard cap to prevent OOM on extremely large queries
+        if rows.len() >= MAX_ROWS {
+            break;
+        }
+
+        let row = match row_res {
+            Ok(r) => r,
+            Err(e) => {
+                complete.store(true, Ordering::Release);
+                if is_cancelled() {
+                    // exec_iter was interrupted by KILL QUERY — expected
+                    return Err("Cancelled".to_string());
+                }
+                return Err(format!("Row: {}", e));
+            }
+        };
+
+        let mut r = Vec::with_capacity(col_count);
+        for i in 0..col_count {
+            let val: Value = row.get(i).flatten().unwrap_or(Value::NULL);
+            let s = mysql_value_to_string(&val);
+            r.push(CString::new(s).unwrap_or_default());
+        }
+        rows.push(r);
+    }
+
+    complete.store(true, Ordering::Release);
+    Ok(OpaqueResult { cols, rows })
 }
 
 // ============================================================

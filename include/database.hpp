@@ -597,10 +597,13 @@ namespace yuhangle {
             return rc;
         }
 
+        // 所有查询功能的行数上限，防止因数据量过大导致内存膨胀
+        static constexpr int MAX_QUERY_ROWS = 100000;
+
         int getAllLog(std::vector<std::map<std::string, std::string>> &result) const
         {
-            // 获取所有数据
-            constexpr std::string_view sql = "SELECT * FROM LOGDATA;";
+            // 获取所有数据（带上限，防止 OOM）
+            const std::string sql = "SELECT * FROM LOGDATA LIMIT " + std::to_string(MAX_QUERY_ROWS) + ";";
 
             // 调用 querySQL 函数执行查询，并将结果存储到 result 中
             return querySQL(std::string(sql), result);
@@ -620,8 +623,8 @@ namespace yuhangle {
             // 计算时间范围（秒），支持小数小时（如0.5表示半小时）
             const long long timeThreshold = currentTime - static_cast<long long>(searchCriteria.second * 3600);
 
-            // 使用参数化查询防止SQL注入
-            const std::string sql = "SELECT * FROM LOGDATA WHERE (name LIKE ? OR type LIKE ? OR data LIKE ?) AND time >= ? ORDER BY time";
+            // 使用参数化查询防止SQL注入，LIMIT 防止内存膨胀
+            const std::string sql = "SELECT * FROM LOGDATA WHERE (name LIKE ? OR type LIKE ? OR data LIKE ?) AND time >= ? ORDER BY time LIMIT " + std::to_string(MAX_QUERY_ROWS);
 
             sqlite3_stmt* stmt;
             int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
@@ -701,7 +704,7 @@ namespace yuhangle {
                   "AND pos_y >= ? AND pos_y <= ? "
                   "AND pos_z >= ? AND pos_z <= ? "
                   "AND ((pos_x - ?)*(pos_x - ?) + (pos_y - ?)*(pos_y - ?) + (pos_z - ?)*(pos_z - ?)) <= ? "
-                  "ORDER BY time";
+                  "ORDER BY time LIMIT " + std::to_string(MAX_QUERY_ROWS);
 
             sqlite3_stmt* stmt;
             int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
