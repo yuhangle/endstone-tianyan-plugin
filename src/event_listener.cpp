@@ -476,6 +476,28 @@ void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event)
     }
 }
 
+// 监听液体流动（水/岩浆流动）
+void EventListener::onBlockFromTo(const endstone::BlockFromToEvent& event) {
+    TianyanCore::LogData logData;
+    logData.uuid = db_util::generate_uuid_v4();
+    logData.id = event.getBlock().getType();
+    logData.pos_x = event.getBlock().getX();
+    logData.pos_y = event.getBlock().getY();
+    logData.pos_z = event.getBlock().getZ();
+    logData.world = event.getBlock().getLocation().getDimension().getName();
+    logData.obj_id = event.getToBlock().getType();
+
+    logData.time = std::time(nullptr);
+    logData.type = "liquid_flow";
+    if (event.isCancelled()) {
+        logData.status = "canceled";
+    }
+    {
+        std::lock_guard lock(cacheMutex);
+        logDataCache.push_back(logData);
+    }
+}
+
 //玩家加入事件
 void EventListener::onPlayerJoin(const endstone::PlayerJoinEvent &event) {
     if (!event.getPlayer().asPlayer()) return;

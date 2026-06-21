@@ -26,6 +26,7 @@
   "entity_bomb": "实体爆炸",
   "block_bomb": "方块爆炸",
   "block_break_bomb": "爆炸摧毁方块",
+  "liquid_flow": "液体流动",
   "piston_extend": "活塞伸出",
   "piston_retract": "活塞收回",
   "entity_die": "实体死亡",

@@ -498,6 +498,7 @@ void TianyanPlugin::onEnable()
     registerEvent<endstone::BlockPistonRetractEvent>(EventListener::onPistonRetract, endstone::EventPriority::Monitor);
     registerEvent<endstone::ActorDeathEvent>(EventListener::onActorDie, endstone::EventPriority::Monitor);
     registerEvent<endstone::PlayerDeathEvent>(EventListener::onPlayerDie, endstone::EventPriority::Monitor);
+    registerEvent<endstone::BlockFromToEvent>(EventListener::onBlockFromTo, endstone::EventPriority::Monitor);
     registerEvent(&EventListener::onPlayerPickup, *eventListener_, endstone::EventPriority::Monitor);
     registerEvent(&EventListener::onPlayerDropItem, *eventListener_, endstone::EventPriority::Monitor);
     registerEvent(&EventListener::onPlayerJoin, *eventListener_, endstone::EventPriority::Monitor);
