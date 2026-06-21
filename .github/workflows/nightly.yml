@@ -54,9 +54,9 @@ jobs:
 
       - name: Set up LLVM/Clang
         if: runner.os == 'Windows'
-        uses: llvm/install-llvm-action@v5
-        with:
-          version: 19
+        shell: pwsh
+        run: |
+          choco install llvm -y --no-progress
 
       - name: Set up CMake and Ninja
         if: runner.os == 'Windows'
