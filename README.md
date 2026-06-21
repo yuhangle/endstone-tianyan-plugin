@@ -30,6 +30,9 @@ The plugin will record all direct block placement behaviors implemented by playe
 #### Piston Events
 All piston self-behaviors will be recorded, but the blocks being pushed cannot be recorded.
 
+#### Liquid Flow Events
+Liquid flow events will be recorded, capturing block information on the liquid's flow path, such as torches washed away by flowing water. However, secondary reactions cannot be recorded, such as campfires being extinguished by water or stone forming when water meets lava.
+
 ### 👤 Player Information Display and Ban Functions
 
 #### Player Join Information Display
@@ -195,6 +198,8 @@ Search behavior types:
 - `entity_die`: Entity death
 - `player_pickup_item`: Player picking up item
 - `player_drop_item`: Player dropping item
+- `block_bomb`: Block explosion
+- `liquid_flow`: Liquid flow
 
 Example: Search for player block placement behaviors within 2 hours
 ```

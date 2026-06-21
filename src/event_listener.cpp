@@ -134,8 +134,8 @@ void EventListener::onPlayerRightClickBlock(const endstone::PlayerInteractEvent&
     bool danger_item = false;
     if (event.hasItem())
     {
-        static constexpr std::array<std::string_view, 3> dangerKeywords = {
-            "end_crystal", "flint_and_steel", "fire_charge"
+        static constexpr std::array<std::string_view, 4> dangerKeywords = {
+            "end_crystal", "flint_and_steel", "fire_charge", "bucket"
         };
         const auto item_id = event.getItem()->getType().getId().getKey();
 
@@ -481,11 +481,18 @@ void EventListener::onBlockFromTo(const endstone::BlockFromToEvent& event) {
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4();
     logData.id = event.getBlock().getType();
-    logData.pos_x = event.getBlock().getX();
-    logData.pos_y = event.getBlock().getY();
-    logData.pos_z = event.getBlock().getZ();
-    logData.world = event.getBlock().getLocation().getDimension().getName();
     logData.obj_id = event.getToBlock().getType();
+    if (logData.obj_id != "minecraft:air")
+    {
+        logData.pos_x = event.getToBlock().getX();
+        logData.pos_y = event.getToBlock().getY();
+        logData.pos_z = event.getToBlock().getZ();
+        const auto block_data = event.getToBlock().getData();
+        auto block_states = block_data->getBlockStates();
+        logData.data = fmt::format("{}", block_states);
+    }
+
+    logData.world = event.getBlock().getLocation().getDimension().getName();
 
     logData.time = std::time(nullptr);
     logData.type = "liquid_flow";

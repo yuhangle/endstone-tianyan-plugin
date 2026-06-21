@@ -31,7 +31,7 @@ ENDSTONE_PLUGIN("tianyan_plugin", TIANYAN_PLUGIN_VERSION, TianyanPlugin)
             .usages("/ty",
                     "/ty <r: float> <time: float>",
                     "/ty <r: float> <time: float> <source_id | source_name | target_id | target_name> <keywords: str>",
-                    "/ty <r: float> <time: float> <action> <block_break | block_place | entity_damage | player_right_click_block | player_right_click_entity | entity_bomb | block_break_bomb | piston_extend | piston_retract | entity_die | player_pickup_item | player_drop_item>"
+                    "/ty <r: float> <time: float> <action> <block_break | block_place | entity_damage | player_right_click_block | player_right_click_entity | entity_bomb | block_break_bomb | piston_extend | piston_retract | entity_die | player_pickup_item | player_drop_item | block_bomb | liquid_flow>"
                     )
             .permissions("ty.command.member");
 
@@ -49,7 +49,7 @@ ENDSTONE_PLUGIN("tianyan_plugin", TIANYAN_PLUGIN_VERSION, TianyanPlugin)
             .usages("/tys",
                     "/tys <time: float>",
                     "/tys <time: float> <source_id | source_name | target_id | target_name> <keywords: str>",
-                    "/tys <time: float> <action> <block_break | block_place | entity_damage | player_right_click_block | player_right_click_entity | entity_bomb | block_break_bomb | piston_extend | piston_retract | entity_die | player_pickup_item | player_drop_item>"
+                    "/tys <time: float> <action> <block_break | block_place | entity_damage | player_right_click_block | player_right_click_entity | entity_bomb | block_break_bomb | piston_extend | piston_retract | entity_die | player_pickup_item | player_drop_item | block_bomb | liquid_flow>"
                     )
             .permissions("ty.command.op");
 
