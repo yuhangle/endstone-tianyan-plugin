@@ -493,6 +493,7 @@ void TianyanPlugin::onEnable()
     registerEvent<endstone::PlayerInteractEvent>(EventListener::onPlayerRightClickBlock, endstone::EventPriority::Monitor);
     registerEvent<endstone::PlayerInteractActorEvent>(EventListener::onPlayerRightClickActor, endstone::EventPriority::Monitor);
     registerEvent<endstone::ActorExplodeEvent>(EventListener::onActorBomb, endstone::EventPriority::Monitor);
+    registerEvent<endstone::BlockExplodeEvent>(EventListener::onBlockBomb, endstone::EventPriority::Monitor);
     registerEvent<endstone::BlockPistonExtendEvent>(EventListener::onPistonExtend, endstone::EventPriority::Monitor);
     registerEvent<endstone::BlockPistonRetractEvent>(EventListener::onPistonRetract, endstone::EventPriority::Monitor);
     registerEvent<endstone::ActorDeathEvent>(EventListener::onActorDie, endstone::EventPriority::Monitor);

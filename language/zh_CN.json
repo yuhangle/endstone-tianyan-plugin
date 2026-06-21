@@ -24,6 +24,7 @@
   "player_right_click_entity": "玩家右键实体",
   "Block": "方块",
   "entity_bomb": "实体爆炸",
+  "block_bomb": "方块爆炸",
   "block_break_bomb": "爆炸摧毁方块",
   "piston_extend": "活塞伸出",
   "piston_retract": "活塞收回",

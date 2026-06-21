@@ -265,6 +265,54 @@ void EventListener::onActorBomb(const endstone::ActorExplodeEvent& event) {
     }
 }
 
+void EventListener::onBlockBomb(const endstone::BlockExplodeEvent& event)
+{
+    TianyanCore::LogData logData;
+    logData.uuid = db_util::generate_uuid_v4();
+    logData.id = event.getBlock().getType();
+    logData.pos_x = event.getBlock().getX();
+    logData.pos_y = event.getBlock().getY();
+    logData.pos_z = event.getBlock().getZ();
+    logData.world = event.getBlock().getLocation().getDimension().getName();
+    if (!event.getBlockList().empty()) {
+        logData.obj_name = "Block";
+    }
+    logData.time = std::time(nullptr);
+    logData.type = "block_bomb";
+    auto block_num = event.getBlockList().size();
+    if (event.isCancelled()) {
+        logData.status = "canceled";
+        {
+            std::lock_guard lock(cacheMutex);
+            logDataCache.push_back(logData);
+        }
+    } else {
+        logData.data = fmt::format("{}", block_num);
+        {
+            std::lock_guard lock(cacheMutex);
+            logDataCache.push_back(logData);
+        }
+        for (const auto& block : event.getBlockList()) {
+            TianyanCore::LogData bomb_data;
+            if (block->getType() == "minecraft:air") {continue;}
+            bomb_data.uuid = db_util::generate_uuid_v4();
+            bomb_data.id = event.getBlock().getType();
+            bomb_data.pos_x = block->getX();
+            bomb_data.pos_y = block->getY();
+            bomb_data.pos_z = block->getZ();
+            bomb_data.world = block->getLocation().getDimension().getName();
+            bomb_data.obj_id = block->getType();
+            bomb_data.time = std::time(nullptr);
+            bomb_data.type = "block_break_bomb";
+            bomb_data.data = fmt::format("{}", block->getData()->getBlockStates());
+            {
+                std::lock_guard lock(cacheMutex);
+                logDataCache.push_back(bomb_data);
+            }
+        }
+    }
+}
+
 void EventListener::onPistonExtend(const endstone::BlockPistonExtendEvent&event) {
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4(); // 生成UUID

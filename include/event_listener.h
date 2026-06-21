@@ -34,6 +34,8 @@ public:
 
     static void onActorBomb(const endstone::ActorExplodeEvent& event);
 
+    static void onBlockBomb(const endstone::BlockExplodeEvent& event);
+
     static void onPistonExtend(const endstone::BlockPistonExtendEvent&event);
 
     static void onPistonRetract(const endstone::BlockPistonRetractEvent&event);

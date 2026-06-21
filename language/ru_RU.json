@@ -24,6 +24,7 @@
   "player_right_click_entity": "Правый клик игрока по сущности",
   "Block": "Блок",
   "entity_bomb": "Взрыв сущности",
+  "block_bomb": "Взрыв блока",
   "block_break_bomb": "Взрыв разрушает блоки",
   "piston_extend": "Выдвижение поршня",
   "piston_retract": "Втягивание поршня",

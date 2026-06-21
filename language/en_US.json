@@ -24,6 +24,7 @@
   "player_right_click_entity": "Right-Click Entity",
   "Block": "Block",
   "entity_bomb": "Entity Explosion",
+  "block_bomb": "Block Explosion",
   "block_break_bomb": "Block Broken by Explosion",
   "piston_extend": "Piston Extend",
   "piston_retract": "Piston Retract",
