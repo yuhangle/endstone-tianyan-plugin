@@ -57,9 +57,11 @@ FetchContent_MakeAvailable(cpp_httplib)
 set(WEBUI_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/WebUI-Next/dist")
 set(WEBUI_RESOURCE_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/webui_resources.h")
 
+find_package(Python3 REQUIRED)
+
 add_custom_command(
     OUTPUT ${WEBUI_RESOURCE_OUTPUT}
-    COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_webui_resources.py"
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_webui_resources.py"
         ${WEBUI_SOURCE_DIR} ${WEBUI_RESOURCE_OUTPUT}
     DEPENDS
         ${WEBUI_SOURCE_DIR}/index.html
