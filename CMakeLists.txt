@@ -57,6 +57,12 @@ FetchContent_MakeAvailable(cpp_httplib)
 set(WEBUI_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/WebUI-Next/dist")
 set(WEBUI_RESOURCE_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/webui_resources.h")
 
+if (NOT EXISTS "${WEBUI_SOURCE_DIR}/index.html")
+    message(WARNING "WebUI-Next/dist/index.html not found. Generating a dummy index.html for build to succeed. Please build WebUI-Next to get the real UI.")
+    file(MAKE_DIRECTORY "${WEBUI_SOURCE_DIR}")
+    file(WRITE "${WEBUI_SOURCE_DIR}/index.html" "<html><body><h1>WebUI not built. Please run pnpm build in WebUI-Next.</h1></body></html>")
+endif()
+
 add_custom_command(
     OUTPUT ${WEBUI_RESOURCE_OUTPUT}
     COMMAND ${CMAKE_COMMAND}
@@ -124,7 +130,17 @@ set_target_properties(world_inspector PROPERTIES
 )
 
 # SQLite3
-find_package(SQLite3 REQUIRED)
+find_package(SQLite3 QUIET)
+if(NOT SQLite3_FOUND)
+    message(STATUS "SQLite3 not found by find_package, falling back to FetchContent...")
+    FetchContent_Declare(
+        sqlite3
+        GIT_REPOSITORY https://github.com/azadkuh/sqlite-amalgamation.git
+        GIT_TAG master
+    )
+    FetchContent_MakeAvailable(sqlite3)
+    add_library(SQLite3::SQLite3 ALIAS sqlite3)
+endif()
 
 file(GLOB PLUGIN_SOURCES
         CONFIGURE_DEPENDS
@@ -164,7 +180,7 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
         nlohmann_json::nlohmann_json
-        SQLite::SQLite3
+        SQLite3::SQLite3
         fmt::fmt-header-only
         endstone_inventoryui
         rust_mysql
