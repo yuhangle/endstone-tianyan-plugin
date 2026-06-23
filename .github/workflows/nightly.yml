@@ -26,6 +26,18 @@ jobs:
       - name: Setup Rust toolchain
         run: rustup show
 
+      # ===== WebUI Frontend Build (Vue 3 + Vite) =====
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+
+      - name: Build WebUI frontend
+        shell: bash
+        run: |
+          corepack enable
+          cd WebUI-Next
+          pnpm install --frozen-lockfile
+          pnpm run build
+
       # ===== Linux =====
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
@@ -95,7 +107,6 @@ jobs:
           fi
           cp build/endstone_tianyan.so package/endstone_tianyan.so
           cp -r language/* package/tianyan_data/language/
-          cp -r WebUI package/tianyan_data/
           cd package
           zip -r ../tianyan_nightly_linux.zip endstone_tianyan.so tianyan_data
 
@@ -106,7 +117,6 @@ jobs:
           New-Item -ItemType Directory -Path package/tianyan_data/language -Force
           Copy-Item build/endstone_tianyan.dll package/
           Copy-Item language/* package/tianyan_data/language/ -Recurse
-          Copy-Item WebUI package/tianyan_data/ -Recurse
           cd package
           Compress-Archive -Path endstone_tianyan.dll, tianyan_data -DestinationPath ../tianyan_nightly_windows.zip
 
