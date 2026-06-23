@@ -27,6 +27,23 @@ public:
         stop();
     }
 
+    // === 工具方法 ===
+
+    /// 根据文件扩展名返回 MIME 类型
+    static std::string mimeType(const std::string& path) {
+        if (path.ends_with(".html"))  return "text/html; charset=utf-8";
+        if (path.ends_with(".js"))    return "text/javascript; charset=utf-8";
+        if (path.ends_with(".css"))   return "text/css; charset=utf-8";
+        if (path.ends_with(".svg"))   return "image/svg+xml";
+        if (path.ends_with(".png"))   return "image/png";
+        if (path.ends_with(".webp"))  return "image/webp";
+        if (path.ends_with(".woff2")) return "font/woff2";
+        if (path.ends_with(".woff"))  return "font/woff";
+        if (path.ends_with(".ttf"))   return "font/ttf";
+        if (path.ends_with(".json"))  return "application/json; charset=utf-8";
+        return "application/octet-stream";
+    }
+
     // === 服务注入 ===
 
     void setLogQueryService(std::unique_ptr<LogQueryService> svc) {
@@ -431,32 +448,28 @@ private:
             const auto& [path_, data] = kResource;
             std::string path(path_);
 
-            // 确定 Content-Type
-            std::string content_type;
-            if (path.ends_with(".html")) {
-                content_type = "text/html; charset=utf-8";
-            } else if (path.ends_with(".js")) {
-                content_type = "text/javascript; charset=utf-8";
-            } else if (path.ends_with(".css")) {
-                content_type = "text/css; charset=utf-8";
-            } else {
-                content_type = "application/octet-stream";
-            }
+            // 确定 Content-Type（扩展常见类型，防止特殊资源加载异常）
+            std::string content_type = mimeType(path);
 
-            svr_->Get(path, [&kResource, content_type](const httplib::Request&, httplib::Response& res) {
-                const auto& [path_1, data_] = kResource;
-                res.set_content(data_.data(), content_type);
+            // 注意：按值捕获 data (string_view)，不可捕获循环变量的引用
+            svr_->Get(path, [data, content_type](const httplib::Request&, httplib::Response& res) {
+                // 必须传 size，否则 std::string(data.data()) 用 strlen 越界读
+                res.set_content(data.data(), data.size(), content_type);
                 setCorsHeaders(res);
             });
         }
 
-        // 根路径 "/" → index.html
+        // 根路径 "/" → 在 kResources 中按名查找 index.html
+        // 不依赖 kResources[0] 的顺序假设（生成脚本排序不可靠）
         svr_->Get("/", [](const httplib::Request&, httplib::Response& res) {
-            if constexpr (kResourceCount > 0) {
-                // 假设第一个资源是 index.html
-                const auto& [path, data] = embedded::kResources[0];
-                res.set_content(data.data(), "text/html; charset=utf-8");
+            for (const auto& [path, data] : embedded::kResources) {
+                if (path == "/index.html") {
+                    res.set_content(data.data(), data.size(), "text/html; charset=utf-8");
+                    setCorsHeaders(res);
+                    return;
+                }
             }
+            res.status = 404;
         });
     }
 };

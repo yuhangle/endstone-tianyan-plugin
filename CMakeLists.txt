@@ -59,10 +59,8 @@ set(WEBUI_RESOURCE_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/webui_resources
 
 add_custom_command(
     OUTPUT ${WEBUI_RESOURCE_OUTPUT}
-    COMMAND ${CMAKE_COMMAND}
-        -DINPUT_DIR=${WEBUI_SOURCE_DIR}
-        -DOUTPUT_FILE=${WEBUI_RESOURCE_OUTPUT}
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_webui_resources.cmake"
+    COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_webui_resources.py"
+        ${WEBUI_SOURCE_DIR} ${WEBUI_RESOURCE_OUTPUT}
     DEPENDS
         ${WEBUI_SOURCE_DIR}/index.html
     COMMENT "Embedding WebUI static resources into C++ byte arrays..."
@@ -181,11 +179,14 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebI
     else()
         # GCC/Clang: 函数分段 + GC 死代码消除
         target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sections)
-        target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections -Wl,--allow-multiple-definition)
+        target_link_options(${PROJECT_NAME} PRIVATE -Wl,--allow-multiple-definition)
+        # 注意：--gc-sections 可能误杀嵌入的 WebUI 资源数据，
+        # 如有白屏问题可取消下面注释排查：
+        # target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
     endif()
 endif()
 
-# Linux Release 构建后自动 strip
+# Linux Release 构建后自动 strip（可能误杀嵌入数据，排查时注释）
 if(CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT MSVC)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND strip $<TARGET_FILE:${PROJECT_NAME}>

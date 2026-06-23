@@ -98,9 +98,9 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows-static
 
-      # ===== Build =====
+      # ===== Build (only plugin target, skip fmt full build) =====
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build build --config Release --target tianyan
 
       # ===== Package =====
       - name: Package plugin (Linux)
