@@ -443,9 +443,10 @@ private:
                 content_type = "application/octet-stream";
             }
 
-            svr_->Get(path, [&kResource, content_type](const httplib::Request&, httplib::Response& res) {
-                const auto& [path_1, data_] = kResource;
-                res.set_content(data_.data(), content_type);
+            // 注意：按值捕获 data (string_view)，不可捕获循环变量的引用
+            svr_->Get(path, [data, content_type](const httplib::Request&, httplib::Response& res) {
+                // 必须传 size，否则 std::string(data.data()) 用 strlen 越界读
+                res.set_content(data.data(), data.size(), content_type);
                 setCorsHeaders(res);
             });
         }
@@ -455,7 +456,8 @@ private:
             if constexpr (kResourceCount > 0) {
                 // 假设第一个资源是 index.html
                 const auto& [path, data] = embedded::kResources[0];
-                res.set_content(data.data(), "text/html; charset=utf-8");
+                // 必须传 data.size()，不可依赖 strlen（数据无 \0 终止）
+                res.set_content(data.data(), data.size(), "text/html; charset=utf-8");
             }
         });
     }

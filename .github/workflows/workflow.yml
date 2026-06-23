@@ -67,20 +67,20 @@ jobs:
           sudo apt-get install -y wget gnupg lsb-release software-properties-common unzip zip
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 19
-          sudo apt-get install -y libc++-19-dev libc++abi-19-dev cmake libsqlite3-dev ninja-build
+          sudo ./llvm.sh 21
+          sudo apt-get install -y libc++-21-dev libc++abi-21-dev cmake libsqlite3-dev ninja-build
       - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
         run: |
           if [ "${{ github.event.inputs.release_type }}" = "release" ]; then
             cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DRELEASE_VERSION=1 \
-                  -DCMAKE_C_COMPILER=clang-19 \
-                  -DCMAKE_CXX_COMPILER=clang++-19 \
+                  -DCMAKE_C_COMPILER=clang-21 \
+                  -DCMAKE_CXX_COMPILER=clang++-21 \
                   -DCMAKE_CXX_FLAGS="-stdlib=libc++"
           else
             cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release \
-                  -DCMAKE_C_COMPILER=clang-19 \
-                  -DCMAKE_CXX_COMPILER=clang++-19 \
+                  -DCMAKE_C_COMPILER=clang-21 \
+                  -DCMAKE_CXX_COMPILER=clang++-21 \
                   -DCMAKE_CXX_FLAGS="-stdlib=libc++"
           fi
       # ===== Windows =====
@@ -124,9 +124,9 @@ jobs:
               -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
               -DVCPKG_TARGET_TRIPLET=x64-windows-static
           }
-      # ===== Build =====
+      # ===== Build (only plugin target, skip fmt full build) =====
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build build --config Release --target tianyan
 
       # ===== Prepare plugin artifact (Linux) =====
       - name: Prepare plugin artifact (Linux)
