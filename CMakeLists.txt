@@ -45,6 +45,32 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(endstone_inventoryui)
 
+# ---- cpp-httplib (WebUI 后端 HTTP 库) ----
+FetchContent_Declare(
+    cpp_httplib
+    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+    GIT_TAG v0.18.0
+)
+FetchContent_MakeAvailable(cpp_httplib)
+
+# ---- 前端资源内置化 ----
+set(WEBUI_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/WebUI")
+set(WEBUI_RESOURCE_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/webui_resources.h")
+
+add_custom_command(
+    OUTPUT ${WEBUI_RESOURCE_OUTPUT}
+    COMMAND ${CMAKE_COMMAND}
+        -DINPUT_DIR=${WEBUI_SOURCE_DIR}
+        -DOUTPUT_FILE=${WEBUI_RESOURCE_OUTPUT}
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_webui_resources.cmake"
+    DEPENDS
+        ${WEBUI_SOURCE_DIR}/index.html
+        ${WEBUI_SOURCE_DIR}/script.js
+        ${WEBUI_SOURCE_DIR}/style.css
+    COMMENT "Embedding WebUI static resources into C++ byte arrays..."
+)
+add_custom_target(webui_resources DEPENDS ${WEBUI_RESOURCE_OUTPUT})
+
 # ---- Rust MySQL static library (built via cargo) ----
 if (WIN32)
     set(RUST_MYSQL_LIB_NAME "rust_mysql.lib")
@@ -105,7 +131,32 @@ find_package(SQLite3 REQUIRED)
 file(GLOB PLUGIN_SOURCES
         CONFIGURE_DEPENDS
         "src/*.cpp"
+        "src/webui_adapter/*.cpp"
 )
+
+# ---- tianyan_webui 静态库 ----
+file(GLOB WEBUI_SOURCES
+        CONFIGURE_DEPENDS
+        "src/webui/*.cpp"
+        "src/webui/handlers/*.cpp"
+)
+
+add_library(tianyan_webui STATIC ${WEBUI_SOURCES})
+target_include_directories(tianyan_webui PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+    "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    "${cpp_httplib_SOURCE_DIR}"
+)
+target_link_libraries(tianyan_webui PUBLIC
+    nlohmann_json::nlohmann_json
+)
+add_dependencies(tianyan_webui webui_resources)
+set_target_properties(tianyan_webui PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+)
+# 抑制 cpp-httplib 的 operator"" _t 弃用警告（第三方库代码，不影响功能）
+target_compile_options(tianyan_webui PRIVATE -Wno-deprecated-literal-operator)
 
 endstone_add_plugin(${PROJECT_NAME} ${PLUGIN_SOURCES})
 
@@ -120,11 +171,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         endstone_inventoryui
         rust_mysql
         world_inspector
+        tianyan_webui
         ${RUST_MYSQL_SYSTEM_LIBS}
 )
 
-# Release 优化
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
+# 优化 + Rust 多定义兼容
+if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     if(MSVC)
         # MSVC: 允许重复符号（多个 Rust .a 都有 std 符号）
         target_link_options(${PROJECT_NAME} PRIVATE /FORCE:MULTIPLE)

@@ -12,6 +12,8 @@
 #include "sqlite_backend.h"
 #include "rust_backend.h"
 #include <inventoryui_init.h>
+#include "webui_adapter/log_query_impl.h"
+#include "webui_adapter/language_impl.h"
 
 // 为了方便在宏里调用，定义一个短函数
 inline std::string T(const std::string& key) {
@@ -116,7 +118,9 @@ void TianyanPlugin::datafile_check() const {
         {"mysql_port", 3306},
         {"mysql_user", "root"},
         {"mysql_password", ""},
-        {"mysql_database", "endstone"}
+        {"mysql_database", "endstone"},
+        {"web_secret", "your_secret"},
+        {"web_port", 8098}
     };
 
     if (!(std::filesystem::exists(TianyanCore::dataPath))) {
@@ -520,10 +524,53 @@ _____   _
     getLogger().info("You can change the plugin’s language by editing the config file. Choose a language from the language folder.");
     if (TianyanCore::enable_web_ui)
     {
-        start_web_server(TianyanCore::dbPath);
-#ifdef _WIN32
-        windows_print_webui_log = getServer().getScheduler().runTaskTimer(*this, [&]() {dump_webui_log_once();},0,20);
-#endif
+        // WebUI 后端
+        tianyan::webui::WebUIConfig wcfg;
+        {
+            json cfg = read_config();
+            wcfg.secret = cfg.value("web_secret", "your_secret");
+            wcfg.port = cfg.value("web_port", 8098);
+
+            // 兼容旧版 web_config.json（Python 后端遗留）
+            // 如果存在且插件 config.json 中尚未迁移，则优先读取
+            namespace fs = std::filesystem;
+            auto legacy_path = fs::absolute(TianyanCore::dataPath) / "WebUI" / ".." / "web_config.json";
+            // 我们改为检查更合理的路径
+            if (fs::path old_cfg = fs::absolute(TianyanCore::dataPath).parent_path() / "web_config.json"; fs::exists(old_cfg) && !cfg.contains("web_secret")) {
+                try {
+                    std::ifstream ifs(old_cfg);
+                    json old_json;
+                    ifs >> old_json;
+                    if (old_json.contains("secret"))
+                        wcfg.secret = old_json["secret"].get<std::string>();
+                    if (old_json.contains("backend_port"))
+                        wcfg.port = old_json["backend_port"].get<int>();
+                    getLogger().info("Migrated WebUI config from legacy web_config.json");
+                } catch (...) {
+                    // 忽略旧配置文件错误
+                }
+            }
+        }
+        wcfg.thread_pool_size = 2;
+        // 嵌入式资源模式（static_dir 留空则从内存读取）
+        wcfg.static_dir = "";
+
+        webui_server_ = std::make_unique<tianyan::webui::WebUIServer>(wcfg);
+        webui_server_->setLogQueryService(
+            std::make_unique<LogQueryImpl>(*db_backend_));
+        webui_server_->setLanguageService(
+            std::make_unique<LanguageServiceImpl>(TianyanCore::language_path));
+        webui_server_->setMainThreadDispatcher(
+            [this](std::function<void()> task) {
+                getServer().getScheduler().runTask(*this, std::move(task));
+            });
+
+        if (webui_server_->start()) {
+            getLogger().info("WebUI (C++ backend) started on port "
+                + std::to_string(webui_server_->getPort()));
+        } else {
+            getLogger().error("Failed to start WebUI (C++ backend)");
+        }
     }
 
     //初始化内嵌物品栏ui
@@ -551,7 +598,11 @@ void TianyanPlugin::onDisable()
 
     if (TianyanCore::enable_web_ui)
     {
-        stop_web_server();
+        // 停止 C++ WebUI 后端
+        if (webui_server_) {
+            webui_server_->stop();
+            webui_server_.reset();
+        }
     }
 
     // NOTE: tyCore 和 db_backend_ 由插件析构时自动销毁。
@@ -1262,10 +1313,12 @@ void TianyanPlugin::checkMigrateStatus()
             getLogger().info(Tran->tr(Tran->getLocal("Active backend switched to {}"), yuhangle::migrate_target_type));
 
             // Restart WebUI to pick up new database config
-            if (TianyanCore::enable_web_ui) {
+            if (TianyanCore::enable_web_ui && webui_server_) {
                 getLogger().info(Tran->getLocal("Restarting WebUI for new database backend..."));
-                stop_web_server();
-                start_web_server(TianyanCore::dbPath);
+                webui_server_->stop();
+                if (!webui_server_->start()) {
+                    getLogger().error("Failed to restart WebUI (C++ backend)");
+                }
             }
         }
 

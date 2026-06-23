@@ -55,24 +55,9 @@ The Tianyan plugin supports viewing item information in both online and offline 
 
 #### 🌐 WebUI Panel
 
-The Tianyan plugin provides a WebUI panel that can be accessed through a browser to view behavior records. To enable the WebUI feature, set "enable_web_ui" to true in the configuration file.
-
-After the WebUI is started, a WebUI configuration file web_config.json will be generated in the plugin data directory:
-```json
-{
-"secret": "your_secret",
-"backend_port": 8098
-}
-```
-- `secret`: Access key for the WebUI, used for authentication
-
-- `backend_port`: WebUI port
-
-Running the WebUI requires the following pip packages: `fastapi`, `uvicorn`. These packages will be automatically installed when the WebUI runs.
+The Tianyan plugin provides a WebUI panel that can be accessed through a browser to view behavior records. To enable WebUI, set `"enable_web_ui": true` in `config.json`. WebUI configuration is also part of the main `config.json` — see the configuration section below.
 
 You can access the WebUI panel via `server_IP:WebUI_port`. For example, with the default port 8098, the access URL is `http://127.0.0.1:8098`.
-
-You can also specify the backend IP and port within the WebUI after connecting.
 
 ## 🚀 Installation, Configuration & Usage
 
@@ -109,7 +94,9 @@ Default configuration:
     "mysql_port": 3306,
     "mysql_user": "root",
     "mysql_password": "",
-    "mysql_database": "endstone"
+    "mysql_database": "endstone",
+    "web_secret": "your_secret",
+    "web_port": 8098
 }
 ```
 
@@ -125,6 +112,8 @@ Configuration item descriptions:
 - `mysql_user`: MySQL login user
 - `mysql_password`: MySQL login password
 - `mysql_database`: MySQL database name
+- `web_secret`: WebUI access key, used for authentication
+- `web_port`: WebUI listen port (default 8098)
 
 > In entity-related events, entities in `no_log_mobs` will not be recorded unless the entity has been named.
 

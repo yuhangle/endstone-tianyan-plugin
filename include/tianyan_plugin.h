@@ -14,6 +14,9 @@
 #include "offline_inventory.h"
 #include <tianyan/api.h>
 
+// WebUI 后端
+#include "webui/server.h"
+
 class StaticTranslate
 {
 public:
@@ -118,6 +121,8 @@ private:
 #ifdef _WIN32
     void dump_webui_log_once() const;
 #endif
+    // C++ WebUI 后端服务器
+    std::unique_ptr<tianyan::webui::WebUIServer> webui_server_;
     void default_init_sqlite_();
     void checkMigrateStatus();
     void runMigration(const std::string& source, const std::string& target, const std::string& sender_name) const;

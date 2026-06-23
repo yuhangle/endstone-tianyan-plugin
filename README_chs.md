@@ -54,22 +54,10 @@
 天眼插件支持查看在线与离线玩家的物品栏内的物品信息。使用`/tyo` 命令可通过内置的可视化箱子界面只读查看玩家物品栏。其中，离线玩家物品栏数据直接来自存档数据读取，需要至少登录过服务器获取到uuid才可以通过名字查询。
 
 ### 🌐 WebUI面板
-天眼插件提供了 WebUI 面板，可以在浏览器中访问面板，查看行为记录。 启用WebUI功能需要在配置文件中修改"enable_web_ui"为true。
-WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config.json:
-```json
-{
-    "secret": "your_secret",
-    "backend_port": 8098
-}
-```
-- `secret`: WebUI 访问密钥，用于验证身份
-- `backend_port`: WebUI 端口
 
-运行WebUI需要以下pip包：`fastapi` `uvicorn`,WebUI在运行时会自动安装pip包。
+天眼插件提供了 WebUI 网页面板，可在浏览器中查看行为记录。启用 WebUI 需要在 `config.json` 中修改 `"enable_web_ui": true`。WebUI相关配置在下面的配置项章节有提到。
 
-你可以通过`服务器IP:WebUI端口`访问WebUI面板,例如，默认端口为8098，访问地址为`http://127.0.0.1:8098`。
-
-你也可以在WebUI指定连接后端IP和端口。
+你可以通过 `服务器IP:WebUI端口` 访问 WebUI 面板，例如默认访问地址为 `http://127.0.0.1:8098`。
 
 ## 🚀 安装 & 配置 & 使用方法
 
@@ -106,7 +94,9 @@ WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config
     "mysql_port": 3306,
     "mysql_user": "root",
     "mysql_password": "",
-    "mysql_database": "endstone"
+    "mysql_database": "endstone",
+    "web_secret": "your_secret",
+    "web_port": 8098
 }
 ```
 
@@ -122,6 +112,8 @@ WebUI被启动后，会在插件数据目录下生成WebUI配置文件web_config
 - `mysql_user`: MySQL 登录用户
 - `mysql_password`: MySQL 登录密码
 - `mysql_database`: MySQL 数据库名
+- `web_secret`: WebUI 访问密钥，用于验证身份
+- `web_port`: WebUI 监听端口（默认 8098）
 
 > 在涉及实体事件中，除非实体被命名过，否则不会记录 `no_log_mobs` 中的实体。
 
