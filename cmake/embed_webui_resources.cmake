@@ -22,7 +22,9 @@ file(GLOB RESOURCE_FILES
 list(SORT RESOURCE_FILES)
 
 if(NOT RESOURCE_FILES)
-    message(WARNING "No .html / .js / .css files found in ${INPUT_DIR}, generating empty header")
+    file(GLOB ALL_FILES "${INPUT_DIR}/*")
+    message(FATAL_ERROR "No .html / .js / .css files found in ${INPUT_DIR}. "
+                        "Directory contents: ${ALL_FILES}")
 endif()
 
 # --- 生成头文件 ---

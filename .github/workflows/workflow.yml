@@ -53,6 +53,12 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run build
 
+      - name: Verify frontend dist
+        shell: bash
+        run: |
+          ls -lh WebUI-Next/dist/
+          wc -c WebUI-Next/dist/index.html
+
       # ===== Linux =====
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
