@@ -53,8 +53,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cpp_httplib)
 
-# ---- 前端资源内置化 ----
-set(WEBUI_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/WebUI")
+# ---- 前端资源内置化（Vue 3 + Vite 单文件构建） ----
+set(WEBUI_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/WebUI-Next/dist")
 set(WEBUI_RESOURCE_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/webui_resources.h")
 
 add_custom_command(
@@ -65,8 +65,6 @@ add_custom_command(
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_webui_resources.cmake"
     DEPENDS
         ${WEBUI_SOURCE_DIR}/index.html
-        ${WEBUI_SOURCE_DIR}/script.js
-        ${WEBUI_SOURCE_DIR}/style.css
     COMMENT "Embedding WebUI static resources into C++ byte arrays..."
 )
 add_custom_target(webui_resources DEPENDS ${WEBUI_RESOURCE_OUTPUT})

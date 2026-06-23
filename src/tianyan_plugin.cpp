@@ -550,10 +550,11 @@ _____   _
                     // 忽略旧配置文件错误
                 }
             }
+            // 开发调试：设置 web_static_dir 指向 WebUI-Next/dist 则从磁盘提供静态文件，
+            // 修改前端后只需 npm run build，无需重新编译 C++ 插件
+            wcfg.static_dir = cfg.value("web_static_dir", "");
         }
         wcfg.thread_pool_size = 2;
-        // 嵌入式资源模式（static_dir 留空则从内存读取）
-        wcfg.static_dir = "";
 
         webui_server_ = std::make_unique<tianyan::webui::WebUIServer>(wcfg);
         webui_server_->setLogQueryService(
