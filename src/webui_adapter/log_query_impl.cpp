@@ -167,7 +167,22 @@ nlohmann::json LogQueryImpl::getDbSizeInfo() const {
         }
         return {"0 MB"};
     }
-    return {"MySQL"};
+    // MySQL: 通过 information_schema 查询 data_length + index_length 估算
+    std::vector<std::map<std::string, std::string>> size_result;
+    db_.querySQL(
+        "SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb "
+        "FROM information_schema.tables "
+        "WHERE table_schema = DATABASE()", size_result);
+    if (!size_result.empty() && !size_result[0]["size_mb"].empty()) {
+        const std::string& mb_str = size_result[0]["size_mb"];
+        try {
+            double mb = std::stod(mb_str);
+            return {std::format("{:.2f} MB", mb)};
+        } catch (...) {
+            // fallthrough
+        }
+    }
+    return {"0 MB"};
 }
 
 // ============================================================
@@ -352,21 +367,57 @@ nlohmann::json LogQueryImpl::getDbInfo() {
         result["total_rows"] = count_result.empty() ? 0 : std::stoll(count_result[0]["cnt"]);
 
     } else {
-        std::vector<std::map<std::string, std::string>> tables;
-        db_.querySQL(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
-            tables);
-        result["tables"] = nlohmann::json::array();
-        for (const auto& t : tables) {
-            result["tables"].push_back(t.begin()->second);
+        // 表名
+        {
+            std::vector<std::map<std::string, std::string>> tables;
+            db_.querySQL(
+                "SELECT table_name AS name FROM information_schema.tables"
+                " WHERE table_schema = DATABASE()", tables);
+            result["tables"] = nlohmann::json::array();
+            for (const auto& t : tables) {
+                result["tables"].push_back(t.at("name"));
+            }
         }
 
-        result["indexes"] = nlohmann::json::array();
-        result["columns"] = nlohmann::json::array();
+        // 索引
+        {
+            std::vector<std::map<std::string, std::string>> indexes;
+            db_.querySQL(
+                "SELECT index_name AS name FROM information_schema.statistics"
+                " WHERE table_schema = DATABASE() AND table_name = 'LOGDATA'"
+                " GROUP BY index_name", indexes);
+            result["indexes"] = nlohmann::json::array();
+            for (const auto& idx : indexes) {
+                result["indexes"].push_back(idx.at("name"));
+            }
+        }
 
-        std::vector<std::map<std::string, std::string>> count_result;
-        db_.querySQL("SELECT COUNT(*) AS cnt FROM LOGDATA", count_result);
-        result["total_rows"] = count_result.empty() ? 0 : std::stoll(count_result[0]["cnt"]);
+        // 列信息
+        {
+            std::vector<std::map<std::string, std::string>> columns;
+            db_.querySQL(
+                "SELECT column_name AS name, column_type AS type,"
+                " is_nullable AS nullable, column_key AS col_key"
+                " FROM information_schema.columns"
+                " WHERE table_schema = DATABASE() AND table_name = 'LOGDATA'"
+                " ORDER BY ordinal_position", columns);
+            result["columns"] = nlohmann::json::array();
+            for (const auto& col : columns) {
+                nlohmann::json c;
+                c["name"] = col.at("name");
+                c["type"] = col.at("type");
+                c["notnull"] = (col.at("nullable") == "YES") ? 0 : 1;
+                c["pk"] = (col.at("col_key") == "PRI") ? 1 : 0;
+                result["columns"].push_back(std::move(c));
+            }
+        }
+
+        // 行数
+        {
+            std::vector<std::map<std::string, std::string>> count_result;
+            db_.querySQL("SELECT COUNT(*) AS cnt FROM LOGDATA", count_result);
+            result["total_rows"] = count_result.empty() ? 0 : std::stoll(count_result[0]["cnt"]);
+        }
     }
 
     return result;
