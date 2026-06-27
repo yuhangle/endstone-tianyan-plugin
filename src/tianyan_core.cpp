@@ -70,19 +70,24 @@ vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& 
     vector<LogData> LogDatas;
     for (const auto& data : result) {
         LogData oneLog;
-        oneLog.uuid = data.at("uuid");
-        oneLog.id = data.at("id");
-        oneLog.name = data.at("name");
-        oneLog.pos_x = std::stod(data.at("pos_x"));
-        oneLog.pos_y = std::stod(data.at("pos_y"));
-        oneLog.pos_z = std::stod(data.at("pos_z"));
-        oneLog.world = data.at("world");
-        oneLog.obj_id = data.at("obj_id");
-        oneLog.obj_name = data.at("obj_name");
-        oneLog.time = std::stoll(data.at("time"));
-        oneLog.type = data.at("type");
-        oneLog.data = data.at("data");
-        oneLog.status = data.at("status");
+        try {
+            oneLog.uuid = data.at("uuid");
+            oneLog.id = data.at("id");
+            oneLog.name = data.at("name");
+            oneLog.pos_x = std::stod(data.at("pos_x"));
+            oneLog.pos_y = std::stod(data.at("pos_y"));
+            oneLog.pos_z = std::stod(data.at("pos_z"));
+            oneLog.world = data.at("world");
+            oneLog.obj_id = data.at("obj_id");
+            oneLog.obj_name = data.at("obj_name");
+            oneLog.time = std::stoll(data.at("time"));
+            oneLog.type = data.at("type");
+            oneLog.data = data.at("data");
+            oneLog.status = data.at("status");
+        } catch (const std::exception&) {
+            // 跳过因数据库脏数据导致的异常行（如 Inf/NaN 坐标）
+            continue;
+        }
         LogDatas.push_back(oneLog);
     }
     return LogDatas;
@@ -103,19 +108,24 @@ vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& 
     vector<LogData> LogDatas;
     for (const auto& data : result) {
         LogData oneLog;
-        oneLog.uuid = data.at("uuid");
-        oneLog.id = data.at("id");
-        oneLog.name = data.at("name");
-        oneLog.pos_x = std::stod(data.at("pos_x"));
-        oneLog.pos_y = std::stod(data.at("pos_y"));
-        oneLog.pos_z = std::stod(data.at("pos_z"));
-        oneLog.world = data.at("world");
-        oneLog.obj_id = data.at("obj_id");
-        oneLog.obj_name = data.at("obj_name");
-        oneLog.time = std::stoll(data.at("time"));
-        oneLog.type = data.at("type");
-        oneLog.data = data.at("data");
-        oneLog.status = data.at("status");
+        try {
+            oneLog.uuid = data.at("uuid");
+            oneLog.id = data.at("id");
+            oneLog.name = data.at("name");
+            oneLog.pos_x = std::stod(data.at("pos_x"));
+            oneLog.pos_y = std::stod(data.at("pos_y"));
+            oneLog.pos_z = std::stod(data.at("pos_z"));
+            oneLog.world = data.at("world");
+            oneLog.obj_id = data.at("obj_id");
+            oneLog.obj_name = data.at("obj_name");
+            oneLog.time = std::stoll(data.at("time"));
+            oneLog.type = data.at("type");
+            oneLog.data = data.at("data");
+            oneLog.status = data.at("status");
+        } catch (const std::exception&) {
+            // 跳过因数据库脏数据导致的异常行（如 Inf/NaN 坐标）
+            continue;
+        }
         LogDatas.push_back(oneLog);
     }
     return LogDatas;

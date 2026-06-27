@@ -481,6 +481,9 @@ void EventListener::onBlockFromTo(const endstone::BlockFromToEvent& event) {
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4();
     logData.id = event.getBlock().getType();
+    logData.pos_x = event.getBlock().getX();
+    logData.pos_y = event.getBlock().getY();
+    logData.pos_z = event.getBlock().getZ();
     logData.obj_id = event.getToBlock().getType();
     if (logData.obj_id != "minecraft:air")
     {

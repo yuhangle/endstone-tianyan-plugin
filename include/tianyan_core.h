@@ -44,13 +44,13 @@ public:
         string uuid;
         string id;
         string name;
-        double pos_x;
-        double pos_y;
-        double pos_z;
+        double pos_x = -1.0;
+        double pos_y = -320.0;
+        double pos_z = -1.0;
         string world;
         string obj_id;
         string obj_name;
-        long long time;
+        long long time = 0;
         string type;
         string data;
         string status;
