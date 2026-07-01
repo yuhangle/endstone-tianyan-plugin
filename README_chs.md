@@ -78,11 +78,18 @@
 
 ```json
 {
-    "10s_command_max": 12,
-    "10s_message_max": 6,
-    "database_type": "sqlite",
-    "enable_web_ui": false,
     "language": "zh_CN",
+    "database_type": "sqlite",
+    "mysql_host": "127.0.0.1",
+    "mysql_port": 3306,
+    "mysql_user": "root",
+    "mysql_password": "",
+    "mysql_database": "endstone",
+    "enable_web_ui": false,
+    "web_secret": "your_secret",
+    "web_port": 8098,
+    "10s_message_max": 6,
+    "10s_command_max": 12,
     "no_log_mobs": [
         "minecraft:zombie_pigman",
         "minecraft:zombie",
@@ -90,32 +97,51 @@
         "minecraft:bogged",
         "minecraft:slime"
     ],
-    "mysql_host": "127.0.0.1",
-    "mysql_port": 3306,
-    "mysql_user": "root",
-    "mysql_password": "",
-    "mysql_database": "endstone",
-    "web_secret": "your_secret",
-    "web_port": 8098
+    "enforce_no_log_mobs": false,
+    "log_piston": true,
+    "log_block_bomb": true,
+    "log_entity_bomb": true,
+    "log_block_break": true,
+    "log_block_place": true,
+    "log_entity_damage": true,
+    "log_player_right_click_block": true,
+    "log_player_right_click_entity": true,
+    "log_entity_die": true,
+    "log_player_pickup_item": true,
+    "log_player_drop_item": true,
+    "log_liquid_flow": true
 }
 ```
 
 配置项说明：
-- `10s_command_max`: 10秒内玩家可使用命令的最大次数
-- `10s_message_max`: 10秒内玩家可发送消息的最大次数
-- `database_type`: 数据库类型，可选 `sqlite`（默认）或 `mysql`
-- `enable_web_ui`: 是否启用 WebUI
 - `language`: 插件语言
-- `no_log_mobs`: 不被记录的实体列表
+- `database_type`: 数据库类型，可选 `sqlite`（默认）或 `mysql`
 - `mysql_host`: MySQL 服务器地址（`database_type` 为 `mysql` 时使用）
 - `mysql_port`: MySQL 服务器端口
 - `mysql_user`: MySQL 登录用户
 - `mysql_password`: MySQL 登录密码
 - `mysql_database`: MySQL 数据库名
+- `enable_web_ui`: 是否启用 WebUI
 - `web_secret`: WebUI 访问密钥，用于验证身份
 - `web_port`: WebUI 监听端口（默认 8098）
+- `10s_message_max`: 10秒内玩家可发送消息的最大次数
+- `10s_command_max`: 10秒内玩家可使用命令的最大次数
+- `no_log_mobs`: 不被记录的实体列表
+- `enforce_no_log_mobs`: 开启后 `no_log_mobs` 中的实体即使被命名也绝不记录（默认 `false`）
+- `log_piston`: 是否记录活塞推拉事件
+- `log_block_bomb`: 是否记录方块爆炸事件
+- `log_entity_bomb`: 是否记录实体爆炸事件
+- `log_block_break`: 是否记录方块破坏事件
+- `log_block_place`: 是否记录方块放置事件
+- `log_entity_damage`: 是否记录实体受伤事件
+- `log_player_right_click_block`: 是否记录玩家右键方块事件
+- `log_player_right_click_entity`: 是否记录玩家右键实体事件
+- `log_entity_die`: 是否记录实体/玩家死亡事件
+- `log_player_pickup_item`: 是否记录玩家拾取物品事件
+- `log_player_drop_item`: 是否记录玩家丢弃物品事件
+- `log_liquid_flow`: 是否记录液体流动事件
 
-> 在涉及实体事件中，除非实体被命名过，否则不会记录 `no_log_mobs` 中的实体。
+> 在涉及实体事件中，除非实体被命名过，否则不会记录 `no_log_mobs` 中的实体; 如果配置了 `enforce_no_log_mobs` 为 `true` ，即便命名过，位于 `no_log_mobs` 中的实体均不会被记录。
 
 插件配置默认使用中文，可以通过修改 `config.json` 中的 `language` 项更改语言。支持的语言可在 [language](language/zh_CN.json) 文件夹查看。
 

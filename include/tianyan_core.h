@@ -30,6 +30,34 @@ public:
     static inline int max_command_in_10s;
     static inline vector<string> no_log_mobs;
     static inline bool enable_web_ui = false;
+    // ---- 记录配置 ----
+    // 严格模式记录实体
+    static inline bool config_enforce_no_log_mobs = false;
+    // 是否记录活塞推拉事件
+    static inline bool config_log_piston = true;
+    // 是否记录实体爆炸事件
+    static inline bool config_log_entity_bomb = true;
+    // 是否记录方块爆炸事件
+    static inline bool config_log_block_bomb = true;
+    // 是否记录方块破坏事件
+    static inline bool config_log_block_break = true;
+    // 是否记录方块放置事件
+    static inline bool config_log_block_place = true;
+    // 是否记录实体受伤事件
+    static inline bool config_log_entity_damage = true;
+    // 是否记录玩家右键方块事件
+    static inline bool config_log_player_right_click_block = true;
+    // 是否记录玩家右键实体事件
+    static inline bool config_log_player_right_click_entity = true;
+    // 是否记录实体死亡事件
+    static inline bool config_log_entity_die = true;
+    // 是否记录玩家拾取物品事件
+    static inline bool config_log_player_pickup_item = true;
+    // 是否记录玩家丢弃物品事件
+    static inline bool config_log_player_drop_item = true;
+    // 是否记录液体流动事件
+    static inline bool config_log_liquid_flow = true;
+
     // 存储每个玩家的上次触发时间
     static inline std::unordered_map<string, TimePoint> lastTriggerTime;
     // 全局缓存：每个玩家的消息时间戳列表（仅保留最近10秒内的）

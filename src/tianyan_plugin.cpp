@@ -107,61 +107,94 @@ ENDSTONE_PLUGIN("tianyan_plugin", TIANYAN_PLUGIN_VERSION, TianyanPlugin)
 
     //数据目录和配置文件检查
 void TianyanPlugin::datafile_check() const {
-    json df_config = {
-        {"language","zh_CN"},
-        {"enable_web_ui",false},
+    // 按逻辑分组排列 key 顺序
+    ordered_json df_config = {
+        // ---- 基础设置 ----
+        {"language", "zh_CN"},
+        // ---- 数据库 ----
         {"database_type", "sqlite"},
-        {"10s_message_max", 6},
-        {"10s_command_max", 12},
-        {"no_log_mobs", {"minecraft:zombie_pigman","minecraft:zombie","minecraft:skeleton","minecraft:bogged","minecraft:slime"}},
         {"mysql_host", "127.0.0.1"},
         {"mysql_port", 3306},
         {"mysql_user", "root"},
         {"mysql_password", ""},
         {"mysql_database", "endstone"},
+        // ---- WebUI ----
+        {"enable_web_ui", false},
         {"web_secret", "your_secret"},
-        {"web_port", 8098}
+        {"web_port", 8098},
+        // ---- 反刷屏 ----
+        {"10s_message_max", 6},
+        {"10s_command_max", 12},
+        // ---- 实体过滤 ----
+        {"no_log_mobs", {"minecraft:zombie_pigman","minecraft:zombie","minecraft:skeleton","minecraft:bogged","minecraft:slime"}},
+        // ---- 配置记录项 ----
+        {"enforce_no_log_mobs", false},
+        {"log_piston", true},
+        {"log_block_bomb",true},
+        {"log_entity_bomb",true},
+        {"log_block_break",true},
+        {"log_block_place",true},
+        {"log_entity_damage",true},
+        {"log_player_right_click_block",true},
+        {"log_player_right_click_entity",true},
+        {"log_entity_die",true},
+        {"log_player_pickup_item",true},
+        {"log_player_drop_item",true},
+        {"log_liquid_flow",true}
+    };
+
+    auto write_config = [&](const ordered_json& config) {
+        if (std::ofstream file(TianyanCore::config_path); file.is_open()) {
+            file << config.dump(4);
+            file.close();
+            return true;
+        }
+        return false;
     };
 
     if (!(std::filesystem::exists(TianyanCore::dataPath))) {
         getLogger().info(Tran->getLocal("No data path,auto create"));
         std::filesystem::create_directory(TianyanCore::dataPath);
         if (!(std::filesystem::exists(TianyanCore::config_path))) {
-            if (std::ofstream file(TianyanCore::config_path); file.is_open()) {
-                file << df_config.dump(4);
-                file.close();
+            if (write_config(df_config)) {
                 getLogger().info(Tran->getLocal("Config file created"));
             }
         }
     } else if (std::filesystem::exists(TianyanCore::dataPath)) {
         if (!(std::filesystem::exists(TianyanCore::config_path))) {
-            if (std::ofstream file(TianyanCore::config_path); file.is_open()) {
-                file << df_config.dump(4);
-                file.close();
+            if (write_config(df_config)) {
                 getLogger().info(Tran->getLocal("Config file created"));
             }
         } else {
             bool need_update = false;
-            json loaded_config;
+            ordered_json loaded_config;
 
             // 加载现有配置文件
             std::ifstream file(TianyanCore::config_path);
             file >> loaded_config;
 
-            // 检查配置完整性并更新
+            // 以 df_config 定义顺序为基准重建，缺失的 key 插入到对应分组位置
+            ordered_json merged;
             for (auto& [key, value] : df_config.items()) {
-                if (!loaded_config.contains(key)) {
-                    loaded_config[key] = value;
+                if (loaded_config.contains(key)) {
+                    merged[key] = loaded_config[key];
+                } else {
+                    merged[key] = value;
                     getLogger().info(Tran->tr(Tran->getLocal("Config '{}' has update with default config"), key));
                     need_update = true;
                 }
             }
+            // 追加用户自定义的额外字段（不在 df_config 中）
+            for (auto& [key, value] : loaded_config.items()) {
+                if (!merged.contains(key)) {
+                    merged[key] = value;
+                }
+            }
+            loaded_config = std::move(merged);
 
             // 如果需要更新配置文件，则进行写入
             if (need_update) {
-                if (std::ofstream outfile(TianyanCore::config_path); outfile.is_open()) {
-                    outfile << loaded_config.dump(4);
-                    outfile.close();
+                if (write_config(loaded_config)) {
                     getLogger().info(Tran->getLocal("Config file update over"));
                 }
             }
@@ -234,15 +267,15 @@ void TianyanPlugin::migrateOldBanData()
 }
 
 // 读取配置文件
-[[nodiscard]] json TianyanPlugin::read_config() const {
+[[nodiscard]] ordered_json TianyanPlugin::read_config() const {
     std::ifstream i(TianyanCore::config_path);
     try {
-        json j;
+        ordered_json j;
         i >> j;
         return j;
-    } catch (json::parse_error& ex) { // 捕获解析错误
+    } catch (ordered_json::parse_error& ex) { // 捕获解析错误
         getLogger().error( ex.what());
-        json error_value = {
+        ordered_json error_value = {
                 {"error","error"}
         };
         return error_value;
@@ -401,7 +434,7 @@ void TianyanPlugin::onEnable()
     datafile_check();
 
     // 读取配置文件选择数据库后端
-    json json_msg = read_config();
+    ordered_json json_msg = read_config();
     try {
         if (json_msg.contains("database_type")) {
             db_type_ = json_msg["database_type"].get<std::string>();
@@ -466,6 +499,19 @@ void TianyanPlugin::onEnable()
             lang = json_msg["language"];
             TianyanCore::language_file = TianyanCore::language_path +lang+".json";
             TianyanCore::enable_web_ui = json_msg["enable_web_ui"];
+            TianyanCore::config_enforce_no_log_mobs = json_msg["enforce_no_log_mobs"];
+            TianyanCore::config_log_piston = json_msg["log_piston"];
+            TianyanCore::config_log_block_bomb = json_msg["log_block_bomb"];
+            TianyanCore::config_log_entity_bomb = json_msg["log_entity_bomb"];
+            TianyanCore::config_log_block_break = json_msg["log_block_break"];
+            TianyanCore::config_log_block_place = json_msg["log_block_place"];
+            TianyanCore::config_log_entity_damage = json_msg["log_entity_damage"];
+            TianyanCore::config_log_player_right_click_block = json_msg["log_player_right_click_block"];
+            TianyanCore::config_log_player_right_click_entity = json_msg["log_player_right_click_entity"];
+            TianyanCore::config_log_entity_die = json_msg["log_entity_die"];
+            TianyanCore::config_log_player_pickup_item = json_msg["log_player_pickup_item"];
+            TianyanCore::config_log_player_drop_item = json_msg["log_player_drop_item"];
+            TianyanCore::config_log_liquid_flow = json_msg["log_liquid_flow"];
         } else {
             getLogger().error(Tran->getLocal("Config file error!Use default config"));
         }
@@ -527,7 +573,7 @@ _____   _
         // WebUI 后端
         tianyan::webui::WebUIConfig wcfg;
         {
-            json cfg = read_config();
+            ordered_json cfg = read_config();
             wcfg.secret = cfg.value("web_secret", "your_secret");
             wcfg.port = cfg.value("web_port", 8098);
 
@@ -1057,7 +1103,7 @@ void TianyanPlugin::runMigration(const std::string& source, const std::string& t
                 src_backend = std::make_unique<SqliteBackend>(fullPath.string());
             } else {
                 // Read MySQL config from config.json
-                json cfg = read_config();
+                ordered_json cfg = read_config();
                 RustMySQLConfig mysql_cfg;
                 mysql_cfg.host = cfg.value("mysql_host", std::string("127.0.0.1"));
                 mysql_cfg.port = cfg.value("mysql_port", 3306);
@@ -1070,7 +1116,7 @@ void TianyanPlugin::runMigration(const std::string& source, const std::string& t
             if (target == "sqlite") {
                 dst_backend = std::make_unique<SqliteBackend>(fullPath.string());
             } else {
-                json cfg = read_config();
+                ordered_json cfg = read_config();
                 RustMySQLConfig mysql_cfg;
                 mysql_cfg.host = cfg.value("mysql_host", std::string("127.0.0.1"));
                 mysql_cfg.port = cfg.value("mysql_port", 3306);
@@ -1296,7 +1342,7 @@ void TianyanPlugin::checkMigrateStatus()
 
             // Persist to config.json
             try {
-                json cfg;
+                ordered_json cfg;
                 if (std::ifstream in(TianyanCore::config_path); in.is_open()) {
                     in >> cfg;
                 }
@@ -1776,7 +1822,7 @@ std::string StaticTranslate::get(const std::string& key) {
         std::string lang = "en_US";
         if (constexpr auto config_path = "plugins/tianyan_data/config.json"; fs::exists(config_path)) {
             std::ifstream i(config_path);
-            json j;
+            ordered_json j;
             i >> j;
             if (j.contains("language")) {
                 lang = j["language"].get<std::string>();

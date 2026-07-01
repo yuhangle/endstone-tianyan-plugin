@@ -6,6 +6,7 @@
 #include <endstone/plugin/plugin.h>
 #include <string>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include "database_backend.h"
 #include "tianyan_protect.h"
 #include "event_listener.h"
@@ -34,7 +35,7 @@ public:
     static void migrateOldBanData();
 
     // 读取配置文件
-    [[nodiscard]] json read_config() const;
+    [[nodiscard]] ordered_json read_config() const;
 
     void onLoad() override;
 

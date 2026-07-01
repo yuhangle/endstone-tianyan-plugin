@@ -41,6 +41,7 @@ bool EventListener::canTriggerEvent(const string& playername) {
 }
 
 void EventListener::onBlockBreak(const endstone::BlockBreakEvent& event){
+    if (!TianyanCore::config_log_block_break) {return;}
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4(); // 生成UUID
     logData.id = event.getPlayer().getType();
@@ -65,6 +66,7 @@ void EventListener::onBlockBreak(const endstone::BlockBreakEvent& event){
 }
 
 void EventListener::onBlockPlace(const endstone::BlockPlaceEvent& event){
+    if (!TianyanCore::config_log_block_place) {return;}
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4(); // 生成UUID
     logData.id = event.getPlayer().getType();
@@ -89,8 +91,13 @@ void EventListener::onBlockPlace(const endstone::BlockPlaceEvent& event){
 }
 
 void EventListener::onActorDamage(const endstone::ActorDamageEvent& event){
-    //无名的烂大街生物无需在意
-    if (event.getActor().getNameTag().empty() && ranges::find(TianyanCore::no_log_mobs, event.getActor().getType()) != TianyanCore::no_log_mobs.end()) {
+    if (!TianyanCore::config_log_entity_damage) {return;}
+    // 实体记录过滤
+    const bool isNoLogMob =
+        ranges::find(TianyanCore::no_log_mobs, event.getActor().getType()) != TianyanCore::no_log_mobs.end();
+
+    if (const bool hasName = !event.getActor().getNameTag().empty();
+        isNoLogMob && (TianyanCore::config_enforce_no_log_mobs || !hasName)) {
         return;
     }
     TianyanCore::LogData logData;
@@ -126,6 +133,7 @@ void EventListener::onActorDamage(const endstone::ActorDamageEvent& event){
 }
 
 void EventListener::onPlayerRightClickBlock(const endstone::PlayerInteractEvent& event) {
+    if (!TianyanCore::config_log_player_right_click_block) {return;}
     TianyanCore::LogData logData;
     if (!event.getBlock()) {
         return;
@@ -184,10 +192,15 @@ void EventListener::onPlayerRightClickBlock(const endstone::PlayerInteractEvent&
 }
 
 void EventListener::onPlayerRightClickActor(const endstone::PlayerInteractActorEvent& event){
-    //无名的烂大街生物无需在意
-    if (event.getActor().getNameTag().empty() && ranges::find(TianyanCore::no_log_mobs, event.getActor().getType()) != TianyanCore::no_log_mobs.end()) {
+    if (!TianyanCore::config_log_player_right_click_entity) {return;}
+    // 实体记录过滤
+    const bool isNoLogMob =
+        ranges::find(TianyanCore::no_log_mobs, event.getActor().getType()) != TianyanCore::no_log_mobs.end();
+
+    if (const bool hasName = !event.getActor().getNameTag().empty();
+        isNoLogMob && (TianyanCore::config_enforce_no_log_mobs || !hasName)) {
         return;
-    }
+        }
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4(); // 生成UUID
     logData.id = event.getPlayer().getType();
@@ -217,6 +230,8 @@ void EventListener::onPlayerRightClickActor(const endstone::PlayerInteractActorE
 }
 
 void EventListener::onActorBomb(const endstone::ActorExplodeEvent& event) {
+    if (!TianyanCore::config_log_entity_bomb) {return;}
+
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4(); // 生成UUID
     logData.id = event.getActor().getType();
@@ -267,6 +282,8 @@ void EventListener::onActorBomb(const endstone::ActorExplodeEvent& event) {
 
 void EventListener::onBlockBomb(const endstone::BlockExplodeEvent& event)
 {
+    if (!TianyanCore::config_log_block_bomb) {return;}
+
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4();
     logData.id = event.getBlock().getType();
@@ -314,6 +331,7 @@ void EventListener::onBlockBomb(const endstone::BlockExplodeEvent& event)
 }
 
 void EventListener::onPistonExtend(const endstone::BlockPistonExtendEvent&event) {
+    if (!TianyanCore::config_log_piston) {return;}
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4(); // 生成UUID
     logData.id = event.getBlock().getType();
@@ -351,6 +369,8 @@ void EventListener::onPistonExtend(const endstone::BlockPistonExtendEvent&event)
 }
 
 void EventListener::onPistonRetract(const endstone::BlockPistonRetractEvent&event) {
+    if (!TianyanCore::config_log_piston) {return;}
+
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4(); // 生成UUID
     logData.id = event.getBlock().getType();
@@ -387,10 +407,15 @@ void EventListener::onPistonRetract(const endstone::BlockPistonRetractEvent&even
 }
 
 void EventListener::onActorDie(const endstone::ActorDeathEvent&event) {
-    //无名的烂大街生物无需在意
-    if (event.getActor().getNameTag().empty() && ranges::find(TianyanCore::no_log_mobs, event.getActor().getType()) != TianyanCore::no_log_mobs.end()) {
+    if (!TianyanCore::config_log_entity_die) {return;}
+    // 实体记录过滤
+    const bool isNoLogMob =
+        ranges::find(TianyanCore::no_log_mobs, event.getActor().getType()) != TianyanCore::no_log_mobs.end();
+
+    if (const bool hasName = !event.getActor().getNameTag().empty();
+        isNoLogMob && (TianyanCore::config_enforce_no_log_mobs || !hasName)) {
         return;
-    }
+        }
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4(); // 生成UUID
     logData.pos_x = event.getActor().getLocation().getX();
@@ -408,6 +433,7 @@ void EventListener::onActorDie(const endstone::ActorDeathEvent&event) {
 }
 
 void EventListener::onPlayerDie(const endstone::PlayerDeathEvent&event) {
+    if (!TianyanCore::config_log_entity_die) {return;}
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4(); // 生成UUID
     logData.pos_x = event.getActor().getLocation().getX();
@@ -425,6 +451,7 @@ void EventListener::onPlayerDie(const endstone::PlayerDeathEvent&event) {
 }
 
 void EventListener::onPlayerPickup(const endstone::PlayerPickupItemEvent&event) {
+    if (!TianyanCore::config_log_player_pickup_item) {return;}
     TianyanCore::LogData logData;
     const endstone::Player& player = event.getPlayer();
     if (!online_players_.contains(&player)) {
@@ -451,6 +478,7 @@ void EventListener::onPlayerPickup(const endstone::PlayerPickupItemEvent&event) 
 }
 
 void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event) {
+    if (!TianyanCore::config_log_player_drop_item) {return;}
     TianyanCore::LogData logData;
 
     const endstone::Player& player = event.getPlayer();
@@ -478,6 +506,7 @@ void EventListener::onPlayerDropItem(const endstone::PlayerDropItemEvent& event)
 
 // 监听液体流动（水/岩浆流动）
 void EventListener::onBlockFromTo(const endstone::BlockFromToEvent& event) {
+    if (!TianyanCore::config_log_liquid_flow) {return;}
     TianyanCore::LogData logData;
     logData.uuid = db_util::generate_uuid_v4();
     logData.id = event.getBlock().getType();

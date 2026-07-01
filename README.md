@@ -78,11 +78,18 @@ Default configuration:
 
 ```json
 {
-    "10s_command_max": 12,
-    "10s_message_max": 6,
-    "database_type": "sqlite",
-    "enable_web_ui": false,
     "language": "zh_CN",
+    "database_type": "sqlite",
+    "mysql_host": "127.0.0.1",
+    "mysql_port": 3306,
+    "mysql_user": "root",
+    "mysql_password": "",
+    "mysql_database": "endstone",
+    "enable_web_ui": false,
+    "web_secret": "your_secret",
+    "web_port": 8098,
+    "10s_message_max": 6,
+    "10s_command_max": 12,
     "no_log_mobs": [
         "minecraft:zombie_pigman",
         "minecraft:zombie",
@@ -90,32 +97,51 @@ Default configuration:
         "minecraft:bogged",
         "minecraft:slime"
     ],
-    "mysql_host": "127.0.0.1",
-    "mysql_port": 3306,
-    "mysql_user": "root",
-    "mysql_password": "",
-    "mysql_database": "endstone",
-    "web_secret": "your_secret",
-    "web_port": 8098
+    "enforce_no_log_mobs": false,
+    "log_piston": true,
+    "log_block_bomb": true,
+    "log_entity_bomb": true,
+    "log_block_break": true,
+    "log_block_place": true,
+    "log_entity_damage": true,
+    "log_player_right_click_block": true,
+    "log_player_right_click_entity": true,
+    "log_entity_die": true,
+    "log_player_pickup_item": true,
+    "log_player_drop_item": true,
+    "log_liquid_flow": true
 }
 ```
 
 Configuration item descriptions:
-- `10s_command_max`: Maximum number of commands players can use within 10 seconds
-- `10s_message_max`: Maximum number of messages players can send within 10 seconds
-- `database_type`: Database type, `sqlite` (default) or `mysql`
-- `enable_web_ui`: Enable WebUI
 - `language`: Plugin language
-- `no_log_mobs`: List of entities not to be logged
+- `database_type`: Database type, `sqlite` (default) or `mysql`
 - `mysql_host`: MySQL server address (used when `database_type` is `mysql`)
 - `mysql_port`: MySQL server port
 - `mysql_user`: MySQL login user
 - `mysql_password`: MySQL login password
 - `mysql_database`: MySQL database name
+- `enable_web_ui`: Enable WebUI
 - `web_secret`: WebUI access key, used for authentication
 - `web_port`: WebUI listen port (default 8098)
+- `10s_message_max`: Maximum number of messages players can send within 10 seconds
+- `10s_command_max`: Maximum number of commands players can use within 10 seconds
+- `no_log_mobs`: List of entities not to be logged
+- `enforce_no_log_mobs`: When set to `true`, entities in `no_log_mobs` are never logged even if named (default `false`)
+- `log_piston`: Whether to log piston extend/retract events
+- `log_block_bomb`: Whether to log block explosion events
+- `log_entity_bomb`: Whether to log entity explosion events
+- `log_block_break`: Whether to log block break events
+- `log_block_place`: Whether to log block place events
+- `log_entity_damage`: Whether to log entity damage events
+- `log_player_right_click_block`: Whether to log player right-click block events
+- `log_player_right_click_entity`: Whether to log player right-click entity events
+- `log_entity_die`: Whether to log entity/player death events
+- `log_player_pickup_item`: Whether to log player pickup item events
+- `log_player_drop_item`: Whether to log player drop item events
+- `log_liquid_flow`: Whether to log liquid flow events
 
-> In entity-related events, entities in `no_log_mobs` will not be recorded unless the entity has been named.
+> In entity-related events, entities in `no_log_mobs` will not be recorded unless the entity has been named. If `enforce_no_log_mobs` is set to `true`, entities in `no_log_mobs` will never be recorded, even if named.
 
 The plugin configuration defaults to Chinese, and the language can be changed by modifying the `language` item in `config.json`. Supported languages can be viewed in the [language](language/zh_CN.json) folder.
 
