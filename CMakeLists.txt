@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 project(tianyan CXX)
 
-set(BASE_VERSION "1.2.3.1")
+set(BASE_VERSION "1.2.3.2")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,7 +17,7 @@ include(ExternalProject)
 FetchContent_Declare(
         endstone
         GIT_REPOSITORY https://github.com/EndstoneMC/endstone.git
-        GIT_TAG v0.11.4
+        GIT_TAG v0.11.5
 )
 FetchContent_MakeAvailable(endstone)
 
