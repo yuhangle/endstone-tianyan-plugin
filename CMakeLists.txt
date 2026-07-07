@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 project(tianyan CXX)
 
-set(BASE_VERSION "1.2.3.2")
+set(BASE_VERSION "1.2.3.3")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -102,6 +102,9 @@ set_target_properties(world_inspector PROPERTIES
 # SQLite3
 find_package(SQLite3 REQUIRED)
 
+# zlib (endstone 0.11.5+ 依赖)
+find_package(ZLIB REQUIRED)
+
 file(GLOB PLUGIN_SOURCES
         CONFIGURE_DEPENDS
         "src/*.cpp"
@@ -116,6 +119,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
         nlohmann_json::nlohmann_json
         SQLite::SQLite3
+        ZLIB::ZLIB
         fmt::fmt-header-only
         endstone_inventoryui
         rust_mysql
@@ -124,15 +128,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 # Release 优化
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    if(MSVC)
-        # MSVC: 允许重复符号（多个 Rust .a 都有 std 符号）
-        target_link_options(${PROJECT_NAME} PRIVATE /FORCE:MULTIPLE)
-    else()
-        # GCC/Clang: 函数分段 + GC 死代码消除
-        target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sections)
-        target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections -Wl,--allow-multiple-definition)
-    endif()
+if(MSVC)
+    # MSVC: 允许重复符号（多个 Rust .a 都有 std 符号）
+    target_link_options(${PROJECT_NAME} PRIVATE /FORCE:MULTIPLE)
+else()
+    # GCC/Clang: 函数分段 + GC 死代码消除 + 允许多个 Rust .a 重复 std 符号
+    target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sections)
+    target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections -Wl,--allow-multiple-definition)
 endif()
 
 # Linux Release 构建后自动 strip
