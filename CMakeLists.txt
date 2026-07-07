@@ -126,6 +126,9 @@ set_target_properties(world_inspector PROPERTIES
 # SQLite3
 find_package(SQLite3 REQUIRED)
 
+# zlib (endstone 0.11.5+ 依赖)
+find_package(ZLIB REQUIRED)
+
 file(GLOB PLUGIN_SOURCES
         CONFIGURE_DEPENDS
         "src/*.cpp"
@@ -165,6 +168,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
         nlohmann_json::nlohmann_json
         SQLite::SQLite3
+        ZLIB::ZLIB
         fmt::fmt-header-only
         endstone_inventoryui
         rust_mysql
