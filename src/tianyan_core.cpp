@@ -68,27 +68,29 @@ vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& 
         return {};
     }
     vector<LogData> LogDatas;
-    for (const auto& data : result) {
+    LogDatas.reserve(result.size());
+    for (auto& data : result) {
         LogData oneLog;
         try {
-            oneLog.uuid = data.at("uuid");
-            oneLog.id = data.at("id");
-            oneLog.name = data.at("name");
+            // 字符串直接移入，避免每行 14 次深拷贝（大结果集的主要拷贝开销）
+            oneLog.uuid = std::move(data.at("uuid"));
+            oneLog.id = std::move(data.at("id"));
+            oneLog.name = std::move(data.at("name"));
             oneLog.pos_x = std::stod(data.at("pos_x"));
             oneLog.pos_y = std::stod(data.at("pos_y"));
             oneLog.pos_z = std::stod(data.at("pos_z"));
-            oneLog.world = data.at("world");
-            oneLog.obj_id = data.at("obj_id");
-            oneLog.obj_name = data.at("obj_name");
+            oneLog.world = std::move(data.at("world"));
+            oneLog.obj_id = std::move(data.at("obj_id"));
+            oneLog.obj_name = std::move(data.at("obj_name"));
             oneLog.time = std::stoll(data.at("time"));
-            oneLog.type = data.at("type");
-            oneLog.data = data.at("data");
-            oneLog.status = data.at("status");
+            oneLog.type = std::move(data.at("type"));
+            oneLog.data = std::move(data.at("data"));
+            oneLog.status = std::move(data.at("status"));
         } catch (const std::exception&) {
             // 跳过因数据库脏数据导致的异常行（如 Inf/NaN 坐标）
             continue;
         }
-        LogDatas.push_back(oneLog);
+        LogDatas.push_back(std::move(oneLog));
     }
     return LogDatas;
 }
@@ -106,27 +108,29 @@ vector<TianyanCore::LogData> TianyanCore::searchLog(const pair<string, double>& 
         return {};
     }
     vector<LogData> LogDatas;
-    for (const auto& data : result) {
+    LogDatas.reserve(result.size());
+    for (auto& data : result) {
         LogData oneLog;
         try {
-            oneLog.uuid = data.at("uuid");
-            oneLog.id = data.at("id");
-            oneLog.name = data.at("name");
+            // 字符串直接移入，避免每行 14 次深拷贝（大结果集的主要拷贝开销）
+            oneLog.uuid = std::move(data.at("uuid"));
+            oneLog.id = std::move(data.at("id"));
+            oneLog.name = std::move(data.at("name"));
             oneLog.pos_x = std::stod(data.at("pos_x"));
             oneLog.pos_y = std::stod(data.at("pos_y"));
             oneLog.pos_z = std::stod(data.at("pos_z"));
-            oneLog.world = data.at("world");
-            oneLog.obj_id = data.at("obj_id");
-            oneLog.obj_name = data.at("obj_name");
+            oneLog.world = std::move(data.at("world"));
+            oneLog.obj_id = std::move(data.at("obj_id"));
+            oneLog.obj_name = std::move(data.at("obj_name"));
             oneLog.time = std::stoll(data.at("time"));
-            oneLog.type = data.at("type");
-            oneLog.data = data.at("data");
-            oneLog.status = data.at("status");
+            oneLog.type = std::move(data.at("type"));
+            oneLog.data = std::move(data.at("data"));
+            oneLog.status = std::move(data.at("status"));
         } catch (const std::exception&) {
             // 跳过因数据库脏数据导致的异常行（如 Inf/NaN 坐标）
             continue;
         }
-        LogDatas.push_back(oneLog);
+        LogDatas.push_back(std::move(oneLog));
     }
     return LogDatas;
 }

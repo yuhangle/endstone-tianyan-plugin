@@ -69,7 +69,7 @@ public:
     }
 
     std::future<std::vector<tianyan::LogData>> getLogDataAsync(double hours) override;
-    static std::vector<tianyan::LogData> processLogConversion(const std::vector<TianyanCore::LogData>& source, int limit);
+    static std::vector<tianyan::LogData> processLogConversion(std::vector<TianyanCore::LogData> source, int limit);
     [[nodiscard]] std::vector<tianyan::LogData> getLogDataSync(double hours, int limit) const;
 
 private:

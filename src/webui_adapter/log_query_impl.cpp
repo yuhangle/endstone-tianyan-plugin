@@ -14,6 +14,9 @@
 // 计数缓存有效期：翻页/重复查询命中缓存，避免每次请求都全表 COUNT
 static constexpr auto kCountCacheTtl = std::chrono::seconds(30);
 
+// 含非时间条件时的计数扫描上限，与游戏内 searchLog 的 10 万行上限一致
+static constexpr int kCountScanLimit = 100000;
+
 // ============================================================
 // SQL 辅助函数
 // ============================================================
@@ -59,17 +62,17 @@ auto LogQueryImpl::buildQuery(
     const std::optional<std::string>& dimension) -> QueryBuilder
 {
     QueryBuilder qb;
+    std::string where;
+    bool has_extra_filter = false;
 
     // 时间范围
     if (start_time) {
         std::string clause = " AND time >= " + sqlVal(*start_time);
-        qb.count_sql += clause;
-        qb.data_sql += clause;
+        where += clause;
     }
     if (end_time) {
         std::string clause = " AND time <= " + sqlVal(*end_time);
-        qb.count_sql += clause;
-        qb.data_sql += clause;
+        where += clause;
     }
 
     // 关键词模糊匹配无法走索引：未指定起始时间时默认只回溯最近 7 天，
@@ -81,8 +84,7 @@ auto LogQueryImpl::buildQuery(
             : std::chrono::duration_cast<std::chrono::seconds>(
                   std::chrono::system_clock::now().time_since_epoch()).count();
         const std::string clause = " AND time >= " + sqlVal(anchor - kKeywordLookback);
-        qb.count_sql += clause;
-        qb.data_sql += clause;
+        where += clause;
     }
 
     // 字段模糊匹配
@@ -100,8 +102,8 @@ auto LogQueryImpl::buildQuery(
             std::string condition = std::format(
                 " AND ({} IS NOT NULL AND {} != '' AND {} LIKE '{}')",
                 *filter_type, *filter_type, *filter_type, escaped_pattern);
-            qb.count_sql += condition;
-            qb.data_sql += condition;
+            where += condition;
+            has_extra_filter = true;
         } else if (!filter_type) {
             // 未指定字段：全部字段关键词搜索
             std::string condition = " AND (";
@@ -114,24 +116,24 @@ auto LogQueryImpl::buildQuery(
                     field, field, field, escaped_pattern);
             }
             condition += ")";
-            qb.count_sql += condition;
-            qb.data_sql += condition;
+            where += condition;
+            has_extra_filter = true;
         }
     }
 
     // 维度
     if (dimension && !dimension->empty()) {
         std::string clause = " AND world = " + sqlVal(*dimension);
-        qb.count_sql += clause;
-        qb.data_sql += clause;
+        where += clause;
+        has_extra_filter = true;
     }
 
     // 坐标范围
     if (center_x && center_y && center_z && radius) {
         std::string coord_valid =
             " AND pos_x IS NOT NULL AND pos_y IS NOT NULL AND pos_z IS NOT NULL";
-        qb.count_sql += coord_valid;
-        qb.data_sql += coord_valid;
+        where += coord_valid;
+        has_extra_filter = true;
 
         // 矩形预过滤（利用索引）
         double x_min = *center_x - *radius, x_max = *center_x + *radius;
@@ -144,8 +146,7 @@ auto LogQueryImpl::buildQuery(
             sqlVal(x_min), sqlVal(x_max),
             sqlVal(y_min), sqlVal(y_max),
             sqlVal(z_min), sqlVal(z_max));
-        qb.count_sql += bbox;
-        qb.data_sql += bbox;
+        where += bbox;
 
         // 球面距离精确过滤
         double cx = *center_x, cy = *center_y, cz = *center_z, r = *radius;
@@ -154,10 +155,19 @@ auto LogQueryImpl::buildQuery(
             " + (pos_y - {1}) * (pos_y - {1})"
             " + (pos_z - {2}) * (pos_z - {2})) <= ({3} * {3})",
             sqlVal(cx), sqlVal(cy), sqlVal(cz), sqlVal(r));
-        qb.count_sql += distance;
-        qb.data_sql += distance;
+        where += distance;
     }
 
+    // 非时间条件无法只走 time 索引：计数只扫描最近的 10 万条匹配（与游戏内 searchLog 上限一致），
+    // 否则 COUNT 需要扫描全部匹配行，大数据量下等待数十秒直到前端超时
+    if (has_extra_filter) {
+        qb.count_sql =
+            "SELECT COUNT(*) AS cnt FROM (SELECT 1 FROM LOGDATA WHERE 1=1" + where +
+            " ORDER BY time DESC LIMIT " + std::to_string(kCountScanLimit) + ") AS capped_count";
+    } else {
+        qb.count_sql += where;
+    }
+    qb.data_sql += where;
     return qb;
 }
 
@@ -296,26 +306,31 @@ nlohmann::json LogQueryImpl::queryLogs(const tianyan::webui::LogQueryParams& par
     nlohmann::json data = nlohmann::json::array();
     for (const auto& row : data_result) {
         nlohmann::json entry;
-        entry["uuid"] = row.at("uuid");
-        entry["id"] = row.at("id");
-        entry["name"] = row.at("name");
-        entry["pos_x"] = std::stod(row.at("pos_x"));
-        entry["pos_y"] = std::stod(row.at("pos_y"));
-        entry["pos_z"] = std::stod(row.at("pos_z"));
-        entry["world"] = row.at("world");
-        entry["obj_id"] = row.at("obj_id");
-        entry["obj_name"] = row.at("obj_name");
-        entry["time"] = std::stoll(row.at("time"));
-        entry["type"] = row.at("type");
-        entry["data"] = row.at("data");
-        entry["status"] = row.at("status");
+        try {
+            entry["uuid"] = row.at("uuid");
+            entry["id"] = row.at("id");
+            entry["name"] = row.at("name");
+            entry["pos_x"] = std::stod(row.at("pos_x"));
+            entry["pos_y"] = std::stod(row.at("pos_y"));
+            entry["pos_z"] = std::stod(row.at("pos_z"));
+            entry["world"] = row.at("world");
+            entry["obj_id"] = row.at("obj_id");
+            entry["obj_name"] = row.at("obj_name");
+            entry["time"] = std::stoll(row.at("time"));
+            entry["type"] = row.at("type");
+            entry["data"] = row.at("data");
+            entry["status"] = row.at("status");
 
-        if (has_coord) {
-            double dx = std::stod(row.at("pos_x")) - *params.center_x;
-            double dy = std::stod(row.at("pos_y")) - *params.center_y;
-            double dz = std::stod(row.at("pos_z")) - *params.center_z;
-            double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-            entry["distance"] = std::round(distance * 100.0) / 100.0;
+            if (has_coord) {
+                double dx = std::stod(row.at("pos_x")) - *params.center_x;
+                double dy = std::stod(row.at("pos_y")) - *params.center_y;
+                double dz = std::stod(row.at("pos_z")) - *params.center_z;
+                double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+                entry["distance"] = std::round(distance * 100.0) / 100.0;
+            }
+        } catch (const std::exception&) {
+            // 跳过脏数据行（如 NULL 坐标 → 空串），与游戏内 searchLog 的容错行为一致
+            continue;
         }
 
         data.push_back(std::move(entry));
@@ -367,26 +382,31 @@ nlohmann::json LogQueryImpl::exportLogs(const tianyan::webui::LogExportParams& p
 
         for (const auto& row : page_result) {
             nlohmann::json entry;
-            entry["uuid"] = row.at("uuid");
-            entry["id"] = row.at("id");
-            entry["name"] = row.at("name");
-            entry["pos_x"] = std::stod(row.at("pos_x"));
-            entry["pos_y"] = std::stod(row.at("pos_y"));
-            entry["pos_z"] = std::stod(row.at("pos_z"));
-            entry["world"] = row.at("world");
-            entry["obj_id"] = row.at("obj_id");
-            entry["obj_name"] = row.at("obj_name");
-            entry["time"] = std::stoll(row.at("time"));
-            entry["type"] = row.at("type");
-            entry["data"] = row.at("data");
-            entry["status"] = row.at("status");
+            try {
+                entry["uuid"] = row.at("uuid");
+                entry["id"] = row.at("id");
+                entry["name"] = row.at("name");
+                entry["pos_x"] = std::stod(row.at("pos_x"));
+                entry["pos_y"] = std::stod(row.at("pos_y"));
+                entry["pos_z"] = std::stod(row.at("pos_z"));
+                entry["world"] = row.at("world");
+                entry["obj_id"] = row.at("obj_id");
+                entry["obj_name"] = row.at("obj_name");
+                entry["time"] = std::stoll(row.at("time"));
+                entry["type"] = row.at("type");
+                entry["data"] = row.at("data");
+                entry["status"] = row.at("status");
 
-            if (has_coord) {
-                double dx = std::stod(row.at("pos_x")) - *params.center_x;
-                double dy = std::stod(row.at("pos_y")) - *params.center_y;
-                double dz = std::stod(row.at("pos_z")) - *params.center_z;
-                double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-                entry["distance"] = std::round(distance * 100.0) / 100.0;
+                if (has_coord) {
+                    double dx = std::stod(row.at("pos_x")) - *params.center_x;
+                    double dy = std::stod(row.at("pos_y")) - *params.center_y;
+                    double dz = std::stod(row.at("pos_z")) - *params.center_z;
+                    double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+                    entry["distance"] = std::round(distance * 100.0) / 100.0;
+                }
+            } catch (const std::exception&) {
+                // 跳过脏数据行（如 NULL 坐标 → 空串），与游戏内 searchLog 的容错行为一致
+                continue;
             }
 
             all_data.push_back(std::move(entry));

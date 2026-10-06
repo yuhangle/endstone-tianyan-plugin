@@ -1643,23 +1643,23 @@ void TianyanPlugin::checkAsyncTasks() {
                 vector<TianyanCore::LogData> filtered;
                 if (task.key_type == "source_id") {
                     for (auto& log : task.results) {
-                        if (log.id == task.key) filtered.push_back(log);
+                        if (log.id == task.key) filtered.push_back(std::move(log));
                     }
                 } else if (task.key_type == "source_name") {
                     for (auto& log : task.results) {
-                        if (log.name == task.key) filtered.push_back(log);
+                        if (log.name == task.key) filtered.push_back(std::move(log));
                     }
                 } else if (task.key_type == "target_id") {
                     for (auto& log : task.results) {
-                        if (log.obj_id == task.key) filtered.push_back(log);
+                        if (log.obj_id == task.key) filtered.push_back(std::move(log));
                     }
                 } else if (task.key_type == "target_name") {
                     for (auto& log : task.results) {
-                        if (log.obj_name == task.key) filtered.push_back(log);
+                        if (log.obj_name == task.key) filtered.push_back(std::move(log));
                     }
                 } else if (task.key_type == "action") {
                     for (auto& log : task.results) {
-                        if (log.type == task.key) filtered.push_back(log);
+                        if (log.type == task.key) filtered.push_back(std::move(log));
                     }
                 }
 
@@ -1848,7 +1848,7 @@ std::string StaticTranslate::get(const std::string& key) {
 //api接口
 
 // 转换函数
-std::vector<tianyan::LogData> TianyanPlugin::processLogConversion(const std::vector<TianyanCore::LogData>& source, const int limit) {
+std::vector<tianyan::LogData> TianyanPlugin::processLogConversion(std::vector<TianyanCore::LogData> source, const int limit) {
     std::vector<tianyan::LogData> result;
     if (source.empty()) return result;
 
@@ -1857,12 +1857,13 @@ std::vector<tianyan::LogData> TianyanPlugin::processLogConversion(const std::vec
     result.reserve(count);
 
     for (size_t i = 0; i < count; ++i) {
-        const auto& [uuid, id, name, pos_x, pos_y, pos_z, world, obj_id, obj_name, time, type, data, status] = source[i];
+        // 调用方随即丢弃 source，直接移出字符串避免整份拷贝
+        auto& [uuid, id, name, pos_x, pos_y, pos_z, world, obj_id, obj_name, time, type, data, status] = source[i];
         result.push_back({
-            uuid, id, name,
+            std::move(uuid), std::move(id), std::move(name),
             pos_x, pos_y, pos_z,
-            world, obj_id, obj_name,
-            time, type, data, status
+            std::move(world), std::move(obj_id), std::move(obj_name),
+            time, std::move(type), std::move(data), std::move(status)
         });
     }
     return result;
@@ -1872,20 +1873,20 @@ std::vector<tianyan::LogData> TianyanPlugin::processLogConversion(const std::vec
 std::vector<tianyan::LogData> TianyanPlugin::getLogDataSync(double hours, const int limit) const
 {
     if (!isCompatible()) return {};
-    const auto searchData = tyCore->searchLog({"", hours});
-    return processLogConversion(searchData, limit);
+    auto searchData = tyCore->searchLog({"", hours});
+    return processLogConversion(std::move(searchData), limit);
 }
 
 // --- 异步版本实现 ---
 std::future<std::vector<tianyan::LogData>> TianyanPlugin::getLogDataAsync(double hours) {
     if (!isCompatible()) return {};
     return std::async(std::launch::async, [this, hours]() {
-        const auto searchData = tyCore->searchLog({"", hours});
-        return processLogConversion(searchData, -1);
+        auto searchData = tyCore->searchLog({"", hours});
+        return processLogConversion(std::move(searchData), -1);
     });
 }
 
 std::vector<tianyan::LogData> TianyanPlugin::getLogDataSyncImpl(double seconds, const int limit) {
-    const auto searchData = tyCore->searchLog({"", seconds});
-    return processLogConversion(searchData, limit);
+    auto searchData = tyCore->searchLog({"", seconds});
+    return processLogConversion(std::move(searchData), limit);
 }

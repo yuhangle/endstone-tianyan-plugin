@@ -1,6 +1,9 @@
 <template>
   <div class="dashboard">
-    <!-- Stat Cards (compact) -->
+    <!-- Stat Cards (compact) — 统计不随页面加载自动查询，手动刷新 -->
+    <div class="flex justify-content-end mb-2">
+      <Button :label="store.t('refresh_stats')" severity="secondary" size="small" :loading="statsLoading" @click="refreshStats" />
+    </div>
     <div class="grid">
       <div class="col-12 sm:col-6 lg:col-3" v-for="s in statCards" :key="s.label">
         <Card class="stat-card">
@@ -129,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { isAxiosError } from 'axios'
 import { useAppStore } from '@/stores/app'
 import { fetchStats, fetchLogs } from '@/api/client'
@@ -138,6 +141,7 @@ import type { Stats, LogEntry } from '@/api/types'
 const store = useAppStore()
 
 const stats = ref<Stats | null>(null)
+const statsLoading = ref(false)
 const logs = ref<LogEntry[]>([])
 const loading = ref(false)
 const done = ref(false)
@@ -289,10 +293,16 @@ async function doExport() {
   } catch { /* */ }
 }
 
-onMounted(async () => {
-  const [s] = await Promise.allSettled([fetchStats(), search(1)])
-  if (s.status === 'fulfilled') stats.value = s.value
-})
+// 页面加载/刷新不再自动发起统计与日志查询，统计通过按钮手动触发
+async function refreshStats() {
+  statsLoading.value = true
+  try {
+    stats.value = await fetchStats()
+  } catch {
+    stats.value = null
+  }
+  statsLoading.value = false
+}
 </script>
 
 <style scoped>
