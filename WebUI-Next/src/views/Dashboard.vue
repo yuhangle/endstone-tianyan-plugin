@@ -43,6 +43,8 @@
             <Button v-if="logs.length" :label="store.t('export_csv')" severity="secondary" size="small" @click="doExport" />
           </template>
         </div>
+
+        <Message v-if="searchError" severity="error" class="mt-2">{{ searchError }}</Message>
       </template>
     </Card>
 
@@ -128,6 +130,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { isAxiosError } from 'axios'
 import { useAppStore } from '@/stores/app'
 import { fetchStats, fetchLogs } from '@/api/client'
 import type { Stats, LogEntry } from '@/api/types'
@@ -138,6 +141,7 @@ const stats = ref<Stats | null>(null)
 const logs = ref<LogEntry[]>([])
 const loading = ref(false)
 const done = ref(false)
+const searchError = ref('')
 const currentPage = ref(1)
 const totalPages = ref(0)
 const totalRecords = ref(0)
@@ -222,6 +226,7 @@ function doJumpPage() {
 async function search(page: number) {
   currentPage.value = page
   loading.value = true
+  searchError.value = ''
   const params: Record<string, string | number> = { page, page_size: pageSize.value }
   if (filters.filterType) params.filter_type = filters.filterType
   if (filters.filterValue) params.filter_value = filters.filterValue
@@ -242,7 +247,10 @@ async function search(page: number) {
     totalPages.value = res.total_pages
     totalRecords.value = res.total
     queryTime.value = `${res.query_time_ms.toFixed(1)} ms`
-  } catch { /* */ }
+  } catch (err) {
+    const detail = isAxiosError(err) ? err.response?.data?.detail : undefined
+    searchError.value = detail ? `${store.t('request_failed')}: ${detail}` : store.t('request_failed')
+  }
   done.value = true
   loading.value = false
 }

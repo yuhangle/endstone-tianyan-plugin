@@ -624,7 +624,10 @@ namespace yuhangle {
             const long long timeThreshold = currentTime - static_cast<long long>(searchCriteria.second * 3600);
 
             // 使用参数化查询防止SQL注入，LIMIT 防止内存膨胀
-            const std::string sql = "SELECT * FROM LOGDATA WHERE (name LIKE ? OR type LIKE ? OR data LIKE ?) AND time >= ? ORDER BY time LIMIT " + std::to_string(MAX_QUERY_ROWS);
+            const std::string sql = "SELECT * FROM LOGDATA WHERE "
+                  "(id LIKE ? OR name LIKE ? OR type LIKE ? OR "
+                  "obj_id LIKE ? OR obj_name LIKE ? OR data LIKE ?) "
+                  "AND time >= ? ORDER BY time DESC LIMIT " + std::to_string(MAX_QUERY_ROWS);
 
             sqlite3_stmt* stmt;
             int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
@@ -640,7 +643,10 @@ namespace yuhangle {
             sqlite3_bind_text(stmt, 1, searchPattern.c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt, 2, searchPattern.c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt, 3, searchPattern.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_int64(stmt, 4, timeThreshold);
+            sqlite3_bind_text(stmt, 4, searchPattern.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, 5, searchPattern.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, 6, searchPattern.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_int64(stmt, 7, timeThreshold);
 
             // 注册取消回调，每 250 条 VM 指令检查一次
             if (cancel) {
@@ -698,13 +704,15 @@ namespace yuhangle {
 
             // 使用参数化查询防止SQL注入
             const std::string sql = "SELECT * FROM LOGDATA WHERE "
-                  "(name LIKE ? OR type LIKE ? OR data LIKE ?) AND time >= ? "
+                  "(id LIKE ? OR name LIKE ? OR type LIKE ? OR "
+                  "obj_id LIKE ? OR obj_name LIKE ? OR data LIKE ?) "
+                  "AND time >= ? "
                   "AND world = ? "
                   "AND pos_x >= ? AND pos_x <= ? "
                   "AND pos_y >= ? AND pos_y <= ? "
                   "AND pos_z >= ? AND pos_z <= ? "
                   "AND ((pos_x - ?)*(pos_x - ?) + (pos_y - ?)*(pos_y - ?) + (pos_z - ?)*(pos_z - ?)) <= ? "
-                  "ORDER BY time LIMIT " + std::to_string(MAX_QUERY_ROWS);
+                  "ORDER BY time DESC LIMIT " + std::to_string(MAX_QUERY_ROWS);
 
             sqlite3_stmt* stmt;
             int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
@@ -718,6 +726,9 @@ namespace yuhangle {
 
             // 绑定参数
             int idx = 1;
+            sqlite3_bind_text(stmt, idx++, searchPattern.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, idx++, searchPattern.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, idx++, searchPattern.c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt, idx++, searchPattern.c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt, idx++, searchPattern.c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt, idx++, searchPattern.c_str(), -1, SQLITE_STATIC);

@@ -2,6 +2,11 @@
 
 #include "webui/service/log_query_service.h"
 
+#include <chrono>
+#include <cstdint>
+#include <mutex>
+#include <unordered_map>
+
 class IDatabaseBackend;
 
 /// LogQueryService 的插件侧实现
@@ -24,7 +29,10 @@ private:
     // 注意：IDatabaseBackend::querySQL 不支持 ? 占位符，
     // 所有值必须直接嵌入 SQL 字符串。
     struct QueryBuilder {
-        std::string count_sql = "SELECT COUNT(*) AS cnt FROM LOGDATA WHERE 1=1";
+        // 全量计数 SQL：与无筛选查询共用计数缓存
+        static constexpr const char* kFullCountSql =
+            "SELECT COUNT(*) AS cnt FROM LOGDATA WHERE 1=1";
+        std::string count_sql = kFullCountSql;
         std::string data_sql = "SELECT * FROM LOGDATA WHERE 1=1";
     };
 
@@ -38,6 +46,16 @@ private:
         const std::optional<double>& center_z,
         const std::optional<double>& radius,
         const std::optional<std::string>& dimension) ;
+
+    // 计数查询：带短 TTL 缓存，避免每次翻页/刷新都全表 COUNT
+    [[nodiscard]] std::int64_t queryCount(const std::string& count_sql);
+
+    struct CachedCount {
+        std::int64_t value = 0;
+        std::chrono::steady_clock::time_point queried_at;
+    };
+    std::mutex count_cache_mutex_;
+    std::unordered_map<std::string, CachedCount> count_cache_;
 
     // 获取数据库大小信息
     [[nodiscard]] nlohmann::json getDbSizeInfo() const;

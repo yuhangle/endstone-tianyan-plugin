@@ -5,9 +5,14 @@
 #include <chrono>
 #include <cmath>
 #include <format>
+#include <mutex>
+#include <stdexcept>
 #include <string_view>
 
 #include "database_backend.h"
+
+// 计数缓存有效期：翻页/重复查询命中缓存，避免每次请求都全表 COUNT
+static constexpr auto kCountCacheTtl = std::chrono::seconds(30);
 
 // ============================================================
 // SQL 辅助函数
@@ -63,6 +68,19 @@ auto LogQueryImpl::buildQuery(
     }
     if (end_time) {
         std::string clause = " AND time <= " + sqlVal(*end_time);
+        qb.count_sql += clause;
+        qb.data_sql += clause;
+    }
+
+    // 关键词模糊匹配无法走索引：未指定起始时间时默认只回溯最近 7 天，
+    // 避免大表全表扫描；需要更早的数据时请显式选择时间区段
+    if (filter_value && !filter_value->empty() && !start_time) {
+        constexpr std::int64_t kKeywordLookback = 7 * 24 * 3600;
+        const std::int64_t anchor = end_time
+            ? *end_time
+            : std::chrono::duration_cast<std::chrono::seconds>(
+                  std::chrono::system_clock::now().time_since_epoch()).count();
+        const std::string clause = " AND time >= " + sqlVal(anchor - kKeywordLookback);
         qb.count_sql += clause;
         qb.data_sql += clause;
     }
@@ -156,9 +174,12 @@ LogQueryImpl::LogQueryImpl(IDatabaseBackend& db) : db_(db) {}
 nlohmann::json LogQueryImpl::getStats() {
     nlohmann::json result;
 
-    std::vector<std::map<std::string, std::string>> count_result;
-    db_.querySQL("SELECT COUNT(*) AS cnt FROM LOGDATA", count_result);
-    result["total_logs"] = count_result.empty() ? 0 : std::stoll(count_result[0]["cnt"]);
+    try {
+        result["total_logs"] = queryCount(QueryBuilder::kFullCountSql);
+    } catch (const std::exception&) {
+        // 统计失败不阻断登录/面板（查询接口会显式返回错误）
+        result["total_logs"] = 0;
+    }
 
     result["db_size"] = getDbSizeInfo();
     result["server_time"] = std::chrono::duration_cast<std::chrono::seconds>(
@@ -204,6 +225,46 @@ nlohmann::json LogQueryImpl::getDbSizeInfo() const {
 }
 
 // ============================================================
+// 计数查询（带 TTL 缓存）
+// ============================================================
+
+std::int64_t LogQueryImpl::queryCount(const std::string& count_sql) {
+    const auto now = std::chrono::steady_clock::now();
+    {
+        std::lock_guard lock(count_cache_mutex_);
+        if (const auto it = count_cache_.find(count_sql);
+            it != count_cache_.end() && now - it->second.queried_at < kCountCacheTtl) {
+            return it->second.value;
+        }
+    }
+
+    std::vector<std::map<std::string, std::string>> count_result;
+    if (db_.querySQL(count_sql, count_result) != 0 || count_result.empty()) {
+        throw std::runtime_error("Count query failed");
+    }
+
+    std::int64_t total;
+    try {
+        total = std::stoll(count_result[0].at("cnt"));
+    } catch (const std::exception&) {
+        throw std::runtime_error("Invalid count result");
+    }
+
+    {
+        std::lock_guard lock(count_cache_mutex_);
+        for (auto it = count_cache_.begin(); it != count_cache_.end();) {
+            if (now - it->second.queried_at >= kCountCacheTtl) {
+                it = count_cache_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        count_cache_[count_sql] = {total, now};
+    }
+    return total;
+}
+
+// ============================================================
 // queryLogs
 // ============================================================
 
@@ -216,10 +277,8 @@ nlohmann::json LogQueryImpl::queryLogs(const tianyan::webui::LogQueryParams& par
                          params.center_x, params.center_y, params.center_z, params.radius,
                          params.dimension);
 
-    // 计数
-    std::vector<std::map<std::string, std::string>> count_result;
-    db_.querySQL(qb.count_sql, count_result);
-    int64_t total_records = count_result.empty() ? 0 : std::stoll(count_result[0]["cnt"]);
+    // 计数（带缓存；失败时抛出错误，而不是静默返回空结果）
+    const int64_t total_records = queryCount(qb.count_sql);
 
     // 分页
     auto total_pages = static_cast<int>((total_records + params.page_size - 1) / params.page_size);
@@ -229,7 +288,9 @@ nlohmann::json LogQueryImpl::queryLogs(const tianyan::webui::LogQueryParams& par
         qb.data_sql, params.page_size, offset);
 
     std::vector<std::map<std::string, std::string>> data_result;
-    db_.querySQL(data_sql, data_result);
+    if (db_.querySQL(data_sql, data_result) != 0) {
+        throw std::runtime_error("Log query failed");
+    }
 
     // 构建 JSON
     nlohmann::json data = nlohmann::json::array();
@@ -286,10 +347,8 @@ nlohmann::json LogQueryImpl::exportLogs(const tianyan::webui::LogExportParams& p
                          params.center_x, params.center_y, params.center_z, params.radius,
                          params.dimension);
 
-    // 计数
-    std::vector<std::map<std::string, std::string>> count_result;
-    db_.querySQL(qb.count_sql, count_result);
-    int64_t total_records = count_result.empty() ? 0 : std::stoll(count_result[0]["cnt"]);
+    // 计数（带缓存；失败时抛出错误，而不是静默返回空结果）
+    const int64_t total_records = queryCount(qb.count_sql);
 
     auto total_pages = static_cast<int>((total_records + params.page_size - 1) / params.page_size);
     int actual_end = std::min(params.end_page, std::max(total_pages, 1));
@@ -302,7 +361,9 @@ nlohmann::json LogQueryImpl::exportLogs(const tianyan::webui::LogExportParams& p
             qb.data_sql, params.page_size, offset);
 
         std::vector<std::map<std::string, std::string>> page_result;
-        db_.querySQL(data_sql, page_result);
+        if (db_.querySQL(data_sql, page_result) != 0) {
+            throw std::runtime_error("Export query failed");
+        }
 
         for (const auto& row : page_result) {
             nlohmann::json entry;

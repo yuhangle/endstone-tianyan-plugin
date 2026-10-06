@@ -729,9 +729,9 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
 
                 sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
 
-                std::thread([this, task_id, cancel_flag, hours = time, r, world, x, y, z]() {
+                std::thread([this, task_id, cancel_flag, hours = time, r, world, x, y, z, key = search_key]() {
                     if (cancel_flag->load()) return;
-                    auto results = tyCore->searchLog({"", hours}, x, y, z, r, world, cancel_flag.get());
+                    auto results = tyCore->searchLog({key, hours}, x, y, z, r, world, cancel_flag.get());
                     if (cancel_flag->load()) return;
                     std::lock_guard lock(async_tasks_mutex_);
                     for (auto& t : async_tasks_) {
@@ -810,9 +810,9 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
 
                 sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
 
-                std::thread([this, task_id, cancel_flag, hours = time, r, world, x, y, z]() {
+                std::thread([this, task_id, cancel_flag, hours = time, r, world, x, y, z, key = source_key]() {
                     if (cancel_flag->load()) return;
-                    auto results = tyCore->searchLog({"", hours}, x, y, z, r, world, cancel_flag.get());
+                    auto results = tyCore->searchLog({key, hours}, x, y, z, r, world, cancel_flag.get());
                     if (cancel_flag->load()) return;
                     std::lock_guard lock(async_tasks_mutex_);
                     for (auto& t : async_tasks_) {
@@ -877,9 +877,9 @@ bool TianyanPlugin::onCommand(endstone::CommandSender &sender, const endstone::C
 
                     sender.sendMessage(endstone::ColorFormat::Yellow + Tran->getLocal("Searching in the background, please wait"));
 
-                    std::thread([this, task_id, cancel_flag, hours = time]() {
+                    std::thread([this, task_id, cancel_flag, hours = time, key = search_key]() {
                         if (cancel_flag->load()) return;
-                        auto results = tyCore->searchLog({"", hours}, cancel_flag.get());
+                        auto results = tyCore->searchLog({key, hours}, cancel_flag.get());
                         if (cancel_flag->load()) return;
                         std::lock_guard lock(async_tasks_mutex_);
                         for (auto& t : async_tasks_) {
@@ -1692,7 +1692,8 @@ void TianyanPlugin::checkAsyncTasks() {
                 }
             }
 
-            for (auto& logData : std::ranges::reverse_view(task.results)) {
+            // searchLog 按时间倒序返回（新→旧），回溯保持新→旧执行
+            for (auto& logData : task.results) {
                 if (logData.status == "canceled" || logData.status == "reverted") {
                     continue;
                 }

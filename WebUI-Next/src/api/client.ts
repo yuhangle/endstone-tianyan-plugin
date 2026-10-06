@@ -12,7 +12,8 @@ import type {
 // ---------- 单例 Axios Instance ----------
 const api: AxiosInstance = axios.create({
   baseURL: '/',
-  timeout: 30000,
+  // 大表 COUNT/关键词扫描可能超过 30 秒，放宽超时避免查询被前端静默中断
+  timeout: 120000,
 })
 
 // ---------- Token 管理 ----------

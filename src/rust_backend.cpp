@@ -404,17 +404,18 @@ int RustBackend::searchLog(
     const std::pair<std::string, double>& key,
     std::atomic<bool>* cancel)
 {
-    // 行数上限SQL层
+    // 行数上限SQL层；关键词下推到 SQL 过滤，LIMIT 截断的是匹配结果；
+    // 按时间倒序返回最新数据（升序只会取到窗口内最老的 10 万行）
     const std::string sql =
         "SELECT * FROM LOGDATA WHERE "
-        "(name LIKE ? OR type LIKE ? OR data LIKE ?) AND "
+        "(id LIKE ? OR name LIKE ? OR type LIKE ? OR "
+        "obj_id LIKE ? OR obj_name LIKE ? OR data LIKE ?) AND "
         "time >= UNIX_TIMESTAMP() - ? "
-        "ORDER BY time LIMIT 100000";
+        "ORDER BY time DESC LIMIT 100000";
 
+    const std::string pattern = "%" + key.first + "%";
     const std::vector params = {
-        "%" + key.first + "%",
-        "%" + key.first + "%",
-        "%" + key.first + "%",
+        pattern, pattern, pattern, pattern, pattern, pattern,
         std::to_string(static_cast<long long>(key.second * 3600))
     };
 
@@ -433,19 +434,19 @@ int RustBackend::searchLog(
 {
     const std::string sql =
         "SELECT * FROM LOGDATA WHERE "
-        "(name LIKE ? OR type LIKE ? OR data LIKE ?) AND "
+        "(id LIKE ? OR name LIKE ? OR type LIKE ? OR "
+        "obj_id LIKE ? OR obj_name LIKE ? OR data LIKE ?) AND "
         "time >= UNIX_TIMESTAMP() - ? AND "
         "world = ? AND "
         "pos_x >= ? AND pos_x <= ? AND "
         "pos_y >= ? AND pos_y <= ? AND "
         "pos_z >= ? AND pos_z <= ? AND "
         "(POW(pos_x - ?, 2) + POW(pos_y - ?, 2) + POW(pos_z - ?, 2)) <= ? "
-        "ORDER BY time LIMIT 100000";
+        "ORDER BY time DESC LIMIT 100000";
 
+    const std::string pattern = "%" + key.first + "%";
     const std::vector params = {
-        "%" + key.first + "%",
-        "%" + key.first + "%",
-        "%" + key.first + "%",
+        pattern, pattern, pattern, pattern, pattern, pattern,
         std::to_string(static_cast<long long>(key.second * 3600)),
         world,
         std::to_string(x - r), std::to_string(x + r),

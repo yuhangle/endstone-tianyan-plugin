@@ -32,9 +32,9 @@ void Menu::showLogMenu(endstone::Player &player, const std::vector<TianyanCore::
         const int startIndex = currentPage * logsPerPage;
         const int endIndex = std::min(startIndex + logsPerPage, static_cast<int>(logDatas.size()));
 
-        // 只显示当前页的日志（倒序显示）
+        // 只显示当前页的日志（数据已按时间倒序，页内保持新→旧）
         std::vector<TianyanCore::LogData> pageLogs;
-        for (int i = endIndex - 1; i >= startIndex; --i) {
+        for (int i = startIndex; i < endIndex; ++i) {
             pageLogs.push_back(logDatas[i]);
         }
 
