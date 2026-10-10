@@ -299,9 +299,10 @@ class Database:
 
     def fetchall(self, cursor) -> list[dict]:
         """以 dict 列表形式返回所有结果行。"""
-        if self.db_type == "sqlite":
-            return [dict(row) for row in cursor.fetchall()]
-        return cursor.fetchall()
+        return [
+            {str(key).lower(): value for key, value in dict(row).items()}
+            for row in cursor.fetchall()
+        ]
 
     def fetchone(self, cursor) -> Optional[dict]:
         """以 dict 形式返回第一行。"""
@@ -805,11 +806,11 @@ async def get_db_info(x_secret: str = Header(None)):
             row = db.fetchone(cursor)
             total_rows = int(row["cnt"]) if row else 0
         else:
-            cursor = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = ?", [db.database])
+            cursor = db.execute("SELECT table_name AS table_name FROM information_schema.tables WHERE table_schema = ?", [db.database])
             tables = [row["table_name"] for row in db.fetchall(cursor)]
 
             cursor = db.execute("""
-                SELECT index_name FROM information_schema.statistics
+                SELECT index_name AS index_name FROM information_schema.statistics
                 WHERE table_schema = ? AND table_name = 'LOGDATA'
                 GROUP BY index_name
             """, [db.database])
